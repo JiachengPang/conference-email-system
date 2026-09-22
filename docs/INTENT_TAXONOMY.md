@@ -32,7 +32,7 @@ The classification taxonomy the system assigns to every incoming email: **14 int
 | Intent | Definition |
 |---|---|
 | `review_decision_appeal` | Concerns or appeals about review quality, rebuttal handling, mismatched reviews, scores, or the final decision. |
-| `desk_reject_appeal` | Requests to explain, reconsider, or reverse a desk rejection (formatting, page-limit, appendix, checklist, or compliance grounds). |
+| `desk_reject_appeal` | Requests to explain, reconsider, reverse, or waive a desk rejection (formatting, page-limit, appendix, checklist, compliance, or reciprocal-review duty grounds). |
 | `anonymity_violation` | Reports that a submission may violate double-blind / anonymity rules via identifying information, public materials, or disclosures. |
 
 ### Family: `committee` — reviewer/committee roles and invitations

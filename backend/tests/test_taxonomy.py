@@ -53,3 +53,32 @@ def test_is_reject_appeal_none_for_none():
     result = tx.is_reject_appeal(None)
     assert result is None
     assert result is not False
+
+
+# --- desk_reject_appeal definition text -------------------------------------
+#
+# These pin two TOKENS, not the whole sentence. The definition is prose that may
+# legitimately be reworded; what must not silently disappear is the coverage the
+# wording buys. Over-pinning the full string would fail on every harmless edit.
+
+
+def test_desk_reject_appeal_covers_reciprocal_review_grounds():
+    """A desk rejection on unmet reciprocal-review duties is an appeal.
+
+    The definition is interpolated VERBATIM into the distiller's intent menu
+    (`distiller._INTENT_MENU`), so this token is the only thing telling the
+    production classifier to route those tickets here.
+    """
+    definition = tx.INTENT_DEFS["desk_reject_appeal"]
+    assert "reciprocal-review" in definition.lower()
+
+
+def test_desk_reject_appeal_covers_conceding_and_asking_for_leniency():
+    """Conceding the grounds and asking for leniency is still an appeal.
+
+    "explain / reconsider / reverse" alone reads as dispute-only; an author who
+    accepts the facts but asks for mercy would classify elsewhere without a
+    leniency verb in the menu.
+    """
+    definition = tx.INTENT_DEFS["desk_reject_appeal"]
+    assert "waive" in definition.lower()
