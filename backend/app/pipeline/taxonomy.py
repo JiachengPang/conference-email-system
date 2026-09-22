@@ -58,3 +58,23 @@ INTENT_FAMILIES: dict[str, str] = {name: fam for name, fam, _ in _TAXONOMY}
 INTENT_DEFS: dict[str, str] = {name: d for name, _, d in _TAXONOMY}
 FAMILIES: list[str] = list(dict.fromkeys(fam for _, fam, _ in _TAXONOMY))
 FALLBACK_INTENT: str = "cms_support"
+
+
+# The appeals against a rejection — the two intents where a requester is
+# contesting an outcome rather than asking how something works. Single source of
+# truth: anything that needs "is this a reject appeal?" derives it from here
+# rather than re-listing the names.
+REJECT_APPEAL_INTENTS: frozenset[str] = frozenset(
+    {"desk_reject_appeal", "review_decision_appeal"}
+)
+
+
+def is_reject_appeal(intent: str | None) -> bool | None:
+    """Whether ``intent`` is one of the reject-appeal intents.
+
+    Returns ``None`` for a ``None`` intent — "not classified" is distinct from
+    "classified as not an appeal", and the two must not collapse.
+    """
+    if intent is None:
+        return None
+    return intent in REJECT_APPEAL_INTENTS
