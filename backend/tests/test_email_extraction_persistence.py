@@ -204,6 +204,10 @@ async def test_extraction_round_trips_every_field_from_the_llm_path(
                 "Jane Roe | jane@example.edu | Example University",
                 "John Doe | NONE | NONE",
             ],
+            # Carries a real value so the snapshot below proves the flag
+            # survives distiller -> extractor -> DB, rather than merely
+            # confirming a default nobody wrote.
+            is_reciprocal_dispute=True,
         )
     )
     result = await pipeline.process_email(_EMAIL, session)
@@ -229,12 +233,10 @@ async def test_extraction_round_trips_every_field_from_the_llm_path(
             {"name": "John Doe", "email": None, "affiliation": None},
         ],
         "method": "llm_distiller",
-        # Persisted but never written: nothing reads the distiller's
-        # RECIPROCAL_DISPUTE value yet, so even the LLM path stores None. When
-        # that is wired, THIS value flips to True/False and this literal is the
-        # thing that must change -- which is why it is pinned here rather than
-        # excluded from the comparison.
-        "is_reciprocal_dispute": None,
+        # Copied verbatim from the DistillResult above and persisted. The only
+        # field here the regex path can never produce, so a True in the stored
+        # JSON is proof the LLM path ran end to end.
+        "is_reciprocal_dispute": True,
     }
 
 

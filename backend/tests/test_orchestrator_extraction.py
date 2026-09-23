@@ -310,3 +310,98 @@ async def test_extraction_result_is_the_documented_type(session):
 async def test_pipeline_owns_a_real_extractor_by_default():
     """The seam exists on a stock pipeline, not only when a test injects one."""
     assert isinstance(EmailPipeline().extractor, EmailExtractor)
+
+
+# ---------------------------------------------------------------------------
+# is_reciprocal_dispute survives the follow-up recompute
+# ---------------------------------------------------------------------------
+class _SequencedDistiller:
+    """Returns a different DistillResult per call, so a recompute can differ.
+
+    `_StubDistiller` returns one fixed result, which cannot show whether a
+    second run RECOMPUTED the field or merely reproduced the first answer.
+    """
+
+    def __init__(self, results):
+        self.results = list(results)
+        self.calls = 0
+
+    async def distill(self, subject, body, *, transcript=None):
+        result = self.results[min(self.calls, len(self.results) - 1)]
+        self.calls += 1
+        return result
+
+
+def _distilled(is_reciprocal_dispute):
+    return DistillResult(
+        queries=["desk rejection appeal"],
+        intent="desk_reject_appeal",
+        confidence=0.9,
+        submission_numbers_raw=["22336"],
+        is_reciprocal_dispute=is_reciprocal_dispute,
+    )
+
+
+async def test_followup_recompute_overwrites_the_dispute_flag(session, monkeypatch):
+    """A follow-up turn re-answers the flag; the NEW answer is what persists.
+
+    True -> False is the direction that matters. The field is stored inside the
+    `extraction` JSON blob, so a recompute that merged instead of replacing --
+    or that treated the incoming False as "nothing to write" -- would leave the
+    stale True in the column while every other field updated around it.
+    """
+    monkeypatch.setattr(settings, "QUERY_STRATEGY", "distill")
+
+    pipeline = _pipeline()
+    pipeline.distiller = _SequencedDistiller([_distilled(True), _distilled(False)])
+
+    created = await pipeline.process_email(_EMAIL, session)
+    email = await EmailRepository().get_email_by_id(session, created.email_id)
+    assert email.extraction["is_reciprocal_dispute"] is True, "first run must store True"
+
+    messages = [
+        {
+            "public": True,
+            "author_id": 1,
+            "author_role": "end-user",
+            "plain_body": "Actually the reviews were submitted on time; my concern "
+            "is the formatting decision instead.",
+            "created_at": datetime.now(timezone.utc),
+        },
+    ]
+    await pipeline.reprocess_email_with_thread(session, email, messages)
+
+    refreshed = await EmailRepository().get_email_by_id(session, created.email_id)
+    assert refreshed.extraction["is_reciprocal_dispute"] is False
+    assert pipeline.distiller.calls == 2
+
+
+async def test_followup_recompute_can_clear_the_flag_to_none(session, monkeypatch):
+    """True -> None must also land: "no longer answered" is not "keep the old yes".
+
+    Separated from the False case on purpose. A `if new is not None` guard
+    anywhere in the write path would pass the True->False test and fail only
+    this one, leaving a stale True to outlive the answer that produced it.
+    """
+    monkeypatch.setattr(settings, "QUERY_STRATEGY", "distill")
+
+    pipeline = _pipeline()
+    pipeline.distiller = _SequencedDistiller([_distilled(True), _distilled(None)])
+
+    created = await pipeline.process_email(_EMAIL, session)
+    email = await EmailRepository().get_email_by_id(session, created.email_id)
+    assert email.extraction["is_reciprocal_dispute"] is True
+
+    messages = [
+        {
+            "public": True,
+            "author_id": 1,
+            "author_role": "end-user",
+            "plain_body": "Any update on submission 22336?",
+            "created_at": datetime.now(timezone.utc),
+        },
+    ]
+    await pipeline.reprocess_email_with_thread(session, email, messages)
+
+    refreshed = await EmailRepository().get_email_by_id(session, created.email_id)
+    assert refreshed.extraction["is_reciprocal_dispute"] is None

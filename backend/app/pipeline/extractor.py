@@ -42,6 +42,13 @@ exact, machine-checkable answer and no judgment to make, so both are read by
 regex either way. This is bounded to signals of that KIND and is NOT licence to
 regex-fill a value the prompt does ask for.
 
+One field runs the OTHER way. ``is_reciprocal_dispute`` is LLM-ONLY: it is a
+judgment about what an email is ARGUING, not a structural fact about its text,
+so there is no exact, machine-checkable answer for regex to supply and none is
+attempted. Read the None accordingly — on a ``regex_fallback`` result it means
+nobody asked, which is the opposite of what a None means for the two fields
+above.
+
 The fallback is tuned for PRECISION over recall. Roughly half of real threads
 carry no submission reference at all, so returning nothing is the ordinary
 outcome, not a failure; attaching the WRONG paper to a ticket is far more
@@ -430,16 +437,18 @@ class ExtractionResult(BaseModel):
         "does not. TRI-STATE: None means unanswered, which is NOT False — an "
         "unanswered flag is no evidence either way, while False is a positive "
         "'ruled out'. Never infer one from the other.\n\n"
-        "CURRENTLY ALWAYS None. Nothing writes it yet: the distiller parses a "
-        "RECIPROCAL_DISPUTE line into `DistillResult`, but its prompt does not "
-        "ask for one and this module does not read it, so both extraction "
-        "paths leave the default. The field exists on both sides of the wire "
-        "mirror ahead of that wiring so the two models never diverge — the "
-        "mirror's drift guard rejects a field present on only one side.\n\n"
-        "Unlike the identifier and author fields, this will NOT be described "
-        "by `method`: when it is wired, only the distiller path can answer it, "
-        "so a None on a `regex_fallback` result means 'never asked', not "
-        "'looked and found nothing'.",
+        "LLM-ONLY, and that is the one thing to know when reading a None here. "
+        "It is copied verbatim from `DistillResult.is_reciprocal_dispute` on "
+        "the distiller path and left at None on every other path, so `method` "
+        "does NOT describe it the way it describes the identifier and author "
+        "fields: a None on a `regex_fallback` or `none` result means NOBODY "
+        "ASKED, not 'looked and found nothing'. Only a None on an "
+        "`llm_distiller` result carries the weaker meaning that the model was "
+        "asked and declined to answer.\n\n"
+        "Still None in practice for now: the distiller's prompt does not yet "
+        "emit a RECIPROCAL_DISPUTE line, so real completions carry no value to "
+        "copy. The pass-through is wired ahead of the prompt so that enabling "
+        "it is a one-line prompt change with no plumbing behind it.",
     )
 
     @computed_field
@@ -680,6 +689,19 @@ class EmailExtractor:
                 # both-paths-agree test pins that they do not.
                 extracted_reply_text=extract_reply_text(body),
                 authors=_dedupe_authors(authors),
+                # Copied VERBATIM, including False and None. This module
+                # normalizes every other field it touches, but there is nothing
+                # here to normalize: the distiller already collapsed the wire
+                # value to the tri-state, and the three states are the whole
+                # domain. Re-deciding any of them here — most temptingly None
+                # -> False — would turn "the model did not answer" into a
+                # positive "ruled out" that the model never said.
+                #
+                # Only this branch sets it. The regex path cannot: it is a
+                # judgment, not a structural fact (see the module docstring),
+                # and `_extract_by_regex` is not even handed `distilled`, so
+                # the restriction is structural rather than a rule to remember.
+                is_reciprocal_dispute=distilled.is_reciprocal_dispute,
                 method="llm_distiller",
             )
         except Exception as exc:  # noqa: BLE001 - extraction must never raise

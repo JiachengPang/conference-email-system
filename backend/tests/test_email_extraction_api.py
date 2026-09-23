@@ -738,37 +738,90 @@ async def test_pipeline_model_defaults_to_none():
     assert Pipeline().is_reciprocal_dispute is None
 
 
-async def test_both_extraction_paths_currently_produce_none():
-    """INERT check: neither real path writes the field yet.
+_DISPUTE_SUBJECT = "Appeal: rejection over reciprocal review duty"
+_DISPUTE_BODY = (
+    "My paper 12345 was rejected because my reciprocal reviewers did not "
+    "submit their reviews. Please reconsider."
+)
 
-    Runs the actual extractor on both paths rather than asserting the model
-    default -- a default says nothing about whether some code path sets the
-    value. The distiller path is fed a DistillResult that CARRIES a parsed
-    `is_reciprocal_dispute=True`, so this fails the moment anyone wires the
-    pass-through, which is precisely the commit that should have to update it.
-    """
+
+def _distilled(is_reciprocal_dispute):
     from app.pipeline.distiller import DistillResult
-    from app.pipeline.extractor import EmailExtractor
 
-    subject = "Appeal: rejection over reciprocal review duty"
-    body = (
-        "My paper 12345 was rejected because my reciprocal reviewers did not "
-        "submit their reviews. Please reconsider."
-    )
-
-    distilled = DistillResult(
+    return DistillResult(
         queries=["desk rejection appeal"],
         intent="desk_reject_appeal",
         confidence=0.9,
         submission_numbers_raw=["12345"],
-        is_reciprocal_dispute=True,
+        is_reciprocal_dispute=is_reciprocal_dispute,
     )
-    assert distilled.is_reciprocal_dispute is True, "fixture must carry a value"
 
-    llm_path = EmailExtractor().extract(subject, body, "", None, distilled)
-    assert llm_path.method == "llm_distiller"
-    assert llm_path.is_reciprocal_dispute is None
 
-    regex_path = EmailExtractor().extract(subject, body, "", None, None)
-    assert regex_path.method == "regex_fallback"
-    assert regex_path.is_reciprocal_dispute is None
+async def test_distiller_path_carries_the_flag_verbatim():
+    """All three states pass through unchanged -- no normalization.
+
+    False is the one that matters: a pass-through that treated it as falsy and
+    fell back to the default would be indistinguishable from correct behaviour
+    on True and None alone, while silently destroying the model's only way to
+    say "I looked and ruled it out".
+    """
+    from app.pipeline.extractor import EmailExtractor
+
+    for value in (True, False, None):
+        result = EmailExtractor().extract(
+            _DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, _distilled(value)
+        )
+        assert result.method == "llm_distiller"
+        assert result.is_reciprocal_dispute is value, value
+
+
+async def test_regex_path_never_answers_the_flag():
+    """Regex must not guess at a judgment, and structurally cannot.
+
+    The body here is a textbook reciprocal-duty appeal -- if any regex were ever
+    added that tried to answer this field, this is the text it would fire on.
+    """
+    from app.pipeline.extractor import EmailExtractor
+
+    result = EmailExtractor().extract(_DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, None)
+    assert result.method == "regex_fallback"
+    assert result.is_reciprocal_dispute is None
+
+
+async def test_regex_helper_cannot_see_a_distill_result_at_all():
+    """"Somehow present" is unrepresentable: the helper takes no `distilled`.
+
+    Asserted on the SIGNATURE rather than by passing a value, because there is
+    no way to pass one -- which is the actual guarantee. A future refactor that
+    threads `distilled` into the fallback would make regex able to answer this
+    field, and that is what this pins against.
+    """
+    import inspect
+
+    from app.pipeline.extractor import EmailExtractor
+
+    params = inspect.signature(EmailExtractor._extract_by_regex).parameters
+    assert "distilled" not in params, (
+        "the regex fallback must not be able to see the distiller's answer"
+    )
+
+
+async def test_failed_extraction_reports_no_flag_even_from_a_true_result():
+    """The never-raises path must not leak a flag it did not finish computing.
+
+    A crash mid-extraction means nothing is known, so `method="none"` carries
+    None -- not the True that was on its way in.
+    """
+    from unittest.mock import patch
+
+    from app.pipeline.extractor import EmailExtractor
+
+    with patch(
+        "app.pipeline.extractor._dedupe_identifiers", side_effect=RuntimeError("boom")
+    ):
+        result = EmailExtractor().extract(
+            _DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, _distilled(True)
+        )
+
+    assert result.method == "none"
+    assert result.is_reciprocal_dispute is None
