@@ -177,6 +177,21 @@ export interface ExtractionData {
   /** Deduplicated, in first-seen order (the sender leads on the regex path). */
   authors: AuthorMention[];
   method: "llm_distiller" | "regex_fallback" | "none";
+  /**
+   * True when the email disputes or concedes a desk rejection grounded in
+   * reciprocal-review duties, false when the model ruled that out.
+   *
+   * TRI-STATE, and the two empty values mean the same thing here: null and
+   * undefined both mean UNKNOWN, never "no". Rows persisted before this field
+   * existed omit the key entirely (hence optional), so `undefined` is simply
+   * "never asked"; `null` is "asked, no answer". Only `false` is a positive
+   * ruling-out. Test it as `=== true` / `=== false`, never for truthiness.
+   *
+   * LLM-ONLY, so `method` does NOT describe it the way it describes the
+   * identifier and author fields: on a "regex_fallback" or "none" result it is
+   * null because nobody asked, not because anything was looked for.
+   */
+  is_reciprocal_dispute?: boolean | null;
 }
 
 /**
