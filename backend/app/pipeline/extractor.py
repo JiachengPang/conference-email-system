@@ -423,6 +423,24 @@ class ExtractionResult(BaseModel):
         "`openreview_notification_sender`, or `extracted_reply_text`, all of "
         "which are read from the raw text on either path.",
     )
+    is_reciprocal_dispute: bool | None = Field(
+        default=None,
+        description="True when the email disputes or concedes a desk rejection "
+        "grounded in reciprocal-review duties, False when the model says it "
+        "does not. TRI-STATE: None means unanswered, which is NOT False — an "
+        "unanswered flag is no evidence either way, while False is a positive "
+        "'ruled out'. Never infer one from the other.\n\n"
+        "CURRENTLY ALWAYS None. Nothing writes it yet: the distiller parses a "
+        "RECIPROCAL_DISPUTE line into `DistillResult`, but its prompt does not "
+        "ask for one and this module does not read it, so both extraction "
+        "paths leave the default. The field exists on both sides of the wire "
+        "mirror ahead of that wiring so the two models never diverge — the "
+        "mirror's drift guard rejects a field present on only one side.\n\n"
+        "Unlike the identifier and author fields, this will NOT be described "
+        "by `method`: when it is wired, only the distiller path can answer it, "
+        "so a None on a `regex_fallback` result means 'never asked', not "
+        "'looked and found nothing'.",
+    )
 
     @computed_field
     @property

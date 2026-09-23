@@ -229,6 +229,12 @@ async def test_extraction_round_trips_every_field_from_the_llm_path(
             {"name": "John Doe", "email": None, "affiliation": None},
         ],
         "method": "llm_distiller",
+        # Persisted but never written: nothing reads the distiller's
+        # RECIPROCAL_DISPUTE value yet, so even the LLM path stores None. When
+        # that is wired, THIS value flips to True/False and this literal is the
+        # thing that must change -- which is why it is pinned here rather than
+        # excluded from the comparison.
+        "is_reciprocal_dispute": None,
     }
 
 
@@ -383,6 +389,7 @@ async def test_extraction_is_serialized_with_model_dump(session):
         "extracted_reply_text",
         "authors",
         "method",
+        "is_reciprocal_dispute",
     }
 
 

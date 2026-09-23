@@ -206,6 +206,15 @@ class ExtractionResult(BaseModel):
         "`openreview_notification_sender`, which are read from the raw text on "
         "either path.",
     )
+    is_reciprocal_dispute: bool | None = Field(
+        default=None,
+        description="True when the email disputes or concedes a desk rejection "
+        "grounded in reciprocal-review duties, False when the model says it "
+        "does not. TRI-STATE: None means the model did not answer, which is not "
+        "the same as False — an unanswered flag is no evidence either way, "
+        "while False is a positive 'ruled out'. Null for every row persisted "
+        "before this field existed, so treat null as unknown, never as no.",
+    )
 
     @computed_field
     @property

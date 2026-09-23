@@ -682,3 +682,93 @@ async def test_served_extraction_validates_through_the_schemas_mirror(
     # missing from the wire — extra-key tolerance would hide both directions.
     assert set(parsed.model_dump()) == set(served)
 
+
+
+# --- is_reciprocal_dispute: present on both sides, written by nothing --------
+#
+# The field was added to the wire mirror AND the pipeline model in one commit,
+# deliberately. The mirror's drift guard asserts key parity in BOTH directions,
+# so a field landing on one side alone is red -- these two models cannot be
+# changed in separate commits, and that is the guard working, not a nuisance.
+
+
+async def test_wire_mirror_accepts_all_three_states():
+    """bool | None is a genuine tri-state on the wire, not a bool with a hole."""
+    from app.models.schemas import ExtractionResult as Wire
+
+    for value in (True, False, None):
+        parsed = Wire.model_validate({"is_reciprocal_dispute": value})
+        assert parsed.is_reciprocal_dispute is value, value
+        # Round-trips as itself -- False must not be serialized away as absent.
+        assert parsed.model_dump()["is_reciprocal_dispute"] is value, value
+
+
+async def test_wire_mirror_validates_a_legacy_row_without_the_key():
+    """Every row persisted before this field lacks the key entirely.
+
+    Those rows must keep validating, and must read as None -- "never asked" --
+    rather than being coerced to False, which would be a positive claim the
+    stored data never made.
+    """
+    from app.models.schemas import ExtractionResult as Wire
+
+    legacy = {
+        "submission_numbers": ["12345"],
+        "openreview_forum_ids": ["Ab3xY9kLm2"],
+        "openreview_note_id": None,
+        "openreview_notification_sender": None,
+        "extracted_reply_text": "Please reconsider.",
+        "authors": [{"name": "A. Person", "email": None, "affiliation": None}],
+        "method": "regex_fallback",
+    }
+    assert "is_reciprocal_dispute" not in legacy
+
+    parsed = Wire.model_validate(legacy)
+    assert parsed.is_reciprocal_dispute is None
+    # The absent key does not disturb anything that WAS stored.
+    assert parsed.submission_numbers == ["12345"]
+    assert parsed.method == "regex_fallback"
+    # ...and it is emitted on the way out, so a consumer sees a uniform shape.
+    assert "is_reciprocal_dispute" in parsed.model_dump()
+
+
+async def test_pipeline_model_defaults_to_none():
+    from app.pipeline.extractor import ExtractionResult as Pipeline
+
+    assert Pipeline().is_reciprocal_dispute is None
+
+
+async def test_both_extraction_paths_currently_produce_none():
+    """INERT check: neither real path writes the field yet.
+
+    Runs the actual extractor on both paths rather than asserting the model
+    default -- a default says nothing about whether some code path sets the
+    value. The distiller path is fed a DistillResult that CARRIES a parsed
+    `is_reciprocal_dispute=True`, so this fails the moment anyone wires the
+    pass-through, which is precisely the commit that should have to update it.
+    """
+    from app.pipeline.distiller import DistillResult
+    from app.pipeline.extractor import EmailExtractor
+
+    subject = "Appeal: rejection over reciprocal review duty"
+    body = (
+        "My paper 12345 was rejected because my reciprocal reviewers did not "
+        "submit their reviews. Please reconsider."
+    )
+
+    distilled = DistillResult(
+        queries=["desk rejection appeal"],
+        intent="desk_reject_appeal",
+        confidence=0.9,
+        submission_numbers_raw=["12345"],
+        is_reciprocal_dispute=True,
+    )
+    assert distilled.is_reciprocal_dispute is True, "fixture must carry a value"
+
+    llm_path = EmailExtractor().extract(subject, body, "", None, distilled)
+    assert llm_path.method == "llm_distiller"
+    assert llm_path.is_reciprocal_dispute is None
+
+    regex_path = EmailExtractor().extract(subject, body, "", None, None)
+    assert regex_path.method == "regex_fallback"
+    assert regex_path.is_reciprocal_dispute is None
