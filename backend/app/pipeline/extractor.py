@@ -445,10 +445,11 @@ class ExtractionResult(BaseModel):
         "ASKED, not 'looked and found nothing'. Only a None on an "
         "`llm_distiller` result carries the weaker meaning that the model was "
         "asked and declined to answer.\n\n"
-        "Still None in practice for now: the distiller's prompt does not yet "
-        "emit a RECIPROCAL_DISPUTE line, so real completions carry no value to "
-        "copy. The pass-through is wired ahead of the prompt so that enabling "
-        "it is a one-line prompt change with no plumbing behind it.",
+        "The distiller's prompt now asks for a RECIPROCAL_DISPUTE line, so "
+        "an `llm_distiller` result carries a real answer whenever the model "
+        "gives a usable one. On a thread the model is asked to judge the "
+        "WHOLE conversation, not just the latest turn, so this does not flip "
+        "to False when a dispute thread's newest message is a follow-up.",
     )
 
     @computed_field
