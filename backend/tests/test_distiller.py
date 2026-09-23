@@ -488,3 +488,143 @@ async def test_pipeline_prefix_strategy_is_untouched(db_factory):
     call = pipeline.retriever.calls[0]
     assert call["query"] == _EMAIL["body"][:300]
     assert call["intent"] == result.classification.intent
+
+
+# --- RECIPROCAL_DISPUTE line (INERT: the prompt does not ask for it yet) -----
+#
+# The parser learns the line ahead of the prompt so the two can ship separately.
+# Until the prompt asks, no real completion carries the line and the field is
+# None everywhere -- which is exactly what the "prompt does not mention it" test
+# below guards.
+
+_BASE = "INTENT: desk_reject_appeal\nCONFIDENCE: 0.8\nQUERY: desk rejection appeal\n"
+
+
+def test_reciprocal_dispute_yes():
+    assert _parse(_BASE + "RECIPROCAL_DISPUTE: YES\n").is_reciprocal_dispute is True
+
+
+def test_reciprocal_dispute_no():
+    assert _parse(_BASE + "RECIPROCAL_DISPUTE: NO\n").is_reciprocal_dispute is False
+
+
+def test_reciprocal_dispute_is_case_insensitive():
+    """Matches the case-insensitivity every other line in this contract has."""
+    for value, expected in (("yes", True), ("Yes", True), ("no", False), ("No", False)):
+        result = _parse(_BASE + f"RECIPROCAL_DISPUTE: {value}\n")
+        assert result.is_reciprocal_dispute is expected, value
+
+
+def test_reciprocal_dispute_line_label_is_case_insensitive():
+    result = _parse(_BASE + "reciprocal_dispute: yes\n")
+    assert result.is_reciprocal_dispute is True
+
+
+def test_reciprocal_dispute_garbage_is_none():
+    """Unparseable is "no answer", never a guessed False.
+
+    A wrong False would be indistinguishable downstream from the model having
+    actively ruled the dispute out, so anything we cannot read must stay None.
+    """
+    for value in ("maybe", "true", "1", "YES.", "yes please", "-", "y"):
+        result = _parse(_BASE + f"RECIPROCAL_DISPUTE: {value}\n")
+        assert result.is_reciprocal_dispute is None, value
+
+
+def test_reciprocal_dispute_none_sentinel_is_none():
+    """NONE is how the model declines to answer, not a value."""
+    for value in ("NONE", "none", "None"):
+        result = _parse(_BASE + f"RECIPROCAL_DISPUTE: {value}\n")
+        assert result.is_reciprocal_dispute is None, value
+
+
+def test_reciprocal_dispute_empty_value_is_none():
+    for tail in ("RECIPROCAL_DISPUTE:\n", "RECIPROCAL_DISPUTE: \n", "RECIPROCAL_DISPUTE:   \n"):
+        result = _parse(_BASE + tail)
+        assert result.is_reciprocal_dispute is None, repr(tail)
+
+
+def test_reciprocal_dispute_tolerates_surrounding_whitespace():
+    """Pins the CONTRACT (whitespace is not part of the answer), not the means.
+
+    SCOPE LIMIT: the regex already trims via `\\s*`, so `.strip()` in the parser
+    is redundant and a mutation removing it survives. This test cannot tell the
+    two mechanisms apart -- it exists so the behaviour stays pinned if either
+    one is later changed.
+    """
+    for tail in (
+        "RECIPROCAL_DISPUTE:    YES\n",
+        "RECIPROCAL_DISPUTE: YES   \n",
+        "   RECIPROCAL_DISPUTE: YES\n",
+        "RECIPROCAL_DISPUTE:\tYES\t\n",
+    ):
+        assert _parse(_BASE + tail).is_reciprocal_dispute is True, repr(tail)
+
+
+def test_reciprocal_dispute_missing_line_is_none():
+    """Absent and unusable are deliberately indistinguishable."""
+    assert _parse(_BASE).is_reciprocal_dispute is None
+
+
+def test_reciprocal_dispute_duplicate_lines_take_the_first():
+    """Same rule as INTENT/CONFIDENCE, which use `search` (leftmost match).
+
+    Verified against those two before choosing it: duplicated INTENT keeps the
+    first label and duplicated CONFIDENCE the first number, so a repeatable
+    `finditer` here would have made this one line behave unlike its siblings.
+    """
+    first_yes = _parse(_BASE + "RECIPROCAL_DISPUTE: YES\nRECIPROCAL_DISPUTE: NO\n")
+    assert first_yes.is_reciprocal_dispute is True
+    first_no = _parse(_BASE + "RECIPROCAL_DISPUTE: NO\nRECIPROCAL_DISPUTE: YES\n")
+    assert first_no.is_reciprocal_dispute is False
+
+
+def test_reciprocal_dispute_garbage_first_does_not_fall_through_to_a_later_line():
+    """First line wins even when it is the unusable one -- `search` stops there."""
+    result = _parse(_BASE + "RECIPROCAL_DISPUTE: maybe\nRECIPROCAL_DISPUTE: YES\n")
+    assert result.is_reciprocal_dispute is None
+
+
+def test_reciprocal_dispute_never_makes_a_completion_usable():
+    """Only QUERY is load-bearing; the new line cannot rescue a queryless output."""
+    text = "INTENT: desk_reject_appeal\nCONFIDENCE: 0.8\nRECIPROCAL_DISPUTE: YES\n"
+    assert _parse(text) is None
+
+
+def test_reciprocal_dispute_never_makes_a_good_completion_unusable():
+    """Nor can an unusable value discard queries that parsed fine."""
+    result = _parse(_BASE + "RECIPROCAL_DISPUTE: !!!\n")
+    assert result is not None
+    assert result.queries == ["desk rejection appeal"]
+    assert result.is_reciprocal_dispute is None
+
+
+def test_reciprocal_dispute_leaves_every_other_parsed_field_untouched():
+    with_line = _parse(_BASE + "RECIPROCAL_DISPUTE: YES\n")
+    without = _parse(_BASE)
+    assert with_line.model_dump(exclude={"is_reciprocal_dispute"}) == without.model_dump(
+        exclude={"is_reciprocal_dispute"}
+    )
+
+
+def test_distill_result_reciprocal_dispute_defaults_to_none():
+    """Legacy construction sites that predate the field must still work."""
+    assert DistillResult(queries=["q"]).is_reciprocal_dispute is None
+
+
+def test_system_prompt_does_not_mention_reciprocal_dispute_yet():
+    """Guards the INERT half of this change.
+
+    The parser can read the line, but nothing asks the model for it. When the
+    prompt is finally updated this test must be deleted in the SAME commit --
+    it failing is the signal that the two halves have been joined, not a bug.
+    """
+    assert "RECIPROCAL_DISPUTE" not in distiller_module._SYSTEM_PROMPT
+
+    # The word "reciprocal" DOES appear in the prompt, and that is correct: it
+    # comes from the desk_reject_appeal DEFINITION interpolated into the intent
+    # menu. A definition is not an output-contract instruction, so asserting on
+    # the bare word here would fail for the wrong reason -- pin the menu instead,
+    # so the two sources of "reciprocal" stay visibly distinct.
+    assert "reciprocal" in distiller_module._INTENT_MENU
+    assert "RECIPROCAL_DISPUTE" not in distiller_module._INTENT_MENU
