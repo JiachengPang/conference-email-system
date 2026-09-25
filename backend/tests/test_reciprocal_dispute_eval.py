@@ -116,6 +116,113 @@ def test_a_different_seed_draws_a_different_split():
     assert rde.stratified_halves(recs, seed=1) != rde.stratified_halves(recs, seed=2)
 
 
+# ---------------------------------------------------------------------------
+# Label file formats (the real file is JSONL, not a JSON array)
+# ---------------------------------------------------------------------------
+def _jsonl(records: list[dict]) -> str:
+    return "\n".join(json.dumps(r) for r in records) + "\n"
+
+
+def test_jsonl_is_parsed():
+    """The real file's format. An array-only loader died on line 2."""
+    recs = _records(3, 2)
+    assert rde._parse_labels_text(_jsonl(recs)) == recs
+
+
+def test_jsonl_round_trips_through_load_labels(tmp_path):
+    recs = _records(3, 2)
+    path = tmp_path / "labels.jsonl"
+    path.write_text(_jsonl(recs), encoding="utf-8")
+    assert len(rde.load_labels(path)) == 5
+
+
+def test_json_array_still_works(tmp_path):
+    """Back-compat: every existing fixture in this file is an array."""
+    recs = _records(2, 2)
+    path = tmp_path / "labels.json"
+    path.write_text(json.dumps(recs), encoding="utf-8")
+    assert len(rde.load_labels(path)) == 4
+
+
+def test_blank_lines_are_skipped():
+    recs = _records(2, 1)
+    text = "\n" + _jsonl(recs[:1]) + "\n   \n" + _jsonl(recs[1:]) + "\n\n"
+    assert rde._parse_labels_text(text) == recs
+
+
+def test_crlf_line_endings_parse():
+    """This repo is CRLF-prone; \\r left on a line would break json.loads."""
+    recs = _records(2, 1)
+    text = "\r\n".join(json.dumps(r) for r in recs) + "\r\n"
+    assert rde._parse_labels_text(text) == recs
+
+
+def test_malformed_line_reports_the_line_NUMBER_and_never_the_content():
+    """The PII property: a parse error must not echo a real ticket record."""
+    good = json.dumps(_records(1, 0)[0])
+    text = good + "\n" + '{"ticket_id": 1, "secret": "SENSITIVE-PII-XYZ"' + "\n"
+    with pytest.raises(rde.MalformedLabelsFile) as exc:
+        rde._parse_labels_text(text)
+    message = str(exc.value)
+    assert "line 2" in message
+    assert "SENSITIVE-PII-XYZ" not in message
+    assert "ticket_id" not in message
+
+
+def test_malformed_line_number_counts_blank_lines():
+    """Line numbers must match the file as a human sees it in an editor."""
+    text = "\n\n" + '{"broken": ' + "\n"
+    with pytest.raises(rde.MalformedLabelsFile) as exc:
+        rde._parse_labels_text(text)
+    assert "line 3" in str(exc.value)
+
+
+def test_a_non_object_line_is_rejected_by_number():
+    text = json.dumps(_records(1, 0)[0]) + "\n[1, 2, 3]\n"
+    with pytest.raises(rde.MalformedLabelsFile) as exc:
+        rde._parse_labels_text(text)
+    assert "line 2" in str(exc.value)
+    assert "not a JSON object" in str(exc.value)
+
+
+def test_malformed_array_reports_a_line_without_content():
+    text = '[{"ticket_id": 1, "secret": "SENSITIVE-PII-XYZ"}, {broken}]'
+    with pytest.raises(rde.MalformedLabelsFile) as exc:
+        rde._parse_labels_text(text)
+    assert "SENSITIVE-PII-XYZ" not in str(exc.value)
+    assert "line" in str(exc.value)
+
+
+def test_the_raised_error_holds_no_reference_to_the_document():
+    """The document must not be reachable through the exception AT ALL.
+
+    JSONDecodeError keeps the WHOLE input on `.doc`. Raising the replacement
+    from inside the handler leaves that original on `__context__`, so
+    `err.__context__.doc` still hands out every ticket record to anything that
+    introspects exception attributes -- an error reporter, `--showlocals`, a
+    debugger. `from None` does NOT fix this: it only suppresses DISPLAY of the
+    chain. Raising after the handler exits leaves `__context__` itself None.
+
+    An earlier version of this test asserted `__cause__ is None` and passed
+    either way (implicit chaining sets `__context__`, never `__cause__`) -- it
+    was vacuous, and a mutation removing the protection survived it.
+    """
+    with pytest.raises(rde.MalformedLabelsFile) as exc:
+        rde._parse_labels_text('{"a": "SENSITIVE-PII-XYZ"\n')
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None, (
+        "the JSONDecodeError is still chained; its .doc holds the whole "
+        "labels file"
+    )
+
+
+def test_array_parse_error_holds_no_reference_to_the_document():
+    """Same property on the JSON-array branch, which has its own raise site."""
+    with pytest.raises(rde.MalformedLabelsFile) as exc:
+        rde._parse_labels_text('[{"a": "SENSITIVE-PII-XYZ"}, {broken}]')
+    assert exc.value.__context__ is None
+
+
 def test_deferred_and_unlabeled_records_are_dropped(tmp_path):
     recs = _records(n_positive=2, n_negative=2)
     recs.append({"ticket_id": 999, "is_reject_appeal": None, "appeal_reason": None})

@@ -111,15 +111,91 @@ class CallBudget:
 # ---------------------------------------------------------------------------
 # Labels + deterministic split
 # ---------------------------------------------------------------------------
+class MalformedLabelsFile(ValueError):
+    """Parse failure reported by LINE NUMBER only.
+
+    The offending line is deliberately never included. These are real ticket
+    records, so a malformed one is still PII -- and a parse error is exactly the
+    moment someone pastes the whole message into a bug report or a terminal
+    someone else is watching. The line number is enough to find it.
+    """
+
+
+def _parse_labels_text(text: str) -> list[dict]:
+    """Parse the labels file as JSONL, or as a JSON array if it looks like one.
+
+    The real file is JSONL (one object per line). A JSON array is also accepted
+    because the sniff is one character and the synthetic fixtures in the test
+    suite are arrays -- keeping both means the harness reads whatever it is
+    handed rather than making the caller convert.
+    """
+    # WHY THE ERRORS ARE RAISED OUTSIDE THE `except` BLOCKS, not with
+    # `from None`: JSONDecodeError carries the ENTIRE document on its `.doc`
+    # attribute. `from None` only sets __suppress_context__ (it stops the chain
+    # being DISPLAYED) -- it leaves `.doc` reachable via `err.__context__.doc`,
+    # so anything that introspects exception attributes (error reporters,
+    # pytest --showlocals, a debugger) can still read every ticket record.
+    # Raising after the handler has exited leaves __context__ itself None, so
+    # the document is not reachable at all. Verified, not assumed: with
+    # `from None` the secret was still in `__context__.doc`; this way there is
+    # no __context__. (A formatted traceback never leaked it either way -- the
+    # earlier comment claiming that was wrong.)
+    if text.lstrip().startswith("["):
+        records = None
+        bad_lineno = None
+        try:
+            records = json.loads(text)
+        except json.JSONDecodeError as exc:
+            bad_lineno = exc.lineno
+        if bad_lineno is not None:
+            raise MalformedLabelsFile(
+                f"labels file: malformed JSON array at line {bad_lineno} "
+                "(content withheld — it is ticket PII)"
+            )
+        if not isinstance(records, list):
+            raise MalformedLabelsFile(
+                "labels file: top-level JSON is not a list of records"
+            )
+        return records
+
+    records = []
+    # splitlines() handles \n, \r\n and a trailing newline identically, which
+    # matters here: this repo is CRLF-prone (see the mutation-testing rule).
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        record = None
+        decode_failed = False
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            decode_failed = True
+        # Outside the handler -- see the note above on `.doc`.
+        if decode_failed:
+            raise MalformedLabelsFile(
+                f"labels file: malformed JSON on line {lineno} "
+                "(content withheld — it is ticket PII)"
+            )
+        if not isinstance(record, dict):
+            raise MalformedLabelsFile(
+                f"labels file: line {lineno} is not a JSON object "
+                "(content withheld — it is ticket PII)"
+            )
+        records.append(record)
+    return records
+
+
 def load_labels(path: Path) -> list[dict]:
     """Read the labels file named on the command line. Never a hardcoded path.
+
+    Accepts JSONL (the real file's format) or a JSON array; see
+    ``_parse_labels_text``.
 
     Drops records that carry no usable label (deferred, or never labeled): they
     are neither positive nor negative, and folding them into "negative" would
     manufacture true negatives out of unlabeled rows.
     """
-    with path.open(encoding="utf-8") as handle:
-        records = json.load(handle)
+    records = _parse_labels_text(path.read_text(encoding="utf-8"))
     usable = [
         r
         for r in records
