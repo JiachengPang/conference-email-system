@@ -15,6 +15,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -196,6 +197,208 @@ def test_compare_on_identical_sets_says_so(tmp_path, capsys):
     printed = capsys.readouterr().out
     assert "COMPARED: 100 tickets" in printed
     assert "identical sets" in printed
+
+
+# ---------------------------------------------------------------------------
+# Blind retrieval judge (old vs new prompt)
+# ---------------------------------------------------------------------------
+def test_verdict_parsing_accepts_only_the_three_tokens():
+    assert rde.parse_verdict("VERDICT: A") == "A"
+    assert rde.parse_verdict("VERDICT: B\n") == "B"
+    assert rde.parse_verdict("  verdict:  tie  ") == "TIE"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", "A", "The better set is A.", "VERDICT: C", "VERDICT: A or B",
+     "VERDICT:", "VERDICT: AB", "I think VERDICT A"],
+)
+def test_unparseable_verdicts_return_none_never_tie(text):
+    """None must NOT collapse into TIE.
+
+    Folding a judge failure into "tie" would convert broken output into evidence
+    that the two prompts retrieve equally well -- the exact conclusion this check
+    exists to test.
+    """
+    assert rde.parse_verdict(text) is None
+
+
+def test_ab_order_is_deterministic_per_ticket():
+    assert rde.ab_order("12345") == rde.ab_order("12345")
+
+
+def test_ab_order_is_stable_when_other_tickets_change():
+    """Per-ticket seeding, not one RNG walked down the list.
+
+    A sequential RNG would re-roll every later ticket when one is added or
+    dropped, making two judge runs incomparable for a non-model reason.
+    """
+    first = {t: rde.ab_order(t) for t in ("111", "222", "333")}
+    second = {t: rde.ab_order(t) for t in ("222", "999", "111", "333")}
+    for t in ("111", "222", "333"):
+        assert first[t] == second[t]
+
+
+def test_ab_order_actually_flips_across_tickets():
+    """If every ticket got the same order, position bias would be uncontrolled."""
+    orders = {rde.ab_order(str(t))["A"] for t in range(60)}
+    assert orders == {"baseline", "current"}
+
+
+def test_ab_order_is_always_a_bijection():
+    for t in range(40):
+        order = rde.ab_order(str(t))
+        assert sorted(order) == ["A", "B"]
+        assert set(order.values()) == {"baseline", "current"}
+
+
+def _half1_ids(n: int) -> list[str]:
+    """First ``n`` ids of half 1.
+
+    ⚠️ Judge fixtures MUST draw from half 1. `judge` recomputes the halves from
+    the labels file and scores only its own half, so arbitrary ids are silently
+    dropped -- which is how an earlier version of these tests ended up asserting
+    against 2 tickets when it had supplied 5.
+    """
+    half1, _ = rde.stratified_halves(_records())
+    assert n <= len(half1)
+    return half1[:n]
+
+
+def _judge_fixture(tmp_path, base_chunks: dict, curr_chunks: dict):
+    """Write both arm files plus a labels file for a judge run.
+
+    The labels file is the FULL record set so the half split is the real one;
+    the arm files carry only the tickets under test.
+    """
+    recs = _records()
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    arms = tmp_path / "arms"
+    arms.mkdir(parents=True, exist_ok=True)
+    for arm, chunks in (("baseline", base_chunks), ("current", curr_chunks)):
+        payload = {
+            "manifest": {"prompt_sha256": "sha-" + arm, "sample": None},
+            "rows": [
+                {"ticket_id": t, "intent": "desk_reject_appeal",
+                 "is_reciprocal_dispute": None, "retrieved_chunk_ids": c,
+                 "method": "llm_distiller"}
+                for t, c in chunks.items()
+            ],
+        }
+        (arms / f"{arm}_half1.json").write_text(json.dumps(payload), encoding="utf-8")
+    return labels, arms
+
+
+def test_identical_chunk_sets_make_no_call(tmp_path, monkeypatch, capsys):
+    """A tie by identity must cost nothing -- this is the call-budget saving."""
+    ids = _half1_ids(4)
+    same = {t: ["policy_1", "policy_2"] for t in ids}
+    labels, arms = _judge_fixture(tmp_path, same, dict(same))
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    rde.main(["judge", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    printed = capsys.readouterr().out
+    assert "CALLS MADE: 0" in printed
+    report = json.loads((tmp_path / "out" / "judge_half1.json").read_text(encoding="utf-8"))
+    assert report["identical_no_call"] == 4
+    assert report["totals"]["tie_identical"] == 4
+    assert report["calls_made"] == 0
+
+
+def test_the_ab_mapping_is_applied_when_tallying(tmp_path, monkeypatch):
+    """THE mutation target: a verdict of "A" must credit whichever arm was A.
+
+    The judge answers by display position; the tally must translate that through
+    each ticket's own mapping. Swapping the mapping would silently invert the
+    result -- reporting the new prompt as better exactly when it is worse.
+    """
+    ids = _half1_ids(12)
+    base = {t: ["policy_1", "policy_2"] for t in ids}
+    curr = {t: ["policy_3", "policy_4"] for t in ids}
+    labels, arms = _judge_fixture(tmp_path, base, curr)
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    # Always answer "A" -> every ticket must credit ITS OWN A-arm.
+    async def always_a(client, url, payload, headers=None):  # noqa: ANN001
+        return rde._FakeResponse("VERDICT: A\n")
+
+    monkeypatch.setattr(rde, "_make_dry_run_judge", lambda: always_a)
+    rde.main(["judge", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    report = json.loads((tmp_path / "out" / "judge_half1.json").read_text(encoding="utf-8"))
+
+    expected = Counter(rde.ab_order(t)["A"] for t in ids)
+    assert report["totals"]["baseline"] == expected["baseline"]
+    assert report["totals"]["current"] == expected["current"]
+    # Both arms must be represented, or the test could not detect a swap.
+    assert expected["baseline"] > 0 and expected["current"] > 0
+    for t, row in report["per_ticket"].items():
+        assert row["winner"] == row["shown_as"]["A"]
+
+
+def test_unparseable_judge_output_is_its_own_bucket(tmp_path, monkeypatch):
+    ids = _half1_ids(5)
+    labels, arms = _judge_fixture(
+        tmp_path, {t: ["policy_1"] for t in ids}, {t: ["policy_9"] for t in ids}
+    )
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    async def garbage(client, url, payload, headers=None):  # noqa: ANN001
+        return rde._FakeResponse("I prefer the first one, probably.")
+
+    monkeypatch.setattr(rde, "_make_dry_run_judge", lambda: garbage)
+    rde.main(["judge", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    report = json.loads((tmp_path / "out" / "judge_half1.json").read_text(encoding="utf-8"))
+    assert report["totals"]["unparseable"] == 5
+    assert report["totals"]["tie_judged"] == 0
+
+
+def test_judge_refuses_when_differing_count_exceeds_the_cap(tmp_path, monkeypatch):
+    ids = _half1_ids(10)
+    labels, arms = _judge_fixture(
+        tmp_path, {t: ["policy_1"] for t in ids}, {t: ["policy_9"] for t in ids}
+    )
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+    with pytest.raises(SystemExit) as exc:
+        rde.main(["judge", "--labels", str(labels), "--arms", str(arms),
+                  "--out", str(tmp_path / "out"), "--half", "1",
+                  "--dry-run", "--max-calls", "3"])
+    assert "REFUSING TO RUN" in str(exc.value)
+    assert "will not silently judge a subset" in str(exc.value)
+
+
+def test_judge_dry_run_emits_no_email_or_policy_content(tmp_path, monkeypatch, capsys):
+    ids = _half1_ids(6)
+    labels, arms = _judge_fixture(
+        tmp_path, {t: ["policy_1"] for t in ids}, {t: ["policy_9"] for t in ids}
+    )
+    recs = json.loads(labels.read_text(encoding="utf-8"))
+    for r in recs:
+        r["subject"] = "SECRET-SUBJECT"
+        r["initial_message_body"] = "SECRET-BODY"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    assert len(ids) == 6
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    rde.main(["judge", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    printed = capsys.readouterr().out
+    raw = (tmp_path / "out" / "judge_half1.json").read_text(encoding="utf-8")
+    for secret in ("SECRET-SUBJECT", "SECRET-BODY"):
+        assert secret not in printed, "content leaked to stdout"
+        assert secret not in raw, "content leaked to the report"
+
+
+def test_rendered_set_withholds_policy_ids():
+    """The judge must not see `policy_NNN` -- the numbering leaks provenance."""
+    rendered = rde._render_set(["policy_101", "policy_177"],
+                               {"policy_101": "Title\n\nBody one",
+                                "policy_177": "Other\n\nBody two"})
+    assert "policy_101" not in rendered and "policy_177" not in rendered
+    assert "Body one" in rendered and "Body two" in rendered
 
 
 # ---------------------------------------------------------------------------

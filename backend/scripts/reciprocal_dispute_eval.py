@@ -51,12 +51,16 @@ import argparse
 import asyncio
 import hashlib
 import json
+import logging
 import random
 import re
 import subprocess
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+
+import httpx
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(_BACKEND_DIR) not in sys.path:
@@ -85,6 +89,71 @@ SAMPLE_SEED = 20260926
 POSITIVE_CODE = "r"
 
 _DEFAULT_MAX_CALLS = 100
+
+logger = logging.getLogger(__name__)
+
+# Judge calls can be slow on a reasoning model; matches the distiller timeout.
+_TIMEOUT_SECONDS = 180.0
+
+
+# --- blind retrieval judge (old vs new prompt) ------------------------------
+# Own seed again, for the same reason SAMPLE_SEED is separate from SPLIT_SEED:
+# re-drawing the A/B order must never move the ticket sample.
+JUDGE_SEED = 20260927
+_DEFAULT_JUDGE_MAX_CALLS = 50
+
+# Pairwise preference, NOT a scored rubric. E004 could score against ground
+# truth (the chair's actual reply); there is no ground truth for "which three
+# policy chunks are better", so the judge is shown both sets and asked to
+# prefer one. TIE is a first-class answer precisely because "different but
+# equally usable" is the outcome we most expect, and forcing a winner would
+# manufacture a signal.
+_JUDGE_SYSTEM = (
+    "You are a strict retrieval evaluator for an AAAI conference support-email "
+    "assistant. You are given a requester's EMAIL and two candidate sets of "
+    "conference-policy excerpts, SET A and SET B. Each set is what a retrieval "
+    "system returned as the policy basis for answering that email.\n\n"
+    "Judge ONLY which set better supports writing a correct, complete reply to "
+    "this specific email. Ignore length, ordering, wording polish, and how many "
+    "excerpts a set contains. A set is better when more of its excerpts bear "
+    "directly on what the requester actually asks, and when together they cover "
+    "more of what a reply would need to state.\n\n"
+    "Answer TIE when neither set is clearly better — including when the two "
+    "sets are equally on-topic, equally off-topic, or differ only in excerpts "
+    "that do not change what a reply could say. TIE is a legitimate and "
+    "expected answer; do not break a genuine tie.\n\n"
+    "Reply with EXACTLY one line and nothing else:\n"
+    "VERDICT: A\n"
+    "or\n"
+    "VERDICT: B\n"
+    "or\n"
+    "VERDICT: TIE"
+)
+
+# Strict: only the three exact tokens count. Anything else is "unparseable",
+# which is its OWN bucket — folding it into TIE would quietly convert judge
+# failures into evidence of equivalence, which is the one conclusion this whole
+# check exists to test.
+_VERDICT_RE = re.compile(r"^\s*VERDICT:\s*(A|B|TIE)\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def parse_verdict(text: str) -> str | None:
+    """"A" / "B" / "TIE", or None when the output does not match the contract."""
+    match = _VERDICT_RE.search(text or "")
+    return match.group(1).upper() if match else None
+
+
+def ab_order(ticket_id: str, seed: int = JUDGE_SEED) -> dict[str, str]:
+    """Which arm is shown as A and which as B, for one ticket.
+
+    Seeded **per ticket** rather than by walking one RNG down the list, so the
+    order for a given ticket is stable no matter which other tickets are in the
+    run. A sequential RNG would re-roll every later ticket if one were added,
+    dropped, or reordered — making two judge runs incomparable for a reason that
+    has nothing to do with the model.
+    """
+    flip = random.Random(f"{seed}:{ticket_id}").random() < 0.5
+    return {"A": "baseline", "B": "current"} if flip else {"A": "current", "B": "baseline"}
 
 
 class BudgetExceeded(RuntimeError):
@@ -828,12 +897,261 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     prep_p.add_argument("--out", required=True, help="Output dir (MUST be gitignored).")
 
+    j = sub.add_parser("judge", help="Blind pairwise retrieval judge (old vs new prompt).")
+    j.add_argument("--labels", required=True)
+    j.add_argument("--arms", required=True, help="Dir holding {baseline,current}_half{N}.json.")
+    j.add_argument("--out", required=True, help="Output dir (MUST be gitignored).")
+    j.add_argument("--half", type=int, choices=(1, 2), required=True)
+    j.add_argument("--sample", type=int, default=None,
+                   help="Judge the same stratified subset a --sample run used.")
+    j.add_argument("--judge-model", default=None,
+                   help="Judge model id; defaults to LOCAL_MODEL_NAME. Never hardcoded.")
+    j.add_argument("--max-calls", type=int, default=_DEFAULT_JUDGE_MAX_CALLS)
+    j.add_argument("--dry-run", action="store_true", help="Mocked judge, 0 calls.")
+
     cmp_p = sub.add_parser("compare", help="Aggregate metrics across both arms.")
     cmp_p.add_argument("--labels", required=True)
     cmp_p.add_argument("--out", required=True)
     cmp_p.add_argument("--half", type=int, choices=(1, 2), required=True)
 
     return parser.parse_args(argv)
+
+
+async def _fetch_policy_text(keys: list[str]) -> dict[str, str]:
+    """policy_key → "title\\n\\ncontent" for the judge prompt.
+
+    Uses ``PolicyRepository.get_by_keys``, which deliberately applies NO
+    status/visibility filter — these are HISTORICAL grounding sets, so a
+    since-retired chunk must still resolve to the row that actually grounded
+    that run.
+    """
+    from app.db.database import async_session_factory
+    from app.repositories.policy_repository import PolicyRepository
+
+    repo = PolicyRepository()
+    async with async_session_factory() as db:
+        rows = await repo.get_by_keys(db, list(dict.fromkeys(keys)))
+    return {
+        k: f"{(r.title or '').strip()}\n\n{(r.content or '').strip()}".strip()
+        for k, r in rows.items()
+    }
+
+
+def _render_set(keys: list[str], texts: dict[str, str]) -> str:
+    """Excerpts as the judge sees them — NO policy ids.
+
+    The ids are withheld on purpose: `policy_1xx` numbering correlates with
+    source document and section order, which would let the judge infer
+    provenance and prefer a set for a reason unrelated to its content.
+    """
+    parts = []
+    for i, key in enumerate(keys, start=1):
+        body = texts.get(key)
+        parts.append(f"--- Excerpt {i} ---\n{body}" if body else f"--- Excerpt {i} ---\n(unavailable)")
+    return "\n\n".join(parts) if parts else "(no excerpts)"
+
+
+def _make_dry_run_judge():
+    """Mocked judge: alternates A/B/TIE so every tally branch is exercised."""
+    calls = {"n": 0}
+
+    async def _fake(client, url, payload, headers=None):  # noqa: ANN001
+        calls["n"] += 1
+        verdict = ("A", "B", "TIE")[calls["n"] % 3]
+        return _FakeResponse(f"VERDICT: {verdict}\n")
+
+    return _fake
+
+
+async def judge(args: argparse.Namespace) -> int:
+    """Blind pairwise judge over the tickets whose chunk sets actually differ."""
+    from app.core.config import settings
+    from app.pipeline import distiller as distiller_module
+
+    labels_path = Path(args.labels).expanduser().resolve()
+    arms_dir = Path(args.arms).expanduser().resolve()
+    out_dir = Path(args.out).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    assert_gitignored(out_dir)
+
+    if args.judge_model:
+        # Never hardcode a model id; --judge-model overrides config for this run.
+        settings.LOCAL_MODEL_NAME = args.judge_model
+
+    base = _load_arm(arms_dir, "baseline", args.half)
+    curr = _load_arm(arms_dir, "current", args.half)
+    base_rows = {r["ticket_id"]: r for r in base["rows"]}
+    curr_rows = {r["ticket_id"]: r for r in curr["rows"]}
+
+    records = load_labels(labels_path)
+    by_id = {str(r["ticket_id"]): r for r in records}
+    half1, half2 = stratified_halves(records)
+    half_ids = sorted(half1 if args.half == 1 else half2)
+    # THE SAME 50 as the noise run: same function, same SAMPLE_SEED, not a
+    # re-implementation. Duplicating the selection is exactly the drift this
+    # project already has an open backlog item about.
+    selected = (
+        stratified_sample(half_ids, by_id, args.sample)
+        if args.sample is not None
+        else half_ids
+    )
+    scored = [t for t in selected if t in base_rows and t in curr_rows]
+
+    identical, differing = [], []
+    for tid in scored:
+        if set(base_rows[tid]["retrieved_chunk_ids"]) == set(
+            curr_rows[tid]["retrieved_chunk_ids"]
+        ):
+            identical.append(tid)
+        else:
+            differing.append(tid)
+
+    if len(differing) > args.max_calls:
+        raise SystemExit(
+            f"REFUSING TO RUN: {len(differing)} tickets have differing chunk "
+            f"sets but --max-calls={args.max_calls}. Raise the cap deliberately; "
+            "this script will not silently judge a subset."
+        )
+    if settings.MODEL_PROVIDER != "local" and not args.dry_run:
+        raise SystemExit(
+            f"REFUSING TO RUN: MODEL_PROVIDER is '{settings.MODEL_PROVIDER}'; "
+            "the judge calls the OpenAI-compatible 'local' seam."
+        )
+
+    texts = {}
+    if differing and not args.dry_run:
+        need = [k for t in differing for k in
+                base_rows[t]["retrieved_chunk_ids"] + curr_rows[t]["retrieved_chunk_ids"]]
+        texts = await _fetch_policy_text(need)
+
+    budget = CallBudget(args.max_calls)
+    post = _make_dry_run_judge() if args.dry_run else distiller_module.post_chat
+    url = f"{settings.LOCAL_MODEL_BASE_URL.rstrip('/')}/chat/completions"
+    headers = (
+        {"Authorization": f"Bearer {settings.LOCAL_MODEL_API_KEY}"}
+        if settings.LOCAL_MODEL_API_KEY
+        else None
+    )
+
+    verdicts: dict[str, dict] = {}
+    aborted = None
+    # SEQUENTIAL on purpose. E004's judge fans out with a Semaphore(4) for speed;
+    # a hard pre-dispatch cap and concurrency do not mix cleanly (N workers can
+    # each pass the check before any increments). At <=50 calls the wall-clock
+    # cost of going one at a time is worth an exact cap.
+    async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
+        for tid in differing:
+            order = ab_order(tid)
+            record = by_id[tid]
+            set_a = (base_rows if order["A"] == "baseline" else curr_rows)[tid][
+                "retrieved_chunk_ids"
+            ]
+            set_b = (base_rows if order["B"] == "baseline" else curr_rows)[tid][
+                "retrieved_chunk_ids"
+            ]
+            user = (
+                "### EMAIL\n"
+                f"Subject: {record.get('subject') or ''}\n\n"
+                f"{record.get('initial_message_body') or ''}\n\n"
+                f"### SET A\n{_render_set(set_a, texts)}\n\n"
+                f"### SET B\n{_render_set(set_b, texts)}\n\n"
+                "Which set better supports answering this email? One line only."
+            )
+            payload = {
+                "model": settings.LOCAL_MODEL_NAME,
+                "messages": [
+                    {"role": "system", "content": _JUDGE_SYSTEM},
+                    {"role": "user", "content": user},
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.0,
+                "seed": settings.DRAFTER_SEED,
+                "stream": False,
+            }
+            try:
+                budget.spend()
+            except BudgetExceeded as exc:
+                aborted = str(exc)
+                break
+            try:
+                response = await post(client, url, payload, headers)
+                response.raise_for_status()
+                text = response.json()["choices"][0]["message"]["content"]
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Judge call failed for ticket %s: %r", tid, exc)
+                text = ""
+            label = parse_verdict(text)
+            # THE MAPPING IS APPLIED HERE. A/B are display positions, not arms.
+            if label == "TIE":
+                winner = "tie_judged"
+            elif label in ("A", "B"):
+                winner = order[label]
+            else:
+                winner = "unparseable"
+            verdicts[tid] = {"verdict": label, "winner": winner, "order": order}
+            print(f"  judged {tid}: {winner}", flush=True)
+
+    positives = {t for t in scored if is_positive(by_id[t])}
+
+    def tally(ids):
+        out = Counter()
+        for t in ids:
+            out[verdicts[t]["winner"] if t in verdicts else "tie_identical"] += 1
+        return out
+
+    buckets = ("baseline", "current", "tie_identical", "tie_judged", "unparseable")
+    all_t, r_t, n_t = tally(scored), tally(positives), tally(set(scored) - positives)
+
+    print("=" * 66)
+    print(f"BLIND RETRIEVAL JUDGE (half {args.half}, sample {args.sample})")
+    print("=" * 66)
+    print(f"  judge model: {settings.LOCAL_MODEL_NAME}   dry_run={bool(args.dry_run)}")
+    print(f"  tickets considered: {len(scored)}   identical sets (no call): {len(identical)}")
+    print(f"  CALLS MADE: {budget.used} / cap {args.max_calls}")
+    if aborted:
+        print(f"  ABORTED: {aborted}")
+    print(f"\n  {'bucket':<16}{'all':>6}{'r':>6}{'non-r':>7}")
+    label_of = {"baseline": "OLD prompt wins", "current": "NEW prompt wins",
+                "tie_identical": "tie (identical)", "tie_judged": "tie (judged)",
+                "unparseable": "unparseable"}
+    for b in buckets:
+        print(f"  {label_of[b]:<16}{all_t[b]:>6}{r_t[b]:>6}{n_t[b]:>7}")
+    print("\n  ticket ids per bucket (ids only):")
+    for b in buckets:
+        ids = sorted(t for t in scored if (verdicts[t]["winner"] if t in verdicts else "tie_identical") == b)
+        print(f"    {label_of[b]:<16} ({len(ids)}): {ids}")
+
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "half": args.half,
+        "sample": args.sample,
+        "sample_seed": SAMPLE_SEED if args.sample is not None else None,
+        "judge_seed": JUDGE_SEED,
+        "judge_model": settings.LOCAL_MODEL_NAME,
+        "dry_run": bool(args.dry_run),
+        "calls_made": budget.used,
+        "max_calls": args.max_calls,
+        "aborted": aborted,
+        "tickets_considered": len(scored),
+        "identical_no_call": len(identical),
+        "baseline_prompt_sha256": base["manifest"].get("prompt_sha256"),
+        "current_prompt_sha256": curr["manifest"].get("prompt_sha256"),
+        "totals": {b: all_t[b] for b in buckets},
+        "totals_r": {b: r_t[b] for b in buckets},
+        "totals_non_r": {b: n_t[b] for b in buckets},
+        # ids + A/B mapping only. No email text, no policy text, no titles.
+        "per_ticket": {
+            t: {"winner": verdicts[t]["winner"], "verdict": verdicts[t]["verdict"],
+                "shown_as": verdicts[t]["order"]}
+            for t in sorted(verdicts)
+        },
+        "identical_ticket_ids": sorted(identical),
+    }
+    path = out_dir / f"judge_half{args.half}.json"
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2)
+    print(f"\n  wrote {path}")
+    return 0
 
 
 def prepare_baseline(args: argparse.Namespace) -> int:
@@ -866,6 +1184,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(run_arm(args))
     if args.command == "prepare-baseline":
         return prepare_baseline(args)
+    if args.command == "judge":
+        return asyncio.run(judge(args))
     return asyncio.run(compare(args))
 
 
