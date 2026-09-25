@@ -107,6 +107,7 @@ Every pipeline module has a test file. Tests run without real DB/API (mock both,
 Always: read existing code first; keep modules separate + typed; DB access via repositories; test every pipeline module; update this file at end of session.
 Never: mix frontend/backend logic; hardcode model names in source (use `DRAFT_MODEL`/`LOCAL_MODEL_NAME`); create monolithic files; skip the CLAUDE.md update.
 DB note: `main` defaults to a local SQLite file (created under `backend/` at the process CWD). Seed/migrate via `cd backend && python scripts/...`.
+Reject-appeal workstream log: docs/exp_tracking/reject_appeal.md — read before any reject-appeal work, update after every task.
 
 ## How to Run
 ```
