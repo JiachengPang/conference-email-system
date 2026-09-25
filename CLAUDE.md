@@ -102,12 +102,19 @@ docs/{PIPELINE_AUDIT.md, ZENDESK_API.md, DRAFTER_ADAPTER_SPEC.md, exp_tracking/E
 
 ## Testing Policy
 Every pipeline module has a test file. Tests run without real DB/API (mock both, or in-memory SQLite via StaticPool + ASGITransport). A hermetic autouse conftest fixture forces `MODEL_PROVIDER=fallback` / no key / `QUERY_STRATEGY=prefix` so the suite never hits a hosted model. Fast iteration: `-m "not ml"` (217 passed, 6 skipped) skips embedding-heavy tests; full suite = 246 tests collected (adds 23 embedding-heavy `ml` tests). `cd backend && python -m pytest tests/ -v`
+**How to run tests (supersedes the host command above):** `docker compose exec backend python -m pytest <paths>` (PowerShell) — **never host Python**. The runtime image ships no pytest by design; if it is missing, install it ephemerally in the container. Note the backend image has **no source mount**, so new/changed test files must be `docker cp`'d in (or the image rebuilt) before they exist there.
+**Mutation testing:** after applying each mutation, **verify the file actually changed** before trusting a pass — a mutation that never landed produces a green run that means nothing. Files are CRLF, so `$`-anchored `sed` silently no-ops.
 
 ## Engineering Rules
 Always: read existing code first; keep modules separate + typed; DB access via repositories; test every pipeline module; update this file at end of session.
 Never: mix frontend/backend logic; hardcode model names in source (use `DRAFT_MODEL`/`LOCAL_MODEL_NAME`); create monolithic files; skip the CLAUDE.md update.
 DB note: `main` defaults to a local SQLite file (created under `backend/` at the process CWD). Seed/migrate via `cd backend && python scripts/...`.
-Reject-appeal workstream log: docs/exp_tracking/reject_appeal.md — read before any reject-appeal work, update after every task.
+Reject-appeal workstream log: docs/exp_tracking/reject_appeal.md — read before any reject-appeal work, update after every task. That update means: status tables, any new decision as a **D-entry**, and a changelog line — and say so in your report.
+Git: **never commit**, and never propose `git add` / `git commit` commands or commit messages. No `Co-Authored-By` trailers. Sahil commits manually.
+Scope: do **only** the task given. Do not touch other files or start adjacent work — flag it in the report instead.
+File edits: use the dedicated write/edit tools, **never heredocs** — they mangle backslashes and apostrophes. Verify content after writing.
+Searches respect `.gitignore`. **Never** read, search, grep, or count anything under `data/labeling/` (real ticket PII).
+Report at the end of every task: files changed, a diff summary, and test counts **before vs. after**.
 
 ## How to Run
 ```
