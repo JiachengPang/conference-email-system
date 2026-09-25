@@ -117,6 +117,88 @@ def test_a_different_seed_draws_a_different_split():
 
 
 # ---------------------------------------------------------------------------
+# compare across arms with DIFFERENT ticket sets (the noise-run shape)
+# ---------------------------------------------------------------------------
+def _write_arm(out_dir, arm: str, ids: list[str], flag, sample=None) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "manifest": {
+            "prompt_sha256": "sha-" + arm,
+            "sample": sample,
+            "asks_reciprocal_dispute": arm == "current",
+        },
+        "rows": [
+            {
+                "ticket_id": t,
+                "intent": "desk_reject_appeal",
+                "is_reciprocal_dispute": flag,
+                "retrieved_chunk_ids": ["policy_1", "policy_2"],
+                "method": "llm_distiller",
+            }
+            for t in ids
+        ],
+    }
+    (out_dir / f"{arm}_half1.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_compare_scores_only_the_intersection(tmp_path, capsys):
+    """The noise-run shape: 100-ticket arm vs 50-ticket arm.
+
+    Scoring every current row would report flag accuracy over a different
+    population than the intent/retrieval blocks below it, so the sections of one
+    report would silently describe different ticket sets.
+
+    ⚠️ The two sets OVERLAP WITHOUT NESTING on purpose. An earlier version made
+    the current arm a strict subset of the baseline arm, which made "iterate
+    the intersection" and "iterate every current row" produce identical output
+    -- a mutation swapping one for the other survived it. The current arm must
+    contain tickets the baseline arm lacks for the assertion to discriminate.
+    """
+    recs = _records()
+    half1, _ = rde.stratified_halves(recs)
+    base_ids = half1[:60]          # 60 tickets
+    curr_ids = half1[40:]          # 60 tickets, 20 of them NOT in base_ids
+    overlap = sorted(set(base_ids) & set(curr_ids))
+    assert len(overlap) == 20 and not set(curr_ids) <= set(base_ids)
+
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    out = tmp_path / "out"
+    _write_arm(out, "baseline", base_ids, None)
+    _write_arm(out, "current", curr_ids, True, sample=60)
+
+    rde.main(["compare", "--labels", str(labels), "--out", str(out), "--half", "1"])
+    printed = capsys.readouterr().out
+
+    assert "COMPARED: 20 tickets" in printed
+    assert "baseline arm 60, current arm 60" in printed
+    assert "not in both, excluded" in printed
+
+    # Every row is flagged True, so TP+FP must total exactly the intersection.
+    # Scoring all 60 current rows instead would make these sum to 60.
+    import re
+
+    tp = int(re.search(r"TP=(\d+)", printed).group(1))
+    fp = int(re.search(r"FP=(\d+)", printed).group(1))
+    assert tp + fp == 20, f"confusion matrix covered {tp + fp} tickets, not the 20 shared"
+
+
+def test_compare_on_identical_sets_says_so(tmp_path, capsys):
+    recs = _records()
+    half1, _ = rde.stratified_halves(recs)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    out = tmp_path / "out"
+    _write_arm(out, "baseline", half1, None)
+    _write_arm(out, "current", half1, True)
+
+    rde.main(["compare", "--labels", str(labels), "--out", str(out), "--half", "1"])
+    printed = capsys.readouterr().out
+    assert "COMPARED: 100 tickets" in printed
+    assert "identical sets" in printed
+
+
+# ---------------------------------------------------------------------------
 # Label file formats (the real file is JSONL, not a JSON array)
 # ---------------------------------------------------------------------------
 def _jsonl(records: list[dict]) -> str:
@@ -241,6 +323,125 @@ def test_deferred_and_unlabeled_records_are_dropped(tmp_path):
     assert "999" not in ids, "unlabeled row must not become a negative"
     assert "998" not in ids, "deferred row must not become a negative"
     assert len(loaded) == 4
+
+
+# ---------------------------------------------------------------------------
+# --sample (deterministic stratified subset, for the noise run)
+# ---------------------------------------------------------------------------
+def _half1_and_index():
+    recs = _records()
+    by_id = {str(r["ticket_id"]): r for r in recs}
+    half1, _ = rde.stratified_halves(recs)
+    return half1, by_id
+
+
+def test_sample_is_deterministic():
+    half1, by_id = _half1_and_index()
+    assert rde.stratified_sample(half1, by_id, 50) == rde.stratified_sample(
+        half1, by_id, 50
+    )
+
+
+def test_sample_is_independent_of_input_order():
+    """Depends on the id SET, the count and the seed -- never on ordering."""
+    half1, by_id = _half1_and_index()
+    assert rde.stratified_sample(half1, by_id, 50) == rde.stratified_sample(
+        list(reversed(half1)), by_id, 50
+    )
+
+
+def test_sample_keeps_the_r_ratio():
+    """Half 1 is 56 r / 44 non-r, so a 50-ticket sample must be 28 / 22."""
+    half1, by_id = _half1_and_index()
+    picked = rde.stratified_sample(half1, by_id, 50)
+    pos = sum(1 for t in picked if rde.is_positive(by_id[t]))
+    assert len(picked) == 50
+    assert (pos, 50 - pos) == (28, 22)
+
+
+def test_sample_is_a_subset_of_the_half():
+    half1, by_id = _half1_and_index()
+    picked = rde.stratified_sample(half1, by_id, 50)
+    assert set(picked) <= set(half1)
+
+
+def test_sample_of_the_full_size_returns_the_whole_half():
+    half1, by_id = _half1_and_index()
+    assert set(rde.stratified_sample(half1, by_id, len(half1))) == set(half1)
+
+
+def test_sample_larger_than_the_half_fails_loudly():
+    half1, by_id = _half1_and_index()
+    with pytest.raises(SystemExit) as exc:
+        rde.stratified_sample(half1, by_id, len(half1) + 1)
+    assert "exceeds" in str(exc.value)
+
+
+def test_sample_returns_exactly_n_even_when_a_stratum_is_tiny():
+    """Proportional rounding must not silently return fewer than N.
+
+    With 2 positives and 98 negatives a naive `round()` allocation can ask for
+    more positives than exist; the shortfall has to move to the other stratum.
+    """
+    recs = _records(n_positive=2, n_negative=98)
+    by_id = {str(r["ticket_id"]): r for r in recs}
+    ids = sorted(by_id)
+    for n in (1, 3, 50, 99, 100):
+        assert len(rde.stratified_sample(ids, by_id, n)) == n
+
+
+def test_default_run_is_unchanged_by_the_sample_flag(tmp_path, monkeypatch):
+    """No --sample => the whole half, exactly as before."""
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(_records()), encoding="utf-8")
+    out = tmp_path / "out"
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+    _force_local_provider(monkeypatch)
+    rde.main(
+        ["run", "--labels", str(labels), "--out", str(out),
+         "--half", "1", "--arm", "current", "--dry-run", "--max-calls", "100"]
+    )
+    payload = json.loads((out / "current_half1.json").read_text(encoding="utf-8"))
+    assert payload["manifest"]["sample"] is None
+    assert payload["manifest"]["tickets_scored"] == 100
+
+
+def test_sampled_run_scores_exactly_n(tmp_path, monkeypatch):
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(_records()), encoding="utf-8")
+    out = tmp_path / "out"
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+    _force_local_provider(monkeypatch)
+    rde.main(
+        ["run", "--labels", str(labels), "--out", str(out),
+         "--half", "1", "--arm", "current", "--dry-run",
+         "--sample", "50", "--max-calls", "50"]
+    )
+    m = json.loads((out / "current_half1.json").read_text(encoding="utf-8"))["manifest"]
+    assert m["sample"] == 50
+    assert m["tickets_scored"] == 50
+    assert m["half_size"] == 100
+    assert m["sample_positives"] == 28
+
+
+def test_sample_is_applied_before_the_cap_check(tmp_path, monkeypatch):
+    """`--sample 50 --max-calls 50` must be legal.
+
+    If the cap were checked against the full half first, this would abort --
+    which would make the flag useless for exactly the run it exists for.
+    """
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(_records()), encoding="utf-8")
+    out = tmp_path / "out"
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+    _force_local_provider(monkeypatch)
+    rde.main(
+        ["run", "--labels", str(labels), "--out", str(out),
+         "--half", "1", "--arm", "current", "--dry-run",
+         "--sample", "50", "--max-calls", "50"]
+    )
+    m = json.loads((out / "current_half1.json").read_text(encoding="utf-8"))["manifest"]
+    assert m["calls_made"] == 50
 
 
 # ---------------------------------------------------------------------------

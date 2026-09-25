@@ -75,6 +75,11 @@ BASELINE_REV = "8c6eb49"
 # comparison against an earlier run.
 SPLIT_SEED = 20260925
 
+# Separate from SPLIT_SEED on purpose: re-drawing a --sample must never move the
+# halves, and changing the halves must never silently re-draw a sample. Fixed
+# forever for the same reason SPLIT_SEED is.
+SAMPLE_SEED = 20260926
+
 # The label code that counts as a positive. Every other code (n/a/b/c/d/e/o) is
 # a negative. Source: scripts/labeling/label_appeals.py REASONS.
 POSITIVE_CODE = "r"
@@ -231,6 +236,52 @@ def stratified_halves(
     half1 = positives[:p_cut] + negatives[:n_cut]
     half2 = positives[p_cut:] + negatives[n_cut:]
     return sorted(half1), sorted(half2)
+
+
+def stratified_sample(
+    ids: list[str],
+    by_id: dict[str, dict],
+    n: int,
+    seed: int = SAMPLE_SEED,
+) -> list[str]:
+    """Take ``n`` ids from ``ids``, keeping the positive/negative ratio.
+
+    Same discipline as ``stratified_halves``: sort each stratum BEFORE shuffling
+    so the result depends only on the id set, the count and the seed -- never on
+    input order. Uses its OWN seed so that re-drawing a sample cannot silently
+    move the halves, and vice versa.
+
+    Allocation is proportional, with the positive count clamped to what exists.
+    The negative count then cannot overflow its own stratum -- ``n_pos`` is at
+    most ``len(positives)``, and ``n <= total`` is enforced above, so
+    ``n_neg = n - n_pos <= total - n_pos <= len(negatives)``. An earlier version
+    carried a "repair" branch for that case; an exhaustive check over every
+    (total, positives, n) up to 200 found **zero** inputs that reach it, so it
+    was dead code that a mutation could silently delete. The invariant is
+    asserted instead, and the "always returns exactly n" property is pinned by
+    test rather than by an unreachable branch.
+    """
+    positives = sorted(t for t in ids if is_positive(by_id[t]))
+    negatives = sorted(t for t in ids if not is_positive(by_id[t]))
+    total = len(positives) + len(negatives)
+    if n > total:
+        raise SystemExit(
+            f"REFUSING TO RUN: --sample {n} exceeds the {total} tickets in this "
+            "half. A sample cannot be larger than the set it is drawn from."
+        )
+
+    n_pos = round(n * len(positives) / total) if total else 0
+    n_pos = min(n_pos, len(positives))
+    n_neg = n - n_pos
+    assert n_neg <= len(negatives), (
+        f"allocation overflowed the negative stratum ({n_neg} > "
+        f"{len(negatives)}) -- the proportional-allocation invariant broke"
+    )
+
+    rng = random.Random(seed)
+    rng.shuffle(positives)
+    rng.shuffle(negatives)
+    return sorted(positives[:n_pos] + negatives[:n_neg])
 
 
 # ---------------------------------------------------------------------------
@@ -434,15 +485,25 @@ async def run_arm(args: argparse.Namespace) -> int:
 
     records = load_labels(labels_path)
     half1, half2 = stratified_halves(records)
-    selected_ids = set(half1 if args.half == 1 else half2)
+    half_ids = sorted(half1 if args.half == 1 else half2)
     by_id = {str(r["ticket_id"]): r for r in records}
-    selected = [by_id[t] for t in sorted(selected_ids)]
+
+    # --sample narrows the half BEFORE the cap check, so `--sample 50
+    # --max-calls 50` is a legal pair. Default (None) = the whole half, so the
+    # no-flag behavior is byte-for-byte what it was.
+    sample_n = getattr(args, "sample", None)
+    if sample_n is not None:
+        selected_ids = stratified_sample(half_ids, by_id, sample_n)
+    else:
+        selected_ids = half_ids
+    selected = [by_id[t] for t in selected_ids]
 
     if len(selected) > args.max_calls:
         raise SystemExit(
-            f"REFUSING TO RUN: half {args.half} has {len(selected)} tickets but "
-            f"--max-calls={args.max_calls}. Raise the cap deliberately or shrink "
-            "the half; this script will not silently truncate a sample."
+            f"REFUSING TO RUN: this run covers {len(selected)} tickets but "
+            f"--max-calls={args.max_calls}. Raise the cap deliberately, or use "
+            "--sample to narrow the set on purpose; this script will not "
+            "silently truncate a sample."
         )
 
     # FOOTGUN GUARD. `EmailDistiller.distill` returns None immediately unless
@@ -535,6 +596,12 @@ async def run_arm(args: argparse.Namespace) -> int:
         "tickets_selected": len(selected),
         "tickets_scored": len(rows),
         "split_seed": SPLIT_SEED,
+        # None = the whole half. Recorded so a later reader can tell a 50-ticket
+        # noise run from a truncated 100-ticket one.
+        "sample": sample_n,
+        "sample_seed": SAMPLE_SEED if sample_n is not None else None,
+        "half_size": len(half_ids),
+        "sample_positives": sum(1 for t in selected_ids if is_positive(by_id[t])),
         # Pinned so a later reader can prove both arms ran the same config.
         "model_provider": settings.MODEL_PROVIDER,
         "model_name": settings.LOCAL_MODEL_NAME,
@@ -552,6 +619,12 @@ async def run_arm(args: argparse.Namespace) -> int:
     print(f"arm={args.arm} half={args.half} dry_run={bool(args.dry_run)}")
     print(f"  prompt: {arm['prompt_chars']} chars  sha256={arm['prompt_sha256'][:12]}")
     print(f"  asks RECIPROCAL_DISPUTE: {arm['asks_reciprocal_dispute']}")
+    if sample_n is not None:
+        pos = sum(1 for t in selected_ids if is_positive(by_id[t]))
+        print(
+            f"  SAMPLE: {sample_n} of {len(half_ids)} "
+            f"({pos} r / {len(selected_ids) - pos} non-r, seed {SAMPLE_SEED})"
+        )
     print(f"  tickets selected: {len(selected)}  scored: {len(rows)}")
     print(f"  CALLS MADE: {budget.used} / cap {args.max_calls}")
     if aborted:
@@ -606,10 +679,21 @@ async def compare(args: argparse.Namespace) -> int:
     tp = fp = fn = tn = 0
     none_pos = none_neg = 0
     missed: list[str] = []
-    for tid, row in sorted(curr_rows.items()):
+    # IDS ONLY, never content -- these name real tickets for manual review.
+    false_positives: list[str] = []
+    non_r_ids: list[str] = []
+    # INTERSECTION ONLY. With --sample the two arms can cover different ticket
+    # sets (e.g. a 50-ticket noise run against the 100-ticket half-1 result).
+    # Scoring every current row would then report flag accuracy over a different
+    # population than the intent/retrieval sections, and the blocks below would
+    # silently describe different tickets.
+    for tid in shared:
+        row = curr_rows[tid]
         gold = truth.get(tid)
         if gold is None:
             continue
+        if not gold:
+            non_r_ids.append(tid)
         flag = row["is_reciprocal_dispute"]
         if flag is None:
             # Tri-state: "asked, did not answer" is NOT a negative (D7).
@@ -623,6 +707,7 @@ async def compare(args: argparse.Namespace) -> int:
             tp += 1
         elif flag and not gold:
             fp += 1
+            false_positives.append(tid)
         elif not flag and gold:
             fn += 1
             missed.append(tid)
@@ -633,12 +718,29 @@ async def compare(args: argparse.Namespace) -> int:
     print("=" * 66)
     print(f"FLAG ACCURACY (current arm, half {args.half})")
     print("=" * 66)
+    print(
+        f"  COMPARED: {len(shared)} tickets "
+        f"(baseline arm {len(base_rows)}, current arm {len(curr_rows)}"
+        + (
+            f"; {len(set(base_rows) ^ set(curr_rows))} not in both, excluded)"
+            if set(base_rows) != set(curr_rows)
+            else "; identical sets)"
+        )
+    )
+    print(
+        f"  sample: baseline={base['manifest'].get('sample')} "
+        f"current={curr['manifest'].get('sample')}  (None = whole half)"
+    )
     print(f"  precision {precision:.3f}   recall {recall:.3f}   F1 {f1:.3f}")
     print(f"  confusion: TP={tp} FP={fp} FN={fn} TN={tn}")
     print(f"  None bucket (reported separately, NOT negatives):")
     print(f"    None on a true r ticket : {none_pos}")
     print(f"    None on a non-r ticket  : {none_neg}")
     print(f"  missed r ticket ids ({len(missed)}): {sorted(missed)}")
+    # Added for the half-1 post-mortem: a false positive is a non-r ticket the
+    # model called reciprocal, and the ONLY way to review those is by id.
+    print(f"  false-positive ticket ids ({len(false_positives)}): {sorted(false_positives)}")
+    print(f"  non-r ticket ids ({len(non_r_ids)}): {sorted(non_r_ids)}")
 
     # --- intent stability on non-r tickets -------------------------------
     non_r = [t for t in shared if not truth.get(t, False)]
@@ -705,6 +807,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     run_p.add_argument("--half", type=int, choices=(1, 2), required=True)
     run_p.add_argument("--arm", choices=("baseline", "current"), required=True)
     run_p.add_argument("--max-calls", type=int, default=_DEFAULT_MAX_CALLS)
+    run_p.add_argument(
+        "--sample",
+        type=int,
+        default=None,
+        help="Score a deterministic stratified subset of N tickets from the "
+        "half (same r/non-r ratio, own fixed seed). Default: the whole half.",
+    )
     run_p.add_argument("--dry-run", action="store_true", help="Mocked model, 0 calls.")
     run_p.add_argument(
         "--baseline-prompt-file",
