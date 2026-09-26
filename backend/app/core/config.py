@@ -65,6 +65,22 @@ class Settings(BaseSettings):
     # magnitude tuning.
     INTENT_PRIOR_ENABLED: bool = False
 
+    # Reciprocal-review dispute detector (reject-appeal Phase 1). A SEPARATE,
+    # conditional model call that runs only when the classified intent is
+    # `desk_reject_appeal` — replacing the RECIPROCAL_DISPUTE block that used to
+    # sit in the distiller's main system prompt. It was moved out because that
+    # block perturbed the QUERY lines the same prompt produces: old-vs-new
+    # top-k Jaccard 0.445 against a same-prompt noise floor of 0.710, i.e. a
+    # real retrieval shift, not run-to-run variance
+    # (docs/exp_tracking/reject_appeal.md D27/D35).
+    #
+    # OFF by default so the detector can be wired in inertly and switched on in
+    # its own commit. Gating is TWO-LEVEL: this flag is read at the call site in
+    # `orchestrator._compute` (so no call is attempted and the reason is visible
+    # there), and the detector additionally self-gates on MODEL_PROVIDER (so it
+    # is a no-op under template/fallback and in the test suite).
+    RECIPROCAL_DETECTOR_ENABLED: bool = False
+
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the
     # calibrated confidence instead of the raw classifier score. Off by default
