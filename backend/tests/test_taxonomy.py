@@ -57,28 +57,46 @@ def test_is_reject_appeal_none_for_none():
 
 # --- desk_reject_appeal definition text -------------------------------------
 #
-# These pin two TOKENS, not the whole sentence. The definition is prose that may
-# legitimately be reworded; what must not silently disappear is the coverage the
-# wording buys. Over-pinning the full string would fail on every harmless edit.
+# ⚠️ INVERTED. Two tests here used to REQUIRE the tokens "reciprocal-review" and
+# "waive", which `beb5cf6` added. That amendment was REVERTED for a zero-change
+# guarantee: this definition is interpolated verbatim into the distiller's
+# intent menu, so editing it edits the live production prompt — the one thing
+# the detector rebuild exists to avoid. The tokens now live in
+# `reciprocal_detector.py`'s own prompt, where changing them cannot perturb
+# retrieval.
+#
+# These assert ABSENCE rather than presence, so a well-meaning re-amendment has
+# to argue with a test instead of silently reopening the prompt.
 
 
-def test_desk_reject_appeal_covers_reciprocal_review_grounds():
-    """A desk rejection on unmet reciprocal-review duties is an appeal.
+def test_desk_reject_appeal_definition_is_the_original_wording():
+    """The definition must stay byte-identical to the pre-series original.
 
-    The definition is interpolated VERBATIM into the distiller's intent menu
-    (`distiller._INTENT_MENU`), so this token is the only thing telling the
-    production classifier to route those tickets here.
+    Not a style preference: `INTENT_DEFS[...]` is interpolated VERBATIM into
+    `distiller._INTENT_MENU`, which is interpolated into `_SYSTEM_PROMPT`. Any
+    edit here changes the production prompt, and the same prompt also emits the
+    retrieval QUERY lines — a 798-char addition to it measurably moved
+    retrieval (Jaccard 0.445 against a 0.710 noise floor, reject_appeal.md
+    D27/D35). The whole point of moving the reciprocal question into its own
+    call was to stop paying that cost.
     """
-    definition = tx.INTENT_DEFS["desk_reject_appeal"]
-    assert "reciprocal-review" in definition.lower()
+    assert tx.INTENT_DEFS["desk_reject_appeal"] == (
+        "Requests to explain, reconsider, or reverse a desk rejection "
+        "(formatting, page-limit, appendix, checklist, or compliance grounds)."
+    )
 
 
-def test_desk_reject_appeal_covers_conceding_and_asking_for_leniency():
-    """Conceding the grounds and asking for leniency is still an appeal.
+def test_the_reciprocal_tokens_are_NOT_in_the_taxonomy():
+    """The coverage those tokens bought now lives in the detector's prompt.
 
-    "explain / reconsider / reverse" alone reads as dispute-only; an author who
-    accepts the facts but asks for mercy would classify elsewhere without a
-    leniency verb in the menu.
+    ⚠️ This has a real, accepted cost: on half 1 the amended definition
+    classified 54 of 56 r tickets as `desk_reject_appeal` versus 50 of 56
+    without it — about 7pp of reach, which the detector's intent gate then
+    inherits. Traded for a guarantee that the existing pipeline does not change
+    at all. The follow-up, if that cost bites, is to widen the DETECTOR's gate
+    to the neighbouring intents where r tickets land — a change confined to the
+    new code, touching no prompt.
     """
-    definition = tx.INTENT_DEFS["desk_reject_appeal"]
-    assert "waive" in definition.lower()
+    definition = tx.INTENT_DEFS["desk_reject_appeal"].lower()
+    assert "reciprocal" not in definition
+    assert "waive" not in definition

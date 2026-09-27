@@ -510,26 +510,31 @@ def test_system_prompt_does_not_ask_for_reciprocal_dispute():
     """
     assert "RECIPROCAL_DISPUTE" not in distiller_module._SYSTEM_PROMPT
 
-    # The word "reciprocal" SHOULD still appear: it comes from the
-    # desk_reject_appeal DEFINITION interpolated into the intent menu
-    # (beb5cf6), which is a separate change that stays. Pinning the menu keeps
-    # the two sources of the word visibly distinct, so a future edit cannot
-    # satisfy this test by gutting the definition.
-    assert "reciprocal" in distiller_module._INTENT_MENU
-    assert "RECIPROCAL_DISPUTE" not in distiller_module._INTENT_MENU
+    # ⚠️ STRONGER THAN IT WAS. This used to assert "reciprocal" WAS still in
+    # the intent menu, because `beb5cf6` had put it in the desk_reject_appeal
+    # definition. That amendment was reverted too, so the word is now absent
+    # from the WHOLE prompt — menu included. Asserting on the lowercase word
+    # (not just the output-line token) is what makes this a real zero-change
+    # guarantee rather than a check on one spelling.
+    assert "reciprocal" not in distiller_module._SYSTEM_PROMPT.lower()
+    assert "reciprocal" not in distiller_module._INTENT_MENU.lower()
 
 
 def test_system_prompt_is_byte_identical_to_the_pre_block_prompt():
     """Commit 5 restored the prompt EXACTLY, not approximately.
 
+    ⚠️ The target moved: it was `77f72bb` (4,604 chars) until the
+    `desk_reject_appeal` definition amendment was ALSO reverted, for a
+    zero-change guarantee. The prompt is now byte-identical to the true
+    pre-series original at **8c6eb49** — 4,573 chars, sha256 7d944e3459b5…,
+    verified once at the time of the revert and recorded in the log.
+
     Pinned by length + content markers rather than a hardcoded sha256, which
     would break on any legitimate future prompt edit and teach people to
-    re-baseline it without looking. The exact-hash check against commit
-    77f72bb was performed once at the time of the change and recorded in the
-    log (f6ae2b74…, 4,604 chars).
+    re-baseline it without looking.
     """
     prompt = distiller_module._SYSTEM_PROMPT
-    assert len(prompt) == 4604
+    assert len(prompt) == 4573
     # The identification block and the injection guard must survive untouched —
     # the removal sat between them, so a sloppy delete would take a bite out of
     # either neighbour.

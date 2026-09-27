@@ -1085,16 +1085,31 @@ def test_baseline_prompt_differs_from_current_and_omits_the_flag():
 
 
 @needs_git
-def test_baseline_menu_uses_the_baseline_definition():
-    """`beb5cf6` reaches the prompt only through the intent menu.
+def test_the_two_arms_are_now_the_SAME_prompt():
+    """⚠️ TEST (a) IS NOW VACUOUS — and this test exists to say so loudly.
 
-    Rebuilding the baseline prompt with TODAY's INTENT_DEFS would leak half the
-    change under test into the baseline arm, and the comparison would understate
-    the diff. Pinned on the exact wording that commit added.
+    The harness was built to isolate the `beb5cf6` definition amendment:
+    baseline (`8c6eb49`) vs current (HEAD). That amendment has since been
+    REVERTED for a zero-change guarantee, so the live prompt is byte-identical
+    to `8c6eb49` and the two arms are the same 4,573 characters.
+
+    Running `run --arm baseline` against `run --arm current` would therefore
+    measure NOTHING about the definition — it degenerates into a second noise
+    run. `compare` already prints "both arms ran the SAME prompt (identical
+    sha256)", which for a deliberate noise run is a confirmation but here would
+    be a warning that the experiment has no independent variable.
+
+    The harness is NOT deleted: `--arm baseline` is still the way to reproduce
+    a pre-series prompt if the definition is ever re-amended, and `detect`
+    (test b) is unaffected because it never touches this prompt.
     """
-    base = rde.baseline_system_prompt()
-    assert "reciprocal-review duty grounds" not in base
-    assert "reciprocal-review duty grounds" in rde.resolve_arm("current")["_prompt"]
+    base = rde.resolve_arm("baseline")
+    curr = rde.resolve_arm("current")
+    assert base["prompt_sha256"] == curr["prompt_sha256"]
+    assert base["prompt_chars"] == curr["prompt_chars"] == 4573
+    # Neither arm may ask the question — it lives in the detector now.
+    assert base["asks_reciprocal_dispute"] is False
+    assert curr["asks_reciprocal_dispute"] is False
 
 
 def test_run_restores_the_live_prompt_afterwards(tmp_path, monkeypatch):

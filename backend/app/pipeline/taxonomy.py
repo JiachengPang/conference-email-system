@@ -37,9 +37,8 @@ _TAXONOMY: list[tuple[str, str, str]] = [
      "Concerns or appeals about review quality, rebuttal handling, mismatched "
      "reviews, scores, or the final decision."),
     ("desk_reject_appeal", "appeals_integrity",
-     "Requests to explain, reconsider, reverse, or waive a desk rejection "
-     "(formatting, page-limit, appendix, checklist, compliance, or "
-     "reciprocal-review duty grounds)."),
+     "Requests to explain, reconsider, or reverse a desk rejection (formatting, "
+     "page-limit, appendix, checklist, or compliance grounds)."),
     ("anonymity_violation", "appeals_integrity",
      "Reports that a submission may violate double-blind / anonymity rules via "
      "identifying information, public materials, or disclosures."),
