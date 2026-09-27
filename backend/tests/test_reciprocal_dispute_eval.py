@@ -1076,17 +1076,19 @@ def test_arms_differ_via_a_baseline_file(tmp_path):
 
 
 @needs_git
-def test_baseline_prompt_differs_from_current_and_omits_the_flag():
-    base = rde.resolve_arm("baseline")
-    curr = rde.resolve_arm("current")
-    assert base["prompt_sha256"] != curr["prompt_sha256"]
-    assert base["asks_reciprocal_dispute"] is False
-    assert curr["asks_reciprocal_dispute"] is True
-
-
-@needs_git
 def test_the_two_arms_are_now_the_SAME_prompt():
     """⚠️ TEST (a) IS NOW VACUOUS — and this test exists to say so loudly.
+
+    REPLACES `test_baseline_prompt_differs_from_current_and_omits_the_flag`,
+    which asserted the inverse (`!=` sha256, and that current ASKS the
+    question). Both halves of that premise are now false BY DESIGN, not by
+    regression — see the two paragraphs below — so it was removed rather than
+    rewritten: rewriting it to current reality produces this test verbatim.
+
+    ⚠️ It survived the whole rebuild because `@needs_git` SKIPS in the backend
+    container (no git binary, no repo), so every local `pytest` run reported it
+    as a skip while CI — the only place it executes — failed on it. Treat the
+    `@needs_git` set as untested locally: the container gate cannot see it.
 
     The harness was built to isolate the `beb5cf6` definition amendment:
     baseline (`8c6eb49`) vs current (HEAD). That amendment has since been
@@ -1194,8 +1196,15 @@ def test_dry_run_baseline_arm_yields_none_for_the_flag(tmp_path, monkeypatch):
     curr = json.loads((out / "current_half1.json").read_text(encoding="utf-8"))
     assert all(r["is_reciprocal_dispute"] is None for r in base["rows"])
 
-    # The current arm parses a real flag ONLY if this environment is at HEAD.
-    # On a stale image the staleness detector above is the failure that matters;
-    # asserting here too would just add noise pointing at the same cause.
+    # ⚠️ THIS BRANCH IS NOW PERMANENTLY DEAD, and deliberately kept anyway.
+    # It dates from when HEAD's distiller prompt asked RECIPROCAL_DISPUTE;
+    # commit 5 moved the question into `reciprocal_detector`, so the live
+    # prompt never asks and the condition is always False. It is GUARDED, so
+    # unlike the deleted `test_baseline_prompt_differs_...` it degraded into a
+    # silent no-op rather than a CI failure — which is the more dangerous
+    # failure mode of the two, and the reason it is called out here in words.
+    # Kept because it is the assertion that would come back to life if the
+    # question were ever returned to the main prompt; the live behaviour is
+    # covered by test_the_two_arms_are_now_the_SAME_prompt.
     if curr["manifest"]["asks_reciprocal_dispute"]:
         assert all(r["is_reciprocal_dispute"] is True for r in curr["rows"])
