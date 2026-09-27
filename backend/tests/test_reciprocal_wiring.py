@@ -117,6 +117,46 @@ async def _run(session, monkeypatch, *, flag, detector, intent="desk_reject_appe
 # ---------------------------------------------------------------------------
 # The config flag (D44)
 # ---------------------------------------------------------------------------
+def test_the_detector_is_ON_by_default():
+    """Commit 6: the switch. Pins the DEFAULT, which nothing else here does.
+
+    ⚠️ Every other test in this file sets the flag explicitly via monkeypatch,
+    which is right for testing both branches but means none of them would
+    notice the default silently reverting to False — the feature would go dark
+    in production while the suite stayed green. This is the only test that
+    fails if that happens.
+
+    ⚠️ Reads the FIELD DEFAULT, not an instantiated Settings. `Settings(...)`
+    resolves the environment, so an operator who legitimately sets
+    RECIPROCAL_DETECTOR_ENABLED=False in their shell would fail this test for
+    doing exactly what `.env.example` tells them they may do — and
+    `_env_file=None` does NOT help, since it suppresses the .env FILE but not
+    environment variables. Caught by running the suite with the env var set.
+    `model_fields[...].default` is the code's own default, immune to both.
+    """
+    from app.core.config import Settings
+
+    assert Settings.model_fields["RECIPROCAL_DETECTOR_ENABLED"].default is True
+
+
+async def test_switching_the_flag_off_preserves_stored_answers(session, monkeypatch):
+    """The documented off-switch must not double as a data-wipe.
+
+    `.env.example` tells operators they can set this to False; that promise is
+    only safe because the preserve rule (D42) is independent of the flag. Tested
+    here explicitly because "turn the feature off" is the moment someone would
+    discover the hard way that it also cleared the column.
+    """
+    monkeypatch.setattr(settings, "RECIPROCAL_DETECTOR_ENABLED", False)
+    detector = _RecordingDetector(verdict=True)
+    monkeypatch.setattr(orch, "detect_reciprocal_dispute", detector)
+    c = await _pipeline().compute(
+        dict(_EMAIL, prior_is_reciprocal_dispute=True), session
+    )
+    assert detector.calls == []
+    assert c.record["extraction"]["is_reciprocal_dispute"] is True
+
+
 async def test_flag_off_means_the_detector_is_never_called(session, monkeypatch):
     detector = _RecordingDetector(verdict=True)
     email = await _run(session, monkeypatch, flag=False, detector=detector)

@@ -74,12 +74,28 @@ class Settings(BaseSettings):
     # real retrieval shift, not run-to-run variance
     # (docs/exp_tracking/reject_appeal.md D27/D35).
     #
-    # OFF by default so the detector can be wired in inertly and switched on in
-    # its own commit. Gating is TWO-LEVEL: this flag is read at the call site in
+    # ON by default as of the final commit of the rebuild. Verified before the
+    # switch by a real `detect` run over the Phase 1 sample: **within-gate
+    # precision 0.931 / recall 1.000 over 36 calls**, with the main distiller
+    # prompt byte-identical to the pre-series original `8c6eb49` (4,573 chars,
+    # sha256 7d944e3459b5…) — so the detector earns its place WITHOUT the
+    # existing pipeline changing by a single byte.
+    #
+    # ⚠️ Recall is within-gate. End-to-end recall is bounded by intent accuracy:
+    # an r ticket the gate never reaches is a miss no detector quality can
+    # recover, and the `beb5cf6` definition revert lowered that ceiling by ~7pp
+    # on purpose (reject_appeal.md D26/D52). Widening the gate is a change to
+    # the detector's own code, never to the prompt.
+    #
+    # Gating stays TWO-LEVEL: this flag is read at the call site in
     # `orchestrator._compute` (so no call is attempted and the reason is visible
     # there), and the detector additionally self-gates on MODEL_PROVIDER (so it
-    # is a no-op under template/fallback and in the test suite).
-    RECIPROCAL_DETECTOR_ENABLED: bool = False
+    # is a no-op under template/fallback and throughout the test suite).
+    #
+    # To switch OFF: set RECIPROCAL_DETECTOR_ENABLED=False in the environment.
+    # That stops the call only — a stored answer is PRESERVED, never wiped, so
+    # turning the feature off cannot destroy data (D42).
+    RECIPROCAL_DETECTOR_ENABLED: bool = True
 
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the
