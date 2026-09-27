@@ -80,6 +80,31 @@ def test_confidence_below_floor_forces_human_review(isolated_state):
         assert decision.lane == "human_review"
 
 
+def test_sensitive_intent_holds_on_the_RL_path_too(isolated_state):
+    """The hold is STRATEGY-INDEPENDENT — one constant, both routers.
+
+    `rl_router` imports `SENSITIVE_INTENTS` from `router` and checks it BEFORE
+    the bandit is consulted, so populating that list in commit 9c held this path
+    with no change to this file. Worth an explicit test rather than trusting the
+    import: the RL router returns from `EmailRouter.route` EARLY, before the
+    rule-based sensitive-intent check, so it does not inherit that guard — it
+    has its own, and only a test proves the two agree.
+
+    Rewarding auto_reply 20× first means a bandit that ignored the hold would
+    confidently choose the FAQ lane, so a pass here cannot be luck.
+    """
+    random.seed(0)
+    router = RLRouter()
+    for _ in range(20):
+        router.record_feedback("desk_reject_appeal", "auto_reply", "approved")
+    for _ in range(20):
+        decision = router.route("desk_reject_appeal", 0.99, 0.65)
+        assert decision.lane == "human_review"
+        assert decision.override_reason == (
+            "Intent 'desk_reject_appeal' always requires human review"
+        )
+
+
 async def test_rl_stats_endpoint_returns_200_with_strategy_key(client):
     resp = await client.get("/api/v1/analytics/rl-stats")
     assert resp.status_code == 200

@@ -18,12 +18,38 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.pipeline.classifier import ClassificationResult
 
-# Intents that ALWAYS require a human regardless of draft quality. Kept as a
-# seam (the check below still runs) but intentionally EMPTY: the FAQ lane is
-# now decided by draft completeness, not intent, and appeals are answerable
-# (a complete, grounded reply is auto-eligible). Re-populate to force-escalate
-# specific intents. Vocabulary source: app.pipeline.taxonomy.
-SENSITIVE_INTENTS: list[str] = []
+# Intents that ALWAYS require a human regardless of draft quality. This is the
+# one lever that overrides the draft-quality FAQ gate, so it is populated
+# deliberately and sparingly. Vocabulary source: app.pipeline.taxonomy.
+#
+# `desk_reject_appeal` is held until Phase 3 reply templates exist
+# (reject_appeal.md D13). A desk-rejection appeal is answerable in the E011
+# sense — a complete, grounded "no" is a real answer — but the CONTENT of that
+# answer is a policy stance the chairs have not signed off on yet, and the
+# largest bucket behind this intent is reciprocal-review disputes, where the
+# template would restate the rule that rejected the requester rather than
+# engage the dispute.
+#
+# ⚠️ DELIBERATELY OVER-BROAD. The hold is keyed on the INTENT, which catches
+# every desk-reject appeal (formatting, page-limit, checklist…) and not only
+# the reciprocal ones. Holding on `is_reciprocal_dispute` instead is not
+# possible here: `route()` receives (classification, retrieved_chunks, draft)
+# and never sees `extraction`, so a flag-level hold would mean making the
+# router depend on the extractor. Over-holding is the cheap, reversible side
+# of that trade — this is one line to undo.
+SENSITIVE_INTENTS: list[str] = ["desk_reject_appeal"]
+
+# Why each held intent is held, in words a chair reads in the routing-rationale
+# panel. A bare "is force-escalated" tells them the system did something without
+# telling them why, which is the difference between a rule and an unexplained
+# refusal. Falls back to the generic phrasing for any intent added without an
+# entry, so adding to SENSITIVE_INTENTS can never crash the router.
+_SENSITIVE_INTENT_REASONS: dict[str, str] = {
+    "desk_reject_appeal": (
+        "reject appeals require chair review — the reply states a policy "
+        "stance that has not been signed off yet"
+    ),
+}
 
 LANE_FAQ = "faq"
 LANE_HUMAN_REVIEW = "human_review"
@@ -111,9 +137,12 @@ class EmailRouter:
 
         # Seam (empty by default) — force certain intents to a human if ever needed.
         if intent in SENSITIVE_INTENTS:
+            why = _SENSITIVE_INTENT_REASONS.get(
+                intent, f"'{intent}' always requires human review"
+            )
             return RoutingDecision(
                 lane=LANE_HUMAN_REVIEW,
-                reason=f"Routed to human review: '{intent}' is force-escalated.",
+                reason=f"Routed to human review: {why}.",
                 confidence_used=confidence,
                 threshold_applied=threshold,
                 override_reason=f"Intent '{intent}' always requires human review",

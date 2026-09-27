@@ -2,8 +2,9 @@
 
 The FAQ lane is now a property of the generated *draft* (completeness,
 grounding, and the drafter's self-rated answer confidence), not the email's
-classified intent. ``SENSITIVE_INTENTS`` is kept as an (empty) seam — see
-router.py.
+classified intent — EXCEPT for ``SENSITIVE_INTENTS``, which is the one lever
+that overrides that gate and now holds ``desk_reject_appeal`` until Phase 3
+reply templates exist (see router.py and reject_appeal.md D13).
 """
 
 from app.pipeline.classifier import ClassificationResult
@@ -64,10 +65,67 @@ def test_none_answer_confidence_forces_human():
     assert r.lane == "human_review"
 
 
-def test_appeal_intent_can_be_faq_when_draft_complete():
-    # appeals are no longer hard-blocked (SENSITIVE_INTENTS emptied)
+# --- SENSITIVE_INTENTS hold (Step 9c) ---------------------------------------
+#
+# ⚠️ INVERTED. This used to assert that a complete appeal draft REACHED the FAQ
+# lane, back when SENSITIVE_INTENTS was empty. `desk_reject_appeal` is now held
+# until Phase 3 reply templates exist (reject_appeal.md D13): the draft may be
+# complete and grounded in the E011 sense while the policy stance it takes is
+# one the chairs have not signed off on.
+
+
+def test_desk_reject_appeal_is_held_even_with_a_perfect_draft():
+    """The hold must beat the draft-quality gate, not merely tie with it.
+
+    Uses a draft that passes EVERY FAQ condition — no placeholders, no notes,
+    grounded, high classifier confidence, high answer confidence — so the only
+    thing that can produce human_review is the sensitive-intent override. A
+    weaker draft would route to human review anyway and prove nothing.
+    """
+    r = EmailRouter().route(
+        _clf(intent="desk_reject_appeal", confidence=0.99), ["c"], _draft(conf=0.99)
+    )
+    assert r.lane == LANE_HUMAN_REVIEW
+    assert r.override_reason == (
+        "Intent 'desk_reject_appeal' always requires human review"
+    )
+
+
+def test_the_held_reason_explains_itself_to_a_chair():
+    """The rationale panel shows this text; "is force-escalated" explains nothing."""
     r = EmailRouter().route(_clf(intent="desk_reject_appeal"), ["c"], _draft())
-    assert r.lane == "faq"
+    assert "reject appeals require chair review" in r.reason
+
+
+def test_a_sensitive_intent_without_a_reason_entry_still_routes():
+    """Adding to SENSITIVE_INTENTS must never be able to crash the router.
+
+    The reason lookup falls back to generic phrasing, so a future entry added
+    without a matching `_SENSITIVE_INTENT_REASONS` line degrades to a dull
+    message rather than a KeyError in the routing path.
+    """
+    import app.pipeline.router as router_module
+
+    original = router_module.SENSITIVE_INTENTS
+    router_module.SENSITIVE_INTENTS = ["anonymity_violation"]
+    try:
+        r = EmailRouter().route(_clf(intent="anonymity_violation"), ["c"], _draft())
+    finally:
+        router_module.SENSITIVE_INTENTS = original
+    assert r.lane == LANE_HUMAN_REVIEW
+    assert "anonymity_violation" in r.reason
+
+
+def test_non_sensitive_intents_still_reach_the_faq_lane():
+    """The hold is scoped to ONE intent — it must not become a blanket block.
+
+    `review_decision_appeal` is checked explicitly: it is the neighbouring
+    appeal intent and the one most likely to be swept in by a careless edit.
+    """
+    for intent in ("submission_requirements", "review_decision_appeal", "cms_support"):
+        r = EmailRouter().route(_clf(intent=intent), ["c"], _draft())
+        assert r.lane == LANE_FAQ, intent
+        assert r.override_reason is None, intent
 
 
 def _faq_routing():
