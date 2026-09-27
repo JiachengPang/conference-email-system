@@ -348,17 +348,20 @@ def test_no_model_id_is_hardcoded_in_the_source():
 # ---------------------------------------------------------------------------
 # Commit-2 scope guard
 # ---------------------------------------------------------------------------
-def test_the_detector_is_called_by_nothing_yet():
-    """Commit 2 adds the module inert; the orchestrator wiring is commit 4.
+def test_the_orchestrator_is_the_only_caller():
+    """Commit 4 wired the detector — into `_compute`, and NOWHERE else.
 
-    If this fails, a commit has landed out of order — which matters because the
-    caller is what enforces the config flag and the preserve-prior rule (D42).
+    Replaces commit 2's "called by nothing yet" guard, which has served its
+    purpose. The invariant that still matters is narrower and permanent: the
+    orchestrator is the single caller, because it is what enforces the config
+    flag, the intent gate, and the preserve-prior rule (D42). A second call
+    site would bypass all three.
 
     ⚠️ Looks for an IMPORT or a CALL, not any mention of the name. A bare
     substring search false-positives on documentation: commit 3 rewrote
     `extractor.py`'s docstrings to say the field is now set from
     `reciprocal_detector`, which is exactly the comment a reader needs and is
-    not wiring. The first version of this test failed on that prose.
+    not wiring. An earlier version of this test failed on that prose.
     """
     import pathlib
     import re as _re
@@ -372,10 +375,10 @@ def test_the_detector_is_called_by_nothing_yet():
         r"|detect_reciprocal_dispute\s*\(",
         _re.MULTILINE,
     )
-    callers = [
-        path
+    callers = sorted(
+        path.name
         for path in app_dir.rglob("*.py")
         if path.name != "reciprocal_detector.py"
         and wiring.search(path.read_text(encoding="utf-8"))
-    ]
-    assert callers == [], f"unexpected caller(s): {[p.name for p in callers]}"
+    )
+    assert callers == ["orchestrator.py"], f"unexpected caller(s): {callers}"

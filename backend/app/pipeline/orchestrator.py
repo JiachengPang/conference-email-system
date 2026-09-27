@@ -33,6 +33,7 @@ from app.pipeline.classifier import ClassificationResult, IntentClassifier
 from app.pipeline.distiller import EmailDistiller
 from app.pipeline.drafter import DraftResponse, ResponseDrafter
 from app.pipeline.extractor import EmailExtractor
+from app.pipeline.reciprocal_detector import detect_reciprocal_dispute
 from app.pipeline.retriever import (
     RetrievedChunk,
     get_retriever,
@@ -65,6 +66,26 @@ _LIFECYCLE_STATUS = {
 
 # How many leading characters of the body to use as the retrieval query
 # (legacy "prefix" strategy).
+# The ONLY intent that triggers the reciprocal-dispute call. Deliberately the
+# narrow equality rather than `taxonomy.is_reject_appeal`, which would also
+# cover `review_decision_appeal`: measured on the 50-ticket Phase 1 sample,
+# widening reaches the SAME 27 of 28 r tickets (96%) while asking 2 more
+# non-r ones — zero recall for extra spend (reject_appeal.md D40).
+_RECIPROCAL_GATE_INTENT = "desk_reject_appeal"
+
+
+def _prior_dispute_flag(email) -> bool | None:
+    """The stored ``is_reciprocal_dispute``, or None when there isn't a real one.
+
+    Reads defensively: the column is nullable JSON, legacy rows predate the
+    field entirely, and only a genuine ``True``/``False`` counts as a prior
+    answer — anything else (missing, null, a stringy legacy value) is "not
+    answered", which under the tri-state is NOT the same as ``False`` (D7).
+    """
+    extraction = getattr(email, "extraction", None) or {}
+    value = extraction.get("is_reciprocal_dispute")
+    return value if isinstance(value, bool) else None
+
 _RETRIEVAL_QUERY_CHARS = 300
 # Fallback query when QUERY_STRATEGY == "distill" but distillation failed:
 # subject + this much body (E003 arm B — best non-distilled formulation).
@@ -454,6 +475,52 @@ class EmailPipeline:
                 len(extraction.authors),
             )
 
+            # --- reciprocal-review dispute flag ---------------------------
+            # A SEPARATE, conditional model call. It lives here rather than in
+            # `extract()` because `extract` is synchronous, pure and
+            # never-raises, and a network call would end all three.
+            #
+            # PRESERVE RULE (reject_appeal.md D42): only a real YES/NO may
+            # overwrite a stored value. If the detector does not run, or runs
+            # and cannot answer, whatever was already on the row is carried
+            # forward. Without this a follow-up whose intent drifts off the
+            # appeal family ("any update?") would silently wipe a True — the
+            # flag is a property of the WHOLE conversation (D9) while intent
+            # deliberately follows the latest turn, so the two must not share
+            # a lifetime. A prior False is preserved for the same reason a
+            # True is: under the tri-state (D7) "ruled out" and "never asked"
+            # are different claims, and letting False decay to None would
+            # quietly downgrade one into the other.
+            prior_dispute = email_data.get("prior_is_reciprocal_dispute")
+            # `isinstance(..., bool)` also rejects a stringy legacy value; only
+            # a genuine True/False counts as a prior answer.
+            prior_dispute = prior_dispute if isinstance(prior_dispute, bool) else None
+            dispute_flag = prior_dispute
+            if not settings.RECIPROCAL_DETECTOR_ENABLED:
+                detector_status = "flag_off"
+            elif classification.intent != _RECIPROCAL_GATE_INTENT:
+                detector_status = "gate_not_met"
+            else:
+                verdict = await detect_reciprocal_dispute(
+                    subject=subject, body=body, transcript=transcript_text
+                )
+                if verdict is None:
+                    detector_status = "ran_no_answer"
+                else:
+                    detector_status = "ran"
+                    dispute_flag = verdict
+            # Ids and states only — never subject, body or transcript.
+            logger.debug(
+                "Reciprocal detector: %s (intent=%s, prior=%s, final=%s)",
+                detector_status,
+                classification.intent,
+                prior_dispute,
+                dispute_flag,
+            )
+            extraction = extraction.model_copy(
+                update={"is_reciprocal_dispute": dispute_flag}
+            )
+
             # Query formulation (E003): distilled queries joined into one string,
             # with NO intent token (it hurts dense retrieval — E001). Distill-mode
             # fallback is subject+body[:600]; the legacy prefix strategy keeps
@@ -757,6 +824,13 @@ class EmailPipeline:
 
         ``forced_policy_key`` forwards to ``_compute`` (extra grounding slot), as
         does ``excluded_policy_ids`` (chair removals; filter pending).
+
+        ⚠️ The CALLER owns ``prior_is_reciprocal_dispute`` on this seam (D42).
+        This method has no Email row to read it from — that is the whole point
+        of the seam — so a caller that persists over an existing row must put
+        the prior value into ``email_data`` itself, exactly as
+        ``reprocess_email`` does. Omitting it reads as "no prior", which is
+        correct for a first computation and WRONG for a re-computation.
         """
         return await self._compute(
             email_data,
@@ -768,7 +842,11 @@ class EmailPipeline:
     async def process_email(
         self, email_data: dict, db: AsyncSession
     ) -> PipelineResult:
-        """Run an email through the full pipeline and persist it as a NEW row."""
+        """Run an email through the full pipeline and persist it as a NEW row.
+
+        Does NOT thread ``prior_is_reciprocal_dispute`` (D42) — by definition a
+        new row has no prior answer, so the absent key correctly reads as None.
+        """
         c = await self._compute(email_data, db)
         email = await self.email_repo.create_email(db, c.record)
         return await self._finalize(db, str(email.id), c)
@@ -798,6 +876,9 @@ class EmailPipeline:
             "sender_name": email.sender_name,
             "subject": email.subject,
             "body": email.body,
+            # D42: carried so a re-run cannot wipe a stored answer when the
+            # detector does not run or cannot answer.
+            "prior_is_reciprocal_dispute": _prior_dispute_flag(email),
         }
         c = await self._compute(
             email_data,
@@ -838,6 +919,11 @@ class EmailPipeline:
             "body": transcript.latest_requester_message or email.body,
             "thread_transcript": transcript.text,
             "latest_requester_message": transcript.latest_requester_message,
+            # D42, and this is the path the rule EXISTS for: a follow-up
+            # re-classifies on the latest turn, so an appeal thread whose newest
+            # message is "any update?" leaves the gate — without this the stored
+            # True would be overwritten with None.
+            "prior_is_reciprocal_dispute": _prior_dispute_flag(email),
         }
         c = await self._compute(email_data, db)
         _append_draft_history(c.record, email.draft, triggering_comment_ids)
