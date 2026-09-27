@@ -12,6 +12,8 @@ tests that exercise a provider branch patch the transport explicitly.
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 
 from app.core.config import settings
@@ -87,6 +89,34 @@ def test_prompt_drops_the_distillers_cross_references():
     p = rd._SYSTEM_PROMPT
     assert "identification line" not in p
     assert "Also output" not in p
+
+
+# The prompt as of 8bee300 (the module's only commit), which is the exact text
+# the Phase 1 `detect` run measured (D54: within-gate P=0.931 / R=1.000).
+_EVALUATED_PROMPT_CHARS = 1066
+_EVALUATED_PROMPT_SHA256 = (
+    "0a493b00ef6c694044afb4d62ef7f6ddeed275dc6cf93f3b3b409e25e6843b9f"
+)
+
+
+def test_prompt_is_byte_identical_to_the_phase1_evaluated_version():
+    """⚠️ MUST STAY IDENTICAL to the prompt Phase 1 evaluated (8bee300).
+
+    Unlike the distiller's pin (length + markers only, D50), this one pins the
+    exact hash on purpose: the detector's numbers were earned on this exact
+    wording, and Phase 2 must add a reason classifier WITHOUT touching it (D57).
+    The clause tests above would let a paraphrase or an added sentence through.
+
+    If this fails, do not re-baseline it. Either revert the edit or treat it as
+    a new detector: get the wording approved and re-run `detect` before
+    updating both constants.
+
+    Hashed as UTF-8 bytes: the prompt contains an em dash (U+2014), so a hash
+    over any other encoding would not match.
+    """
+    p = rd._SYSTEM_PROMPT
+    assert len(p) == _EVALUATED_PROMPT_CHARS
+    assert hashlib.sha256(p.encode("utf-8")).hexdigest() == _EVALUATED_PROMPT_SHA256
 
 
 # ---------------------------------------------------------------------------

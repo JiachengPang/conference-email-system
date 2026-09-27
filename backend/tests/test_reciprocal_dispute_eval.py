@@ -444,6 +444,26 @@ def _detect_fixture(tmp_path, intents: dict):
     return labels, arms
 
 
+def test_harness_gate_equals_the_orchestrators_gate():
+    """The harness's `_GATE_INTENT` literal must match production's gate.
+
+    Kept as a literal rather than imported, for two reasons:
+      * Importing `app.pipeline.orchestrator` from the script loads ~300 more
+        modules (numpy, sqlalchemy, asyncpg, rank_bm25), and creating the DB
+        engine is a side effect of that import. The script keeps app imports
+        lazy so `prepare-baseline` runs on a host without them (D20).
+      * The script's own comment: an eval that silently follows the code it
+        measures cannot detect a change.
+
+    The orchestrator is imported HERE instead, inside the test, where the
+    container has every dependency. If the gate ever moves, this fails, and the
+    change has to be made deliberately on both sides.
+    """
+    from app.pipeline.orchestrator import _RECIPROCAL_GATE_INTENT
+
+    assert rde._GATE_INTENT == _RECIPROCAL_GATE_INTENT
+
+
 def test_detect_only_asks_tickets_on_the_gate(tmp_path, monkeypatch, capsys):
     """The gated population mirrors `orchestrator._compute` exactly."""
     ids = _half1_ids(6)
