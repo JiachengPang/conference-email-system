@@ -204,10 +204,12 @@ async def test_extraction_round_trips_every_field_from_the_llm_path(
                 "Jane Roe | jane@example.edu | Example University",
                 "John Doe | NONE | NONE",
             ],
-            # Carries a real value so the snapshot below proves the flag
-            # survives distiller -> extractor -> DB, rather than merely
-            # confirming a default nobody wrote.
-            is_reciprocal_dispute=True,
+            # `is_reciprocal_dispute` is NOT set here any more: the field was
+            # removed from DistillResult when the question moved to its own
+            # conditional call. The snapshot below therefore pins it as None —
+            # which is the real contract now, since `extract()` never sets it
+            # on either path and `_compute` attaches the detector's answer
+            # after extraction.
         )
     )
     result = await pipeline.process_email(_EMAIL, session)
@@ -236,7 +238,11 @@ async def test_extraction_round_trips_every_field_from_the_llm_path(
         # Copied verbatim from the DistillResult above and persisted. The only
         # field here the regex path can never produce, so a True in the stored
         # JSON is proof the LLM path ran end to end.
-        "is_reciprocal_dispute": True,
+        # None, not True: the extractor no longer sets this on any path (the
+        # detector does, after extraction — commit 4). Kept as an EXPLICIT key
+        # so this stays an exact-shape check and the field's removal from the
+        # serialized record would fail here rather than pass silently.
+        "is_reciprocal_dispute": None,
     }
 
 

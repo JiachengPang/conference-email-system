@@ -117,15 +117,6 @@ _OPENREVIEW_ID_RE = re.compile(
 )
 _AUTHOR_RE = re.compile(r"^\s*AUTHOR:\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
 
-# Reciprocal-review dispute flag. Strictly tri-state and NOT repeatable, so it
-# uses `search` like INTENT/CONFIDENCE — first line wins if the model emits
-# several. LIVE: `_SYSTEM_PROMPT` now asks for this line, so real completions
-# carry it. A None therefore means the model was asked and did not answer
-# usably — no longer 'nobody asked', which is what it meant while inert.
-_RECIPROCAL_DISPUTE_RE = re.compile(
-    r"^\s*RECIPROCAL_DISPUTE:\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE
-)
-
 
 def _collect_values(pattern: re.Pattern[str], text: str) -> list[str]:
     """Every usable value across ALL lines matching a repeatable ``pattern``.
@@ -160,14 +151,6 @@ class DistillResult(BaseModel):
     confidence: float | None = Field(
         default=None, ge=0.0, le=1.0,
         description="Model-reported confidence in the intent (uncalibrated).",
-    )
-    is_reciprocal_dispute: bool | None = Field(
-        default=None,
-        description="True when the email disputes or concedes a desk rejection "
-        "grounded in reciprocal-review duties, False when the model says it does "
-        "not. None means the model did not answer — an absent line and an "
-        "unusable one are deliberately indistinguishable, because neither is "
-        "evidence either way.",
     )
     # --- identification (raw; normalized by the extractor module) ----------
     # All three are LISTS: an email may legitimately name several submissions
@@ -218,24 +201,6 @@ def _parse(text: str) -> DistillResult | None:
             confidence = min(max(float(m.group(1)), 0.0), 1.0)
         except ValueError:
             pass
-    # Optional, tri-state, and never load-bearing: only the exact words YES and
-    # NO (any case, surrounding space stripped) are answers. A bare NONE, a
-    # trailing period, prose, or an empty value all fall through to None —
-    # "no answer" rather than a guessed one, since a wrong False would look
-    # exactly like the model having ruled it out.
-    #
-    # `.strip()` is REDUNDANT against the pattern above, which already trims via
-    # `\s*` on both sides — a mutation removing it survives the suite. It stays
-    # as belt-and-braces: the sibling patterns are the kind of thing that gets
-    # loosened later, and this parser reads model output we do not control.
-    is_reciprocal_dispute = None
-    m = _RECIPROCAL_DISPUTE_RE.search(text)
-    if m:
-        value = m.group(1).strip().upper()
-        if value == "YES":
-            is_reciprocal_dispute = True
-        elif value == "NO":
-            is_reciprocal_dispute = False
     # All three identification lines are repeatable and share one collector. A
     # bare "NONE" is the model saying "none of these", not a value named NONE —
     # dropped. Anything else is kept verbatim for the extractor.
@@ -246,7 +211,6 @@ def _parse(text: str) -> DistillResult | None:
         submission_numbers_raw=_collect_values(_SUBMISSION_NUMBER_RE, text),
         openreview_ids_raw=_collect_values(_OPENREVIEW_ID_RE, text),
         authors_raw=_collect_values(_AUTHOR_RE, text),
-        is_reciprocal_dispute=is_reciprocal_dispute,
     )
 
 

@@ -353,14 +353,29 @@ def test_the_detector_is_called_by_nothing_yet():
 
     If this fails, a commit has landed out of order — which matters because the
     caller is what enforces the config flag and the preserve-prior rule (D42).
+
+    ⚠️ Looks for an IMPORT or a CALL, not any mention of the name. A bare
+    substring search false-positives on documentation: commit 3 rewrote
+    `extractor.py`'s docstrings to say the field is now set from
+    `reciprocal_detector`, which is exactly the comment a reader needs and is
+    not wiring. The first version of this test failed on that prose.
     """
     import pathlib
+    import re as _re
 
     app_dir = pathlib.Path(rd.__file__).parent.parent
+    # `import ... reciprocal_detector`, `from ... import reciprocal_detector`,
+    # or a call to its entry point — the three ways it could actually be wired.
+    wiring = _re.compile(
+        r"^\s*(?:from\s+\S*reciprocal_detector|import\s+\S*reciprocal_detector"
+        r"|from\s+\S+\s+import\s+[^#\n]*\breciprocal_detector\b)"
+        r"|detect_reciprocal_dispute\s*\(",
+        _re.MULTILINE,
+    )
     callers = [
         path
         for path in app_dir.rglob("*.py")
         if path.name != "reciprocal_detector.py"
-        and "reciprocal_detector" in path.read_text(encoding="utf-8")
+        and wiring.search(path.read_text(encoding="utf-8"))
     ]
     assert callers == [], f"unexpected caller(s): {[p.name for p in callers]}"

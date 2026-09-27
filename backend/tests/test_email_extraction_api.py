@@ -745,7 +745,7 @@ _DISPUTE_BODY = (
 )
 
 
-def _distilled(is_reciprocal_dispute):
+def _distilled():
     from app.pipeline.distiller import DistillResult
 
     return DistillResult(
@@ -753,26 +753,37 @@ def _distilled(is_reciprocal_dispute):
         intent="desk_reject_appeal",
         confidence=0.9,
         submission_numbers_raw=["12345"],
-        is_reciprocal_dispute=is_reciprocal_dispute,
     )
 
 
-async def test_distiller_path_carries_the_flag_verbatim():
-    """All three states pass through unchanged -- no normalization.
+async def test_extractor_never_sets_the_flag_on_the_distiller_path():
+    """REPLACES a pass-through test, because the pass-through is gone.
 
-    False is the one that matters: a pass-through that treated it as falsy and
-    fell back to the default would be indistinguishable from correct behaviour
-    on True and None alone, while silently destroying the model's only way to
-    say "I looked and ruled it out".
+    It used to assert all three tri-state values survived distiller ->
+    extractor verbatim. The question moved to its own conditional call
+    (`reciprocal_detector`), so `DistillResult` no longer carries the field and
+    `extract()` must leave it None even on a fully-populated LLM result —
+    `orchestrator._compute` attaches the answer afterwards.
+
+    Asserting it HERE, on the LLM path, is the discriminating case: the regex
+    path never had access to `distilled` at all, so only this branch could have
+    re-introduced the coupling.
     """
     from app.pipeline.extractor import EmailExtractor
 
-    for value in (True, False, None):
-        result = EmailExtractor().extract(
-            _DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, _distilled(value)
-        )
-        assert result.method == "llm_distiller"
-        assert result.is_reciprocal_dispute is value, value
+    result = EmailExtractor().extract(
+        _DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, _distilled()
+    )
+    assert result.method == "llm_distiller"
+    assert result.is_reciprocal_dispute is None
+
+
+async def test_extractor_never_sets_the_flag_on_the_regex_path():
+    """The other branch, for completeness — None on BOTH paths, always."""
+    from app.pipeline.extractor import EmailExtractor
+
+    result = EmailExtractor().extract(_DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, None)
+    assert result.is_reciprocal_dispute is None
 
 
 async def test_regex_path_never_answers_the_flag():
@@ -806,11 +817,14 @@ async def test_regex_helper_cannot_see_a_distill_result_at_all():
     )
 
 
-async def test_failed_extraction_reports_no_flag_even_from_a_true_result():
-    """The never-raises path must not leak a flag it did not finish computing.
+async def test_failed_extraction_reports_no_flag():
+    """The never-raises path yields `method="none"` and a None flag.
 
-    A crash mid-extraction means nothing is known, so `method="none"` carries
-    None -- not the True that was on its way in.
+    Its original framing — "must not leak the True that was on its way in" —
+    no longer applies: `DistillResult` cannot carry a True any more, since the
+    question moved to its own call. The assertion is still worth keeping as the
+    empty-result contract for the crash path, which is why this was narrowed
+    rather than deleted.
     """
     from unittest.mock import patch
 
@@ -820,7 +834,7 @@ async def test_failed_extraction_reports_no_flag_even_from_a_true_result():
         "app.pipeline.extractor._dedupe_identifiers", side_effect=RuntimeError("boom")
     ):
         result = EmailExtractor().extract(
-            _DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, _distilled(True)
+            _DISPUTE_SUBJECT, _DISPUTE_BODY, "", None, _distilled()
         )
 
     assert result.method == "none"

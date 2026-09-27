@@ -313,95 +313,55 @@ async def test_pipeline_owns_a_real_extractor_by_default():
 
 
 # ---------------------------------------------------------------------------
-# is_reciprocal_dispute survives the follow-up recompute
+# is_reciprocal_dispute is INERT after commit 3 (detector rebuild)
 # ---------------------------------------------------------------------------
-class _SequencedDistiller:
-    """Returns a different DistillResult per call, so a recompute can differ.
+# The two follow-up tests that stood here asserted the OLD behaviour: the
+# distiller parsed the flag, `extract()` copied it through, and a recompute
+# overwrote it. All three are gone — the question moved to its own conditional
+# call (`reciprocal_detector`), so `DistillResult` no longer carries the field
+# and `extract()` no longer sets it.
+#
+# Commit 4 wires the detector into `_compute` and brings the PRESERVE rule
+# (D42: a real YES/NO overwrites, anything else keeps the stored value) with
+# its own tests. Until then the correct end-to-end assertion is that the field
+# stays None — which is what this pins, so a premature wiring is caught.
+async def test_extraction_leaves_the_dispute_flag_none_end_to_end(session):
+    """Neither extract() path may set the flag while the detector is unwired.
 
-    `_StubDistiller` returns one fixed result, which cannot show whether a
-    second run RECOMPUTED the field or merely reproduced the first answer.
+    Covers the pipeline as it actually runs, not just the extractor in
+    isolation: if a pass-through were reintroduced anywhere between the
+    distiller and the persisted record, this fails.
     """
-
-    def __init__(self, results):
-        self.results = list(results)
-        self.calls = 0
-
-    async def distill(self, subject, body, *, transcript=None):
-        result = self.results[min(self.calls, len(self.results) - 1)]
-        self.calls += 1
-        return result
-
-
-def _distilled(is_reciprocal_dispute):
-    return DistillResult(
-        queries=["desk rejection appeal"],
-        intent="desk_reject_appeal",
-        confidence=0.9,
-        submission_numbers_raw=["22336"],
-        is_reciprocal_dispute=is_reciprocal_dispute,
+    # The REAL extractor on purpose (not _SpyExtractor) — the point is that
+    # extract() itself no longer sets the field.
+    pipeline = EmailPipeline()
+    pipeline.retriever = _StubRetriever()
+    pipeline.distiller = _StubDistiller(
+        DistillResult(
+            queries=["desk rejection appeal"],
+            intent="desk_reject_appeal",
+            confidence=0.9,
+            submission_numbers_raw=["22336"],
+        )
     )
-
-
-async def test_followup_recompute_overwrites_the_dispute_flag(session, monkeypatch):
-    """A follow-up turn re-answers the flag; the NEW answer is what persists.
-
-    True -> False is the direction that matters. The field is stored inside the
-    `extraction` JSON blob, so a recompute that merged instead of replacing --
-    or that treated the incoming False as "nothing to write" -- would leave the
-    stale True in the column while every other field updated around it.
-    """
-    monkeypatch.setattr(settings, "QUERY_STRATEGY", "distill")
-
-    pipeline = _pipeline()
-    pipeline.distiller = _SequencedDistiller([_distilled(True), _distilled(False)])
-
-    created = await pipeline.process_email(_EMAIL, session)
-    email = await EmailRepository().get_email_by_id(session, created.email_id)
-    assert email.extraction["is_reciprocal_dispute"] is True, "first run must store True"
-
-    messages = [
+    result = await pipeline.process_email(
         {
-            "public": True,
-            "author_id": 1,
-            "author_role": "end-user",
-            "plain_body": "Actually the reviews were submitted on time; my concern "
-            "is the formatting decision instead.",
-            "created_at": datetime.now(timezone.utc),
+            "from": "a@b.test",
+            "subject": "Desk rejection appeal",
+            "body": "My reciprocal reviewers never submitted their reviews.",
         },
-    ]
-    await pipeline.reprocess_email_with_thread(session, email, messages)
-
-    refreshed = await EmailRepository().get_email_by_id(session, created.email_id)
-    assert refreshed.extraction["is_reciprocal_dispute"] is False
-    assert pipeline.distiller.calls == 2
+        session,
+    )
+    email = await EmailRepository().get_email_by_id(session, str(result.email_id))
+    assert email.extraction["is_reciprocal_dispute"] is None
 
 
-async def test_followup_recompute_can_clear_the_flag_to_none(session, monkeypatch):
-    """True -> None must also land: "no longer answered" is not "keep the old yes".
+def test_distill_result_no_longer_carries_the_flag():
+    """The field was REMOVED from DistillResult, not merely left unset.
 
-    Separated from the False case on purpose. A `if new is not None` guard
-    anywhere in the write path would pass the True->False test and fail only
-    this one, leaving a stale True to outlive the answer that produced it.
+    A lingering field would let a future edit quietly re-add the pass-through
+    and get the old coupling back without anyone noticing.
     """
-    monkeypatch.setattr(settings, "QUERY_STRATEGY", "distill")
+    assert "is_reciprocal_dispute" not in DistillResult.model_fields
 
-    pipeline = _pipeline()
-    pipeline.distiller = _SequencedDistiller([_distilled(True), _distilled(None)])
 
-    created = await pipeline.process_email(_EMAIL, session)
-    email = await EmailRepository().get_email_by_id(session, created.email_id)
-    assert email.extraction["is_reciprocal_dispute"] is True
-
-    messages = [
-        {
-            "public": True,
-            "author_id": 1,
-            "author_role": "end-user",
-            "plain_body": "Any update on submission 22336?",
-            "created_at": datetime.now(timezone.utc),
-        },
-    ]
-    await pipeline.reprocess_email_with_thread(session, email, messages)
-
-    refreshed = await EmailRepository().get_email_by_id(session, created.email_id)
-    assert refreshed.extraction["is_reciprocal_dispute"] is None
