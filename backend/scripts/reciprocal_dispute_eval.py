@@ -100,6 +100,12 @@ _TIMEOUT_SECONDS = 180.0
 # Own seed again, for the same reason SAMPLE_SEED is separate from SPLIT_SEED:
 # re-drawing the A/B order must never move the ticket sample.
 JUDGE_SEED = 20260927
+
+# The detector's gate, mirrored from `orchestrator._RECIPROCAL_GATE_INTENT`.
+# Kept as a literal rather than imported so the eval reflects what production
+# ACTUALLY gated on at run time even if the orchestrator's constant later moves
+# — an eval that silently follows the code it measures cannot detect a change.
+_GATE_INTENT = "desk_reject_appeal"
 _DEFAULT_JUDGE_MAX_CALLS = 50
 
 # Pairwise preference, NOT a scored rubric. E004 could score against ground
@@ -623,7 +629,14 @@ async def run_arm(args: argparse.Namespace) -> int:
                 break
 
             intent = result.intent if result else None
-            flag = result.is_reciprocal_dispute if result else None
+            # `DistillResult.is_reciprocal_dispute` was REMOVED in the detector
+            # rebuild (commit 3): the distiller no longer asks or parses the
+            # question, so reading it here raised AttributeError on every
+            # ticket. The key is kept, always None, so old and new arm files
+            # share one row schema and `compare` can still diff a pre-rebuild
+            # run against a post-rebuild one. Flag accuracy now comes from the
+            # `detect` subcommand, which calls the detector directly.
+            flag = None
             method = "llm_distiller" if result and result.intent else "none"
 
             chunk_ids: list[str] = []
@@ -756,6 +769,12 @@ async def compare(args: argparse.Namespace) -> int:
     # Scoring every current row would then report flag accuracy over a different
     # population than the intent/retrieval sections, and the blocks below would
     # silently describe different tickets.
+    # Post-rebuild arm files carry no flags at all (the distiller stopped
+    # answering). Say so once, loudly, instead of printing an all-zero
+    # confusion matrix that reads like a catastrophic regression.
+    curr_has_flags = any(
+        curr_rows[t].get("is_reciprocal_dispute") is not None for t in shared
+    )
     for tid in shared:
         row = curr_rows[tid]
         gold = truth.get(tid)
@@ -763,7 +782,7 @@ async def compare(args: argparse.Namespace) -> int:
             continue
         if not gold:
             non_r_ids.append(tid)
-        flag = row["is_reciprocal_dispute"]
+        flag = row.get("is_reciprocal_dispute")
         if flag is None:
             # Tri-state: "asked, did not answer" is NOT a negative (D7).
             if gold:
@@ -787,6 +806,14 @@ async def compare(args: argparse.Namespace) -> int:
     print("=" * 66)
     print(f"FLAG ACCURACY (current arm, half {args.half})")
     print("=" * 66)
+    if not curr_has_flags:
+        print(
+            "  SKIPPED — this arm carries no flags. The distiller no longer\n"
+            "  asks the reciprocal question (detector rebuild, commit 3/5), so\n"
+            "  every row is None BY DESIGN and a confusion matrix here would be\n"
+            "  all-zero for a reason that is not a regression.\n"
+            "  Flag accuracy now comes from:  reciprocal_dispute_eval.py detect\n"
+        )
     print(
         f"  COMPARED: {len(shared)} tickets "
         f"(baseline arm {len(base_rows)}, current arm {len(curr_rows)}"
@@ -800,15 +827,21 @@ async def compare(args: argparse.Namespace) -> int:
         f"  sample: baseline={base['manifest'].get('sample')} "
         f"current={curr['manifest'].get('sample')}  (None = whole half)"
     )
-    print(f"  precision {precision:.3f}   recall {recall:.3f}   F1 {f1:.3f}")
-    print(f"  confusion: TP={tp} FP={fp} FN={fn} TN={tn}")
-    print(f"  None bucket (reported separately, NOT negatives):")
-    print(f"    None on a true r ticket : {none_pos}")
-    print(f"    None on a non-r ticket  : {none_neg}")
-    print(f"  missed r ticket ids ({len(missed)}): {sorted(missed)}")
-    # Added for the half-1 post-mortem: a false positive is a non-r ticket the
-    # model called reciprocal, and the ONLY way to review those is by id.
-    print(f"  false-positive ticket ids ({len(false_positives)}): {sorted(false_positives)}")
+    if curr_has_flags:
+        print(f"  precision {precision:.3f}   recall {recall:.3f}   F1 {f1:.3f}")
+        print(f"  confusion: TP={tp} FP={fp} FN={fn} TN={tn}")
+        print(f"  None bucket (reported separately, NOT negatives):")
+        print(f"    None on a true r ticket : {none_pos}")
+        print(f"    None on a non-r ticket  : {none_neg}")
+        print(f"  missed r ticket ids ({len(missed)}): {sorted(missed)}")
+        # Added for the half-1 post-mortem: a false positive is a non-r ticket
+        # the model called reciprocal, and the ONLY way to review those is by id.
+        print(
+            f"  false-positive ticket ids ({len(false_positives)}): "
+            f"{sorted(false_positives)}"
+        )
+    # Always printed: `detect` needs this to report end-to-end recall over the
+    # sample's r tickets, and it is the only place the r/non-r split is listed.
     print(f"  non-r ticket ids ({len(non_r_ids)}): {sorted(non_r_ids)}")
 
     # --- intent stability on non-r tickets -------------------------------
@@ -896,6 +929,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=f"Host-only: write the {BASELINE_REV} prompt to a file for transport.",
     )
     prep_p.add_argument("--out", required=True, help="Output dir (MUST be gitignored).")
+
+    d = sub.add_parser(
+        "detect", help="Score the standalone detector on a sample's gated tickets."
+    )
+    d.add_argument("--labels", required=True)
+    d.add_argument("--arms", required=True, help="Dir holding {arm}_half{N}.json.")
+    d.add_argument("--arm", default="current", choices=("baseline", "current"),
+                   help="Which arm's intents decide the gate (default: current).")
+    d.add_argument("--out", required=True, help="Output dir (MUST be gitignored).")
+    d.add_argument("--half", type=int, choices=(1, 2), required=True)
+    d.add_argument("--sample", type=int, default=None)
+    d.add_argument("--model", default=None,
+                   help="Detector model id; defaults to LOCAL_MODEL_NAME.")
+    d.add_argument("--max-calls", type=int, default=_DEFAULT_JUDGE_MAX_CALLS)
+    d.add_argument("--dry-run", action="store_true", help="Mocked detector, 0 calls.")
 
     j = sub.add_parser("judge", help="Blind pairwise retrieval judge (old vs new prompt).")
     j.add_argument("--labels", required=True)
@@ -1154,6 +1202,164 @@ async def judge(args: argparse.Namespace) -> int:
     return 0
 
 
+async def detect(args: argparse.Namespace) -> int:
+    """Score the standalone detector on the gated tickets of a sample.
+
+    Test (b) of the ≈86-call plan. Replaces the flag half of `run`, which the
+    distiller stopped answering when the question moved to its own call.
+
+    GATED POPULATION: only tickets whose intent — taken from the arm file this
+    is pointed at, i.e. the SAME run whose retrieval is being compared — is
+    `desk_reject_appeal`. That mirrors `orchestrator._compute` exactly, so the
+    measured population is the one production would ask about.
+
+    TWO numbers are reported, and conflating them is the D26 error:
+      * within-gate  — P/R/F1 over the tickets actually asked. The detector's
+        own quality.
+      * end-to-end   — recall over EVERY r ticket in the sample, including the
+        ones the gate never reached. Capped by intent accuracy, not by the
+        detector, and the number that matters for the product.
+    """
+    from app.core.config import settings
+    from app.pipeline.reciprocal_detector import detect_reciprocal_dispute
+
+    labels_path = Path(args.labels).expanduser().resolve()
+    arms_dir = Path(args.arms).expanduser().resolve()
+    out_dir = Path(args.out).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    assert_gitignored(out_dir)
+
+    if args.model:
+        settings.LOCAL_MODEL_NAME = args.model
+    if settings.MODEL_PROVIDER != "local" and not args.dry_run:
+        raise SystemExit(
+            f"REFUSING TO RUN: MODEL_PROVIDER is '{settings.MODEL_PROVIDER}'; "
+            "the detector calls the OpenAI-compatible 'local' seam."
+        )
+
+    arm = _load_arm(arms_dir, args.arm, args.half)
+    arm_rows = {r["ticket_id"]: r for r in arm["rows"]}
+
+    records = load_labels(labels_path)
+    by_id = {str(r["ticket_id"]): r for r in records}
+    half1, half2 = stratified_halves(records)
+    half_ids = sorted(half1 if args.half == 1 else half2)
+    selected = (
+        stratified_sample(half_ids, by_id, args.sample)
+        if args.sample is not None
+        else half_ids
+    )
+    scored = [t for t in selected if t in arm_rows]
+    gold_r = {t for t in scored if is_positive(by_id[t])}
+    gated = [t for t in scored if arm_rows[t]["intent"] == _GATE_INTENT]
+
+    if len(gated) > args.max_calls:
+        raise SystemExit(
+            f"REFUSING TO RUN: {len(gated)} tickets are on the gate but "
+            f"--max-calls={args.max_calls}. Raise the cap deliberately; this "
+            "script will not silently score a subset."
+        )
+
+    budget = CallBudget(args.max_calls)
+    verdicts: dict[str, bool | None] = {}
+    aborted = None
+    for tid in gated:
+        record = by_id[tid]
+        try:
+            budget.spend()
+        except BudgetExceeded as exc:
+            aborted = str(exc)
+            break
+        if args.dry_run:
+            # Deterministic per ticket, and DELIBERATELY not all-True: a mock
+            # that always agrees would make the metric blocks below look
+            # perfect and prove nothing about them.
+            verdict = {0: True, 1: False, 2: None}[int(tid) % 3]
+        else:
+            # The exact input production sends at ingest: subject + the initial
+            # message, transcript=None (D17). No intent (D40).
+            verdict = await detect_reciprocal_dispute(
+                subject=record.get("subject") or "",
+                body=record.get("initial_message_body") or "",
+                transcript=None,
+            )
+        verdicts[tid] = verdict
+        print(f"  detect {tid}: {verdict}", flush=True)
+
+    tp = sum(1 for t in verdicts if verdicts[t] is True and t in gold_r)
+    fp = sum(1 for t in verdicts if verdicts[t] is True and t not in gold_r)
+    fn = sum(1 for t in verdicts if verdicts[t] is False and t in gold_r)
+    tn = sum(1 for t in verdicts if verdicts[t] is False and t not in gold_r)
+    none_pos = sum(1 for t in verdicts if verdicts[t] is None and t in gold_r)
+    none_neg = sum(1 for t in verdicts if verdicts[t] is None and t not in gold_r)
+    precision, recall, f1 = _prf(tp, fp, fn)
+
+    # End-to-end: every r ticket in the sample, whether or not it reached the
+    # gate. An r ticket the gate never saw is a miss the product feels.
+    never_gated_r = sorted(gold_r - set(gated))
+    e2e_recall = tp / len(gold_r) if gold_r else 0.0
+
+    print("=" * 66)
+    print(f"DETECTOR ACCURACY (arm={args.arm}, half {args.half}, sample {args.sample})")
+    print("=" * 66)
+    print(f"  model: {settings.LOCAL_MODEL_NAME}   dry_run={bool(args.dry_run)}")
+    print(f"  sample: {len(scored)} tickets  ({len(gold_r)} r / {len(scored) - len(gold_r)} non-r)")
+    print(f"  on the gate (intent == {_GATE_INTENT}): {len(gated)}")
+    print(f"  CALLS MADE: {budget.used} / cap {args.max_calls}")
+    if aborted:
+        print(f"  ABORTED: {aborted}")
+    print()
+    print(f"  WITHIN-GATE (asked tickets only, n={len(verdicts)})")
+    print(f"    precision {precision:.3f}   recall {recall:.3f}   F1 {f1:.3f}")
+    print(f"    confusion: TP={tp} FP={fp} FN={fn} TN={tn}")
+    print(f"    None (asked, no usable answer): {none_pos} on r / {none_neg} on non-r")
+    print()
+    print(f"  END-TO-END (all {len(gold_r)} r tickets in the sample)")
+    print(f"    recall {e2e_recall:.3f}  ({tp} of {len(gold_r)})")
+    print(f"    never reached the gate: {len(never_gated_r)}  <- an intent limit, not a detector one")
+    print()
+    print("  ticket ids (ids only):")
+    print(f"    false positives ({fp}): {sorted(t for t in verdicts if verdicts[t] is True and t not in gold_r)}")
+    print(f"    false negatives ({fn}): {sorted(t for t in verdicts if verdicts[t] is False and t in gold_r)}")
+    print(f"    None on an r ticket ({none_pos}): {sorted(t for t in verdicts if verdicts[t] is None and t in gold_r)}")
+    print(f"    r never gated ({len(never_gated_r)}): {never_gated_r}")
+
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "arm": args.arm,
+        "half": args.half,
+        "sample": args.sample,
+        "sample_seed": SAMPLE_SEED if args.sample is not None else None,
+        "gate_intent": _GATE_INTENT,
+        "model": settings.LOCAL_MODEL_NAME,
+        "dry_run": bool(args.dry_run),
+        "calls_made": budget.used,
+        "max_calls": args.max_calls,
+        "aborted": aborted,
+        "tickets_in_sample": len(scored),
+        "r_in_sample": len(gold_r),
+        "on_the_gate": len(gated),
+        "within_gate": {
+            "precision": round(precision, 4), "recall": round(recall, 4),
+            "f1": round(f1, 4), "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+            "none_on_r": none_pos, "none_on_non_r": none_neg,
+        },
+        "end_to_end": {
+            "recall": round(e2e_recall, 4),
+            "r_total": len(gold_r),
+            "r_never_gated": len(never_gated_r),
+        },
+        # ids + verdicts only. No subject, body, or any email text.
+        "per_ticket": {t: verdicts[t] for t in sorted(verdicts)},
+        "r_never_gated_ids": never_gated_r,
+    }
+    path = out_dir / f"detect_{args.arm}_half{args.half}.json"
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2)
+    print(f"\n  wrote {path}")
+    return 0
+
+
 def prepare_baseline(args: argparse.Namespace) -> int:
     """Derive the baseline prompt on the host so a git-less box can use it."""
 
@@ -1186,6 +1392,8 @@ def main(argv: list[str] | None = None) -> int:
         return prepare_baseline(args)
     if args.command == "judge":
         return asyncio.run(judge(args))
+    if args.command == "detect":
+        return asyncio.run(detect(args))
     return asyncio.run(compare(args))
 
 

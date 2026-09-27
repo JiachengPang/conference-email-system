@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import pathlib
 import subprocess
 import sys
 from collections import Counter
@@ -402,6 +403,231 @@ def test_rendered_set_withholds_policy_ids():
 
 
 # ---------------------------------------------------------------------------
+# `run` after the detector rebuild + the `detect` subcommand
+# ---------------------------------------------------------------------------
+def test_run_does_not_read_the_removed_distiller_field():
+    """Regression: `DistillResult.is_reciprocal_dispute` no longer exists.
+
+    Commit 3 removed it, so `result.is_reciprocal_dispute` in `run_arm` raised
+    AttributeError on EVERY ticket — the harness was silently broken for any
+    real run. Asserted on the source as well as behaviourally, because a
+    dry-run only exercises the line if the mocked completion parses.
+    """
+    from app.pipeline.distiller import DistillResult
+
+    assert "is_reciprocal_dispute" not in DistillResult.model_fields
+    src = pathlib.Path(rde.__file__).read_text(encoding="utf-8")
+    assert "result.is_reciprocal_dispute" not in src
+
+
+def _detect_fixture(tmp_path, intents: dict):
+    """Arm file + labels for a `detect` run. `intents` maps ticket id -> intent."""
+    recs = _records()
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    arms = tmp_path / "arms"
+    arms.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "manifest": {"prompt_sha256": "sha-current", "sample": None},
+        "rows": [
+            {
+                "ticket_id": t,
+                "intent": intent,
+                "is_reciprocal_dispute": None,
+                "retrieved_chunk_ids": ["policy_1"],
+                "method": "llm_distiller",
+            }
+            for t, intent in intents.items()
+        ],
+    }
+    (arms / "current_half1.json").write_text(json.dumps(payload), encoding="utf-8")
+    return labels, arms
+
+
+def test_detect_only_asks_tickets_on_the_gate(tmp_path, monkeypatch, capsys):
+    """The gated population mirrors `orchestrator._compute` exactly."""
+    ids = _half1_ids(6)
+    intents = {ids[0]: "desk_reject_appeal", ids[1]: "desk_reject_appeal"}
+    intents.update({t: "reviewer_assignment" for t in ids[2:]})
+    labels, arms = _detect_fixture(tmp_path, intents)
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    rde.main(["detect", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    report = json.loads(
+        (tmp_path / "out" / "detect_current_half1.json").read_text(encoding="utf-8")
+    )
+    assert report["on_the_gate"] == 2
+    assert report["calls_made"] == 2
+    assert set(report["per_ticket"]) == {ids[0], ids[1]}
+
+
+def test_detect_reports_end_to_end_separately_from_within_gate(tmp_path, monkeypatch):
+    """⚠️ The D26 error, pinned: the two numbers must not be conflated.
+
+    Here exactly one r ticket is on the gate and the rest are not, so
+    within-gate recall and end-to-end recall MUST differ — a report that
+    collapsed them would credit the detector for an intent-classifier limit.
+    """
+    ids = _half1_ids(8)
+    r_ids = [t for t in ids if not t.startswith("2")]
+    assert len(r_ids) >= 2, "fixture needs at least two r tickets"
+    intents = {t: "reviewer_assignment" for t in ids}
+    intents[r_ids[0]] = "desk_reject_appeal"
+    labels, arms = _detect_fixture(tmp_path, intents)
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    rde.main(["detect", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    report = json.loads(
+        (tmp_path / "out" / "detect_current_half1.json").read_text(encoding="utf-8")
+    )
+    assert report["on_the_gate"] == 1
+    assert report["end_to_end"]["r_total"] == len(r_ids)
+    assert report["end_to_end"]["r_never_gated"] == len(r_ids) - 1
+    # End-to-end recall is bounded by the gate, so it cannot reach 1.0 here
+    # however well the detector performs.
+    assert report["end_to_end"]["recall"] < 1.0
+
+
+def test_detect_never_folds_none_into_a_negative(tmp_path, monkeypatch):
+    """None is its own bucket in the report, never counted as False (D7/D43).
+
+    ⚠️ The gate population MUST contain non-r tickets. An earlier version used
+    only r tickets, so `none_on_non_r` was 0 and a mutation folding None into
+    TN changed nothing — the test could not discriminate. The r/non-r mix is
+    what makes the bucket arithmetic falsifiable.
+    """
+    recs = _records()
+    half1, _ = rde.stratified_halves(recs)
+    r_ids = [t for t in half1 if t.startswith("1")][:5]
+    non_r_ids = [t for t in half1 if t.startswith("2")][:5]
+    assert r_ids and non_r_ids, "fixture needs BOTH classes on the gate"
+    ids = r_ids + non_r_ids
+    labels, arms = _detect_fixture(
+        tmp_path, {t: "desk_reject_appeal" for t in ids}
+    )
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    rde.main(["detect", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    report = json.loads(
+        (tmp_path / "out" / "detect_current_half1.json").read_text(encoding="utf-8")
+    )
+    w = report["within_gate"]
+    nones = w["none_on_r"] + w["none_on_non_r"]
+    assert nones > 0, "the dry-run mock must produce some Nones or this proves nothing"
+    # Every asked ticket lands in exactly one bucket, and the None ones are NOT
+    # in the confusion matrix.
+    assert w["tp"] + w["fp"] + w["fn"] + w["tn"] + nones == report["on_the_gate"]
+
+
+def test_detect_sends_production_input_and_never_the_intent(tmp_path, monkeypatch):
+    """What actually reaches the detector: subject + initial message, no intent.
+
+    ⚠️ Runs WITHOUT --dry-run on purpose. The dry-run path substitutes a canned
+    verdict and never calls the detector at all, so it cannot observe the call
+    arguments — a mutation prefixing the intent onto the subject survived a
+    dry-run-only suite. Zero real calls are made regardless: the detector
+    itself is replaced by a recording spy (a spy, not a raiser — D48).
+    """
+    ids = _half1_ids(3)
+    labels, arms = _detect_fixture(tmp_path, {t: "desk_reject_appeal" for t in ids})
+    recs = json.loads(labels.read_text(encoding="utf-8"))
+    for r in recs:
+        r["subject"] = "SUBJ-MARKER"
+        r["initial_message_body"] = "BODY-MARKER"
+        r["marc_reply_body"] = "CHAIR-REPLY-MARKER"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    calls: list[dict] = []
+
+    async def spy(*, subject, body, transcript=None):
+        calls.append({"subject": subject, "body": body, "transcript": transcript})
+        return True
+
+    monkeypatch.setattr(
+        "app.pipeline.reciprocal_detector.detect_reciprocal_dispute", spy
+    )
+    # The harness refuses to run a non-dry-run under a non-`local` provider
+    # (the conftest pins `fallback`). Opt in so the real code path is taken —
+    # the spy above is what keeps the call count at zero, not the provider.
+    from app.core.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "MODEL_PROVIDER", "local")
+    rde.main(["detect", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1"])
+
+    assert len(calls) == 3
+    for call in calls:
+        assert call["subject"] == "SUBJ-MARKER"
+        assert call["body"] == "BODY-MARKER"
+        # Production ingest shape: single message, no transcript (D17).
+        assert call["transcript"] is None
+        # The gate decides WHETHER to ask; it must not colour the answer (D40).
+        assert "desk_reject_appeal" not in call["subject"]
+        assert "desk_reject_appeal" not in call["body"]
+        # The labeler saw the chair's reply; production never does (D22).
+        assert "CHAIR-REPLY-MARKER" not in f"{call['subject']}{call['body']}"
+
+
+def test_detect_refuses_when_the_gate_exceeds_the_cap(tmp_path, monkeypatch):
+    ids = _half1_ids(10)
+    labels, arms = _detect_fixture(tmp_path, {t: "desk_reject_appeal" for t in ids})
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+    with pytest.raises(SystemExit) as exc:
+        rde.main(["detect", "--labels", str(labels), "--arms", str(arms),
+                  "--out", str(tmp_path / "out"), "--half", "1",
+                  "--dry-run", "--max-calls", "3"])
+    assert "REFUSING TO RUN" in str(exc.value)
+    assert "will not silently score a subset" in str(exc.value)
+
+
+def test_detect_emits_no_email_content(tmp_path, monkeypatch, capsys):
+    ids = _half1_ids(4)
+    labels, arms = _detect_fixture(tmp_path, {t: "desk_reject_appeal" for t in ids})
+    recs = json.loads(labels.read_text(encoding="utf-8"))
+    for r in recs:
+        r["subject"] = "SECRET-SUBJECT"
+        r["initial_message_body"] = "SECRET-BODY"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    monkeypatch.setattr(rde, "assert_gitignored", lambda _p: None)
+
+    rde.main(["detect", "--labels", str(labels), "--arms", str(arms),
+              "--out", str(tmp_path / "out"), "--half", "1", "--dry-run"])
+    printed = capsys.readouterr().out
+    raw = (tmp_path / "out" / "detect_current_half1.json").read_text(encoding="utf-8")
+    for secret in ("SECRET-SUBJECT", "SECRET-BODY"):
+        assert secret not in printed
+        assert secret not in raw
+
+
+def test_compare_skips_flag_accuracy_when_the_arm_has_no_flags(tmp_path, capsys):
+    """Post-rebuild arms carry no flags — say so, don't print an all-zero matrix.
+
+    An empty confusion matrix reads like a catastrophic regression; it is
+    actually the designed state after the question left the distiller.
+    """
+    recs = _records()
+    half1, _ = rde.stratified_halves(recs)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps(recs), encoding="utf-8")
+    out = tmp_path / "out"
+    _write_arm(out, "baseline", half1, None)
+    _write_arm(out, "current", half1, None)  # no flags on either arm
+
+    rde.main(["compare", "--labels", str(labels), "--out", str(out), "--half", "1"])
+    printed = capsys.readouterr().out
+    assert "SKIPPED" in printed
+    assert "reciprocal_dispute_eval.py detect" in printed
+    assert "confusion:" not in printed
+    # The intent/retrieval blocks — the point of test (a) — must still run.
+    assert "INTENT STABILITY" in printed
+    assert "RETRIEVAL STABILITY" in printed
+
+
+# ---------------------------------------------------------------------------
 # Label file formats (the real file is JSONL, not a JSON array)
 # ---------------------------------------------------------------------------
 def _jsonl(records: list[dict]) -> str:
@@ -768,20 +994,33 @@ def test_live_module_is_at_head_not_a_stale_image():
     """STALENESS DETECTOR -- the loudest failure in this file, and deliberately so.
 
     The backend image bakes the source with no volume mount, so a container can
-    easily be running code that predates `11cb466`. If it is, the "current" arm
-    would run the OLD prompt, every ticket would come back with the flag as
-    None, and the result would read as "the flag does not work" rather than
-    "the image is stale". That misreading is the whole reason this test exists.
+    easily be running code from before the change under test. Then the eval
+    measures the wrong thing and the RESULT looks like a finding rather than a
+    stale build. That misreading is the whole reason this test exists.
+
+    ⚠️ ITS POLARITY FLIPPED at commit 5. It used to assert the prompt DID ask
+    for RECIPROCAL_DISPUTE (guarding against an image predating `11cb466`).
+    Commit 5 removed that block on purpose, so the same assertion now fails on
+    a CORRECT image. Inverted rather than deleted: the hazard is unchanged, only
+    the expected state moved. Second time a guard in this workstream has had to
+    be retired or flipped once the thing it guarded became true (see the INERT
+    prompt guard deleted in 11cb466) -- a guard written against a transient
+    state needs an explicit expiry, not a long life.
 
     Fix: docker compose build backend  (a `git pull` alone is never enough).
     """
+    from app.pipeline.distiller import DistillResult
     from app.pipeline import distiller as distiller_module
 
-    assert "RECIPROCAL_DISPUTE" in distiller_module._SYSTEM_PROMPT, (
-        "STALE IMAGE: the live _SYSTEM_PROMPT does not ask for "
-        "RECIPROCAL_DISPUTE, so this environment predates commit 11cb466. "
-        "Do NOT run the eval here -- the 'current' arm would measure the old "
-        "prompt. Rebuild with: docker compose build backend"
+    assert "RECIPROCAL_DISPUTE" not in distiller_module._SYSTEM_PROMPT, (
+        "STALE IMAGE: the live _SYSTEM_PROMPT still asks for "
+        "RECIPROCAL_DISPUTE, so this environment predates commit 5 of the "
+        "detector rebuild. Do NOT run the eval here -- the 'current' arm would "
+        "measure the OLD 5,371-char prompt. Rebuild: docker compose build backend"
+    )
+    assert "is_reciprocal_dispute" not in DistillResult.model_fields, (
+        "STALE IMAGE: DistillResult still carries is_reciprocal_dispute, so "
+        "this environment predates commit 3. Rebuild the backend image."
     )
 
 
