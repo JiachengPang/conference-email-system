@@ -1,6 +1,6 @@
 # Reject-Appeal Handling: Decision Log & Status
 
-Owner: Sahil · Last updated: 2026-09-26 · **Current position: Phase 1, Step 9d — detector rebuild, commit 1 of 6 done (D45). ⚠️ WORDING GATE pending for commit 2 (D47).**
+Owner: Sahil · Last updated: 2026-09-27 · **Current position: Phase 2, Step 1 — housekeeping (1a docs, 1b detector prompt pin + gate-constant dedup). Step 0 investigation done; Phase 2 decisions logged as D57–D68. Phase 1 is live except Step 10 (deploy).**
 
 This file is the source of truth for the reject-appeal workstream. Update it after every task: status tables, new decisions, and a changelog entry.
 
@@ -13,8 +13,8 @@ Detect desk-reject appeal emails for AAAI-27, especially reciprocal-review duty 
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Ground-truth labeling of appeal tickets | Done |
-| 1 | Detection: reject-appeal intent + `is_reciprocal_dispute` flag | **In progress (Step 9)** |
-| 2 | Reason classification (`appeal_reason[]`, full names, validated) | Pending |
+| 1 | Detection: reject-appeal intent + `is_reciprocal_dispute` flag | **Live (detector ON, D54; 9c hold D55)** — only Step 10 deploy pending |
+| 2 | Reason classification (`appeal_reason[]`, full names, validated) | **In progress (Step 1)** — Step 0 investigation done; decisions D57–D68 |
 | 3 | Reply templates per reason. `r` gets a policy-stance reply; only `a`/`b` may escalate. Needs Marc's sign-off | Pending |
 | 4 | Drafter integration | Pending |
 | 5 | Bulk-reply queue for reciprocal disputes (dedicated DB column, deterministic `event_tag`, UI surface) | Pending |
@@ -41,15 +41,27 @@ Detect desk-reject appeal emails for AAAI-27, especially reciprocal-review duty 
 | 9a | Read-only report: template impact + eval plan | — | **Done** (see D13–D17) |
 | 9b | Build and run eval: flag accuracy, intent + retrieval regression, keyword fallback | — | **Half 1 RUN (100+100 calls). Flag P=.871/R=.964, but see D26 — the flag never fires outside `desk_reject_appeal`. Analysis done; numbers NOT yet interpretable (D29/D30: noise baseline outstanding)** |
 | 9b-noise | Noise baseline: current arm re-run, same prompt/seed | — | **DONE** — floor Jaccard **0.710** vs old-vs-new 0.445 ⇒ the retrieval shift is real, not variance (D35) |
-| 9b-judge | Blind pairwise retrieval judge (worse vs merely different) | — | **Built + dry-run green; 38 of 50 need a call. NOT run** — command in D39 |
-| 9d-1 | Detector rebuild — config flag `RECIPROCAL_DETECTOR_ENABLED=False` + `.env.example` | — | **Done (inert)** — ⚠️ gate NOT run, Docker daemon down |
-| 9d-2 | Detector module `reciprocal_detector.py` | — | **BLOCKED on the D47 wording gate** |
+| 9b-judge | Blind pairwise retrieval judge (worse vs merely different) | — | **RUN 2026-09-25 (38 real calls, 12 identical tie by identity, 0 unparseable)** — `data/eval_real/reciprocal_9b/judge_out/judge_half1.json`. Old prompt preferred 17 · new 14 · judged tie 7 · identical 12: roughly balanced, i.e. *different, not clearly worse* by D39's reading, single pass (D38). **Moot since 9d-5** removed the block it judged. *(Corrected 2026-09-27: this row said NOT run.)* |
+| 9d-1 | Detector rebuild — config flag `RECIPROCAL_DETECTOR_ENABLED=False` + `.env.example` | — | **Done — superseded by D54.** The default is now `True`, pinned by `test_the_detector_is_ON_by_default`, and the flag is exercised by the 9d-4/9d-6 suites. The original "gate NOT run, Docker daemon down" note is stale. |
+| 9d-2 | Detector module `reciprocal_detector.py` | — | **Done — superseded by D54.** The D47 wording was approved (the module's prompt is marked "Approved verbatim"); detector suite 44 passed, 10/10 mutations caught (2026-09-26 changelog); live since D54. The original "BLOCKED on the D47 wording gate" note is stale. |
 | 9d-3 | Move parser out of the distiller + drop the extractor pass-through | — | **Done (inert)** — 294 passed; 4 mutations + a combined-coupling mutation caught |
 | 9d-4 | Wire the detector into `_compute` behind the flag + preserve rule | — | **Done (inert, flag still False)** — 322 passed; 10 mutations caught (see D49) |
 | 9d-5 | Remove the RECIPROCAL_DISPUTE block from `_SYSTEM_PROMPT` | — | **Done — FIRST BEHAVIOUR CHANGE.** Prompt byte-identical to `77f72bb` (sha256 `f6ae2b74…`, 4,604 chars); 324 passed; 5 mutations caught |
 | 9d-6 | Flip `RECIPROCAL_DETECTOR_ENABLED` to True | — | **DONE — THE FEATURE IS LIVE.** Verified by a real run first: within-gate P=0.931 / R=1.000 over 36 calls. 405 passed; default mutation-pinned (D54) |
 | 9c | Hold reciprocal cases from auto-template | — | **DONE** — `SENSITIVE_INTENTS = ["desk_reject_appeal"]`; holds on BOTH routing strategies; full suite diff vs baseline = **no change** (D55) |
 | 10 | Deploy to AAAI server (only after eval clears; optional, see D11) | — | Pending |
+
+## Phase 2 plan & status
+
+| # | Step | Commit | Status |
+|---|---|---|---|
+| 0 | Read-only investigation: label schema, candidate supply, where review complaints land, detector-as-template, tests, harness, cost | — | **Done 2026-09-27** (see "Phase 2 Step 0 findings" under Decisions) |
+| 1a | Docs: Step 0 findings + D57–D68, stale-item fixes | — | **Done 2026-09-27** (this entry) |
+| 1b | Tests: exact length + sha256 pin on `reciprocal_detector._SYSTEM_PROMPT`; de-duplicate the eval harness's gate constant | — | Pending |
+| — | `review_decision_appeal` joins `SENSITIVE_INTENTS` (separate commit, D62) | — | Pending — Marc/Ida notified before deploy, together with 9c |
+| — | Phase 2 labels (~120, multi-label, author-only view, D63) | — | Pending |
+| — | Reason classifier module + wiring + kill switch + preserve rule (D57–D61, D65, D66, D68) | — | Pending |
+| — | Phase 2 eval + same-session re-measure of Phase 1 on the live gate (D64) | — | Pending |
 
 ## Decisions
 
@@ -119,7 +131,7 @@ Detect desk-reject appeal emails for AAAI-27, especially reciprocal-review duty 
 
 **D33. ⚠️ TWO more mutations survived — one dead branch, one nested-fixture blind spot.** (a) `stratified_sample`'s "repair" branch for a rounding overflow was **unreachable**: an exhaustive sweep of every `(total, positives, n)` up to 200 found **zero** inputs that reach it, because `n_pos` is clamped to `len(positives)` and `n <= total` is enforced, so `n_neg <= len(negatives)` always. Replaced with an `assert` carrying the proof; the "always returns exactly N" property is pinned by test instead of by a branch that can never run. (b) `test_compare_scores_only_the_intersection` originally made the current arm a **strict subset** of the baseline arm, which makes "iterate the intersection" and "iterate all current rows" produce identical output — the mutation swapping them survived. Fixed by making the sets **overlap without nesting** (60/60 with 20 shared) and asserting `TP+FP == 20`. Both now fail. **Third instance of a surviving mutation exposing a weak test rather than weak code (see D25, 2026-08-06) — when a fixture nests, it cannot discriminate.**
 
-**D34. Exact noise-run commands (50 calls, NOT yet run).** The container holds the only copy of the `--sample` script (no source mount; `docker cp`'d, sha256-verified) — **do not rebuild or restart the backend before running these**, or the flag disappears.
+**D34. Exact noise-run commands (50 calls, NOT yet run).** *(Annotated 2026-09-27: the noise run DID run — outputs are in `data/eval_real/reciprocal_9b/eval_noise/` — and every `/tmp` path below is now GONE; see the 2026-09-27 correction after D56. Do not re-run anything from here.)* The container holds the only copy of the `--sample` script (no source mount; `docker cp`'d, sha256-verified) — **do not rebuild or restart the backend before running these**, or the flag disappears.
 ```
 # 1. 50-ticket current-arm re-run into a NEW dir (never reuse /tmp/eval_out —
 #    `run` writes {arm}_half{half}.json and would overwrite the half-1 result)
@@ -155,7 +167,7 @@ Read it as: **intent churn and mean Jaccard here are the NOISE FLOOR.** Compare 
 
 **D38. Judge mutation results — all 8 caught, first pass.** J1 swap the A/B mapping · J2 unparseable→TIE · J3 identical sets still called · J4 cap not enforced · J5 loosened verdict regex (6 failures) · J6 constant A/B order · J7 sequential (order-dependent) RNG · J8 policy ids leaked into the prompt. Each confirmed landed before running. ⚠️ **Standing limitation:** a single judge pass has its own variance, and D35 shows this model is non-deterministic. Position bias is controlled by the per-ticket flip; **judge self-consistency is NOT** — E004's own conclusion ("hold sampling fixed or average several runs") applies here too. If the verdict is close, a second judge pass is needed before concluding anything.
 
-**D39. Exact judge command (38 calls, NOT run).** The container holds the only copy of the script — **do not rebuild or restart the backend first**.
+**D39. Exact judge command (38 calls, NOT run).** *(Annotated 2026-09-27: it WAS run on 2026-09-25 — 38 real calls, result in `data/eval_real/reciprocal_9b/judge_out/judge_half1.json`, tallied in the Phase 1 table's 9b-judge row. The `/tmp` paths below are GONE; see the 2026-09-27 correction after D56. Do not re-run.)* The container holds the only copy of the script — **do not rebuild or restart the backend first**.
 ```
 docker compose exec -T backend python scripts/reciprocal_dispute_eval.py judge \
   --labels /tmp/labels.json --arms /tmp/eval_out --out /tmp/judge_out \
@@ -231,6 +243,65 @@ Optional `--judge-model <id>` overrides the judge model for that run (defaults t
 
 **D34/D39 correction (2026-09-26):** their "the container holds the only copy of the script — do not rebuild or restart the backend" warning is now **STALE**. `backend/scripts/reciprocal_dispute_eval.py` and its test file are **committed** (`git status` clean for both), so the `--sample` and `judge` work survives a container restart or rebuild. The commands themselves are unchanged.
 
+**D34/D39/D54 correction (2026-09-27): the container's `/tmp` is GONE — do not re-run anything to recover it.** The backend container was recreated on 2026-09-27, which wiped `/tmp`: `/tmp/labels.json`, `/tmp/eval_out`, `/tmp/eval_noise`, `/tmp/judge_out`, and the **36-call `detect` output** (`detect_current_half1.json`) no longer exist, so every command in D34/D39 now points at missing paths. Host copies survive for three of them, under the gitignored `data/eval_real/reciprocal_9b/{eval_out, eval_noise, judge_out}/`. **The detect output was never copied out**; only D54's summary numbers remain (within-gate P=0.931 / R=1.000, n=36). Re-running just to recover it would buy a number on a gate that is no longer live — D64 re-measures on the live gate instead.
+
+---
+
+### Phase 2 Step 0 findings (2026-09-27) — read-only investigation
+
+Zero code/config/data/git changes, zero model calls. Label and archive facts came from one scratchpad script that printed **only ids, counts, codes, dates and intents**. No raw ticket text was viewed (approved mode), so the planned paraphrases of the b/o tickets were skipped. Its recomputed half-1 split equals the saved eval's 100 half-1 ids exactly, proving it read the same labels file the eval used.
+
+- **Label schema — single-label.** `appeal_reason` is one string or null (no labeled row carries more than one code); `is_reject_appeal` bool|null; `deferred` bool. The code list is defined once, in `REASONS` in `scripts/labeling/label_appeals.py`, which `merge_batches.py` imports; there is **no copy in `app/`**. Counts confirmed: r=112, n=84, b=2, o=2; **0 deferred, 330 untouched**. The four batch files are fully merged (0 labels missing from main, 0 disagreements). `label_real_tickets.py:74`'s `INTENT_DEFS` is an intent paraphrase, not a reason list, and after D52 its `desk_reject_appeal` line matches the live wording minus "or compliance", so that backlog item is now largely moot.
+- **The four non-r appeals (ids only):**
+
+| Code | Ticket | Half | In the 50-sample? | Live-prompt intent (half 1, 8c6eb49) | 11cb466-prompt intent |
+|---|---|---|---|---|---|
+| o | 18809 | 1 | yes | `review_decision_appeal` | `desk_reject_appeal` |
+| b | 18947 | **2** | no | — (half 2 never run) | — |
+| b | 18996 | 1 | no | `review_decision_appeal` | `review_decision_appeal` |
+| o | 19129 | 1 | no | `desk_reject_appeal` | `desk_reject_appeal` |
+
+- **Post-review complaints land on `review_decision_appeal`, which the detector's gate does not include.** On the live prompt, 2 of the 3 measurable b/o tickets go there. The two definitions agree: `desk_reject_appeal` covers desk rejections on compliance grounds only, while `review_decision_appeal` names "mismatched reviews, scores, or the final decision". This is why D58's gate includes both. On half 1 the live prompt also routes **13 gold-n tickets** to `desk_reject_appeal`.
+- **Half 2 is nearly useless as a Phase 2 holdout** — it holds exactly one non-r appeal (18947).
+- **Candidate supply (regex over subject + first message; for SAMPLING only).** Noise was measured against the 200 gold labels rather than by reading text. There are 0 gold a/c/d/e, so every hit for those codes is noise there: **a** 5 hits, all noise · **b** missed both real b tickets · **c** 11 of 13 hits are r · **d** 6 hits, all n · **e** 77 of 86 hits are r (an "any appeal" marker, useless for discrimination). Excluding tickets that mention "reciprocal" helps. The 330 unlabeled then give a=5, b=1, c=6, d=10, e=45. **Densest non-reciprocal pool: 2025 Sept 15–18** (203 tickets, only 2 mention reciprocal; a=15, b=52, c=32, d=25, e=68 non-reciprocal hits). It is **outside `data/labeling/`**, so labeling it needs a new extraction. Earlier years' September windows are thin (2021–2024 combined: a=24, b=46, c=14, d=0, e=36).
+- **Tests.** The detector prompt had clause-level pins but **no length or hash pin**, so "unchanged" was not enforced → Step 1b. `test_email_extraction_persistence.py::test_extraction_is_serialized_with_model_dump` hard-codes the extraction key set and must be extended by hand for a new field (the api-level drift guards derive theirs automatically). `test_router.py::test_non_sensitive_intents_still_reach_the_faq_lane` explicitly pins `review_decision_appeal` reaching the FAQ lane → inverted by the D62 commit.
+- **Harness.** Recommend a **sibling script** for the reason-classifier eval that imports `load_labels` / `stratified_halves` / `stratified_sample` / `CallBudget` / `assert_gitignored`, the way `merge_batches.py` imports `label_appeals.py`. `reciprocal_dispute_eval.py` is already 1,401 lines, scoring is multi-label not binary, and its gate is one hard-coded intent. Half 2 has never been run; `detect --half 2` needs a `run --half 2` first (100 distiller calls). The harness's `_GATE_INTENT` duplicates the orchestrator's `_RECIPROCAL_GATE_INTENT` → Step 1b.
+- **Cost.** A gated email goes from 3 calls (distiller, detector, drafter) to 4, plus 1 per follow-up or manual retry that stays on the gate; the KB sweep only re-drafts and adds none. On half 1 (live prompt, appeal-enriched window) 64 of 100 are `desk_reject_appeal` and 6 are `review_decision_appeal` → ~70 gated per 100. D58's skip-when-reciprocal removes most of that. Roughly 50 of the 64 are gold r, so ~20 reason calls per 100 remain.
+
+### Approved 2026-09-27 — Phase 2 decisions (D57–D68)
+
+**D57. The reason classifier is a SEPARATE conditional LLM call with its own kill switch, default `False`.** Same shape as `reciprocal_detector.py` (D40): own module, own prompt, strict parser, provider dispatch, never raises, model id from config only, self-gates on `MODEL_PROVIDER`. Its flag is read at the `_compute` call site, following the D44 two-level pattern; name and default in D65. **The distiller `_SYSTEM_PROMPT` (byte-identical to `8c6eb49`, D52) and the reciprocal detector's prompt and behavior stay untouched.** Folding the question into either would repeat the D27/D35 retrieval shift, or change a detector whose numbers were earned on its exact wording. The switch flips to `True` only after a real eval run earns it, as with D54.
+
+**D58. Gate = intent ∈ {`desk_reject_appeal`, `review_decision_appeal`}, held as ONE constant in app code; skipped when `is_reciprocal_dispute` is `True`.** Step 0 showed post-review complaints land on `review_decision_appeal`, which the detector's `desk_reject_appeal`-only gate never sees. **Skipped only on `True`**: `False` and `None` both still ask. `r` belongs to the flag (D60), so asking for reasons on a confirmed reciprocal dispute would spend a call to learn nothing. Consequence: the detector's own gate is still `desk_reject_appeal` only, so a `review_decision_appeal` ticket never gets a flag unless one was stored earlier. The reason call therefore always runs there, including on the few r tickets that land on it (2 of 56 gold r in half 1).
+
+**D59. Field `appeal_reason: list[str] | None`, multi-label, full names on the wire, validated against ONE registry in app code.** Three states, none interchangeable (the D7 discipline, extended to a list):
+- `None` — not asked, skipped (the D58 reciprocal skip), or failed. **Never** "no reason applies".
+- `[]` — asked, and no listed reason applies.
+- a non-empty list — the reasons that apply. `'other'` is a real reason: "an appeal whose ground is not in the registry" is a positive answer, distinct from `[]`.
+
+Full names, not letter codes, per D4. Values are validated against the registry and never trusted from model output or storage as-is, with a drift test binding the registry to the extraction mirror.
+
+**D60. `r` is NOT in the reason registry — it is owned by `is_reciprocal_dispute`.** One question, one source (D2's rule, applied to reasons). Listing `r` would create a second answer to the reciprocal question, and the two could drift. Consequence: an old `r` label is gold for the **flag**, not for `appeal_reason`, and is scored by the detector.
+
+**D61. Prompt-injection desk-reject complaints map to `'other'` for now.** No dedicated registry entry yet; the registry is extensible, so a dedicated reason can be added once there are enough of them to label and evaluate.
+
+**D62. `review_decision_appeal` joins `SENSITIVE_INTENTS`, in its own commit.** Same rationale as D55: the reply takes a policy stance the chairs have not signed off on. It needs a matching `_SENSITIVE_INTENT_REASONS` entry, and `test_non_sensitive_intents_still_reach_the_faq_lane` must be inverted in the same commit, since it pins this exact intent to the FAQ lane. **Marc and Ida are notified before deploy, together with 9c** (which is also not yet deployed), so both holds reach them as one change.
+
+**D63. Phase 2 labels: Sahil labels (Soham unavailable), ~120 tickets, multi-label, author messages only.** Agent/chair replies are hidden from the labeler, which **fixes D22 for Phase 2**: a label can no longer rest on information that exists only in Marc's reply, so a miss cannot be explained away as "the answer was only in the chair's reply". Phase 1's labels are unchanged. The pool is **enriched toward a/b** (the escalation grounds, Phase 3) plus a small random slice; **metrics are reported within-pool only**, with no prevalence claims about real traffic. Old single-code labels map to one-element lists (b → [that reason], o → ['other']; r → the flag, per D60; n → `[]`, per D67). Input from Step 0: 2025 Sept 15–18 is the densest non-reciprocal pool and lies outside `data/labeling/`.
+
+**D64. DEFERRED: re-measure Phase 1's within-gate numbers on the LIVE gate, in the same session as the Phase 2 eval run (same-day rule).** D54's P=0.931 / R=1.000 was measured on `desk_reject_appeal` tickets chosen by the **11cb466** prompt (amended definition + block), not the live `8c6eb49` prompt, and its output file was lost (correction above). **Same-day rule**, defined here: numbers that will be compared against each other come from one session, same model and config, back to back. This endpoint is materially non-deterministic (D35: same-prompt Jaccard floor 0.710), and a hosted model can change behind a fixed name between days. A cross-day comparison would mix any model drift into the delta.
+
+**D65. Kill switch = `APPEAL_REASON_CLASSIFIER_ENABLED: bool = False`.** Named in the same `<FEATURE>_ENABLED` form as `RECIPROCAL_DETECTOR_ENABLED`. Off by default until a real eval run earns the flip (D57). Like D54, the switch gates the CALL, never the preserve rule (D66), so turning it off cannot wipe stored answers.
+
+**D66. `appeal_reason` is preserved on follow-ups exactly as D42 preserves the flag: only a real classifier answer overwrites.** A real answer is any list, **including `[]`**. `None` (not asked, skipped, or failed) **never** overwrites. So a follow-up whose intent drifts off the gate ("any update?") keeps the stored reasons, and so does a follow-up where the call fails. Letting `[]` decay to `None` would turn "asked, nothing fits" into "never asked", which D59 keeps apart for the same reason D7 does. The prior value is threaded through `email_data` at the same call sites as `prior_is_reciprocal_dispute`. A stored list counts as a prior answer only if it validates against the registry (D59), mirroring `_prior_dispute_flag`'s `isinstance(..., bool)` check. Anything else reads as "no prior".
+
+**D67. Old `n` labels map to `[]` for scoring.** An `n` ticket (not a reject appeal) can still pass the intent gate — 13 did on half 1 under the live prompt. When it does, the correct classifier output is "asked, no reason fits", i.e. `[]`. Scoring an `n` as `None` would reward a failed call; excluding `n` tickets would hide exactly the population where the classifier can over-assign reasons.
+
+**D68. D58's reciprocal skip uses the EFFECTIVE `is_reciprocal_dispute` — the value after the D42 preserve rule — not only a fresh verdict from the same run.** A stored `True` therefore skips the reason call even on a run where the detector did not fire.
+- **Why:** the flag is a thread-level property (D9) and appeal reasons are about the same thread, so a thread already established as a reciprocal dispute needs no reason call on every follow-up.
+- **Error cost is low:** a wrong stored `True` costs little, because every appeal gets chair review — `desk_reject_appeal` via D55, and `review_decision_appeal` once D62 lands. The reason is advisory, not a gate on the reply.
+- ⚠️ **Until the D62 commit lands**, a `review_decision_appeal` ticket is not held for chair review, so that premise holds for `desk_reject_appeal` only.
+
 ## Known risks
 
 - Reciprocal complaints now classify as `desk_reject_appeal`. 9a assessed the template: the opening line fits, but the body is **verbatim policy text**, which for a requester *disputing the facts* ("my reviewers did submit") restates the rule that rejected them rather than answering — non-responsive, and readable as dismissive. Mitigated by D13.
@@ -277,6 +348,7 @@ Optional `--judge-model <id>` overrides the judge model for that run (defaults t
 - 2026-09-23: this log created.
 - 2026-09-25: Step 9a read-only report (no code, no model calls). Added D13–D17; recorded the template assessment, the `SENSITIVE_INTENTS` hold mechanism, and three blockers found for 9b (dead intent gold, `run_eval.py` has no distiller, `data/eval_real/` absent here). Baseline commit for before/after = **8c6eb49** (last commit before `8c52d2f`).
 - 2026-09-25: backend startup crash fixed — `sqlalchemy` → **`sqlalchemy[asyncio]>=2.0,<2.1`** in `pyproject.toml` (greenlet stopped arriving transitively when SQLAlchemy floated 2.0.52 → 2.1.1). Rebuilt: resolves to **2.0.54 + greenlet 3.5.6**, alembic + uvicorn start clean, 21 passed / 4 skipped (the 4 are `@needs_git`, unrunnable in a git-less container by design — see D20). D18 resolved as a side effect (image now at HEAD: 5,371-char prompt, `asks flag: True`). Two backlog items added: the server fix, and the no-lockfile exposure.
+- 2026-09-27: **Phase 2 Step 0 (read-only investigation) + Step 1a (docs).** Step 0 findings logged under Decisions, made with zero model calls and no raw ticket text viewed (ids/counts-only script). Headline: the four non-r appeals are 18809/18996/19129 (half 1) and 18947 (half 2), and post-review complaints land on `review_decision_appeal`, outside the detector's gate. Phase 2 decisions **D57–D64** (separate reason call + kill switch · two-intent gate with reciprocal skip · `appeal_reason` tri-state list · `r` owned by the flag · prompt-injection → `other` · `review_decision_appeal` to `SENSITIVE_INTENTS` · Phase 2 labeling plan · deferred same-session Phase 1 re-measure). Stale items fixed: the 9b-judge row and D39 said the judge was NOT run — it ran on 2026-09-25 (38 calls; old 17 / new 14 / tie 19 / unparseable 0). D34/D39 annotated; new correction entry records that the container recreate wiped `/tmp` (labels.json, eval dirs, and the never-copied 36-call detect output). Phase 1/2 plan rows and status line updated; Phase 2 status table added. **Follow-up (same day):** the four open implementation items became **D65–D68** (kill switch `APPEAL_REASON_CLASSIFIER_ENABLED=False` · D42-style preserve rule for `appeal_reason`, where any list including `[]` overwrites and `None` never does · old `n` labels score as `[]` · reciprocal skip uses the EFFECTIVE post-preserve flag); the open-items list was removed; the stale Phase 1 rows 9d-1/9d-2 now point at D54 as superseding them; D57/D63 cross-reference D65/D67. Docs only.
 - 2026-09-27: **CI caught the vacuous test D53 predicted (D56).** `test_baseline_prompt_differs_from_current_and_omits_the_flag` asserted both that the arms differ and that current still asks the question — **both false by design** after the revert (D52) and commit 5. **Deleted rather than rewritten, because rewriting it reproduces `test_the_two_arms_are_now_the_SAME_prompt` verbatim**: the file was holding two `@needs_git` tests asserting opposite things about the same two values. ⚠️ **It survived because `@needs_git` SKIPS in the container (no git, no repo) — every local run reported it as a skip; CI is the only gate for that set.** Sweep found one more instance, guarded and therefore **silently dead** rather than failing (the dry-run flag assertion) — kept and labelled. Fix verified by substance via the harness's host→container baseline path (both arms 4,573 / `7d944e34…` / asks=False) plus a one-byte mutation giving a disjoint failure set. **71 passed, 3 skipped** (was 4 skipped).
 - 2026-09-27: **Step 9c — `desk_reject_appeal` held in human review (D55).** `SENSITIVE_INTENTS = ["desk_reject_appeal"]` until Phase 3 templates exist. Holds on BOTH routing strategies (rl_router needed no change, but got a test proving it — the RL branch returns before the rule-based guard, so it does not inherit it). Chair-facing reason made explanatory with a safe generic fallback. Deliberately over-broad — keyed on intent, because `route()` cannot see `extraction`. **Full-suite failure list byte-identical to baseline (25, unchanged); 5 of 5 mutations caught.** One test inverted (it asserted appeals COULD reach the FAQ lane, from when the list was empty).
 - 2026-09-27: **commit 6 of 6 — THE DETECTOR IS LIVE (D54).** `RECIPROCAL_DETECTOR_ENABLED` defaults to `True`, switched only after a real run proved it (within-gate P=0.931 / R=1.000, 36 calls) with the main prompt byte-identical to `8c6eb49`. Full non-ml suite diffed ON vs OFF: **the flip added zero failures**; the 25 remaining are the known pre-existing set. Added two tests — one pinning the default (nothing did), one pinning that the documented off-switch preserves stored answers. ⚠️ The default test had to read the FIELD DEFAULT rather than an instantiated `Settings`, or an operator's legitimate env override would fail the suite. **405 passed in the reciprocal suites; default mutation-verified including under an env mask.** The six-commit rebuild is complete: the reciprocal question now runs as its own gated call and the existing pipeline changed by zero bytes.
