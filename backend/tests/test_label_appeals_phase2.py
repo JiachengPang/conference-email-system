@@ -229,17 +229,33 @@ def test_phase2_reason_codes_pinned_in_registry_order():
 
 
 # ---------------------------------------------------------------------------
-# Phase 2 — author-only view (D63)
+# Phase 2 — requester-only view (D63, D72 amendment)
 # ---------------------------------------------------------------------------
-def test_author_view_keeps_public_requester_and_other_end_user_only():
-    shown, agents, internal, unknown = lp.author_view(_pool_row(1))
-    assert [e["sender_type"] for e in shown] == ["requester", "other_end_user"]
-    assert all(e["is_public"] is True for e in shown)
-    assert (agents, internal, unknown) == (2, 2, 1)
+def test_author_view_shows_only_the_requesters_public_messages():
+    shown, hidden = lp.author_view(_pool_row(1))
+    assert [(e["sender_type"], e["body"]) for e in shown] == [("requester", "author body 1")]
+    assert hidden == 6  # 2 agent, 2 other_end_user, 1 unknown, 1 non-public requester
+
+
+def test_co_author_messages_are_hidden_even_when_public():
+    """Roles come from the CURRENT users pull, so a past-year chair whose account
+    is now `end-user` looks exactly like a co-author. Only the requester shows."""
+    row = _pool_row(1)
+    row["thread"] = [{"sender_type": "other_end_user", "sender_email_or_null": None,
+                      "body": "coauthor 1", "created_at": "t1", "is_public": True}]
+    assert lp.author_view(row) == ([], 1)
+
+
+@pytest.mark.parametrize("sender", ["agent", "other_end_user", "unknown", None, "Requester"])
+def test_every_non_requester_sender_is_hidden(sender):
+    row = _pool_row(1)
+    row["thread"] = [{"sender_type": sender, "sender_email_or_null": None,
+                      "body": "x", "created_at": "t1", "is_public": True}]
+    assert lp.author_view(row) == ([], 1)
 
 
 @pytest.mark.parametrize("flag", [False, None, "true", 1])
-def test_non_public_author_message_is_hidden_like_production(flag):
+def test_non_public_requester_message_is_hidden_like_production(flag):
     """Matches thread_transcript.build_transcript: only a real public turn shows.
 
     Anything but `is_public is True` is hidden (and counted), so an odd or
@@ -248,22 +264,20 @@ def test_non_public_author_message_is_hidden_like_production(flag):
     row = _pool_row(1)
     row["thread"] = [{"sender_type": "requester", "sender_email_or_null": None,
                       "body": _PRIVATE_AUTHOR_BODY, "created_at": "t1", "is_public": flag}]
-    shown, agents, internal, unknown = lp.author_view(row)
-    assert (shown, agents, internal, unknown) == ([], 0, 1, 0)
+    assert lp.author_view(row) == ([], 1)
 
 
-def test_ticket_display_hides_agent_text_chair_reply_and_non_public_author_text():
+def test_ticket_display_shows_only_requester_text_and_one_hidden_count():
     lines: list[str] = []
     lp.show_ticket_phase2(_pool_row(1), 1, 1, lines.append)
     text = "\n".join(lines)
-    assert "author body 1" in text and "coauthor 1" in text
+    assert "author body 1" in text
+    assert "coauthor 1" not in text
     assert _AGENT_BODY not in text
     assert _MARC_BODY not in text  # marc_reply_body and marc_replies never shown
     assert "UNKNOWN-SENDER-TEXT" not in text
     assert _PRIVATE_AUTHOR_BODY not in text
-    assert "2 agent replies hidden" in text
-    assert "2 non-public author messages hidden" in text
-    assert "1 messages of unknown sender hidden" in text
+    assert "6 other messages hidden" in text
 
 
 def test_no_visibility_marker_is_ever_shown():
@@ -283,12 +297,12 @@ def test_ticket_display_never_shows_why_a_ticket_was_picked():
     assert "PICKED-BY-REGEX" not in text
 
 
-def test_no_author_messages_says_so():
+def test_no_requester_messages_says_so():
     row = _pool_row(1)
-    row["thread"] = [e for e in row["thread"] if e["sender_type"] == "agent"]
+    row["thread"] = [e for e in row["thread"] if e["sender_type"] != "requester"]
     lines: list[str] = []
     lp.show_ticket_phase2(row, 1, 1, lines.append)
-    assert "no author-side messages" in "\n".join(lines)
+    assert "no requester messages" in "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------

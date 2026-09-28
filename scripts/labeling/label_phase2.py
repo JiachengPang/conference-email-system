@@ -9,18 +9,22 @@ Shared machinery (atomic save, SIGINT deferral, the fixed walk order, the reason
 display names) is imported from there, not copied.
 
 WHAT THE LABELER SEES — and what it deliberately does not:
-  * Author-side messages only (``requester`` and ``other_end_user``). Agent
-    replies are hidden and only counted, so a label can never rest on
-    information that exists only in the chair's reply (D63, fixing D22 for
-    Phase 2). Messages whose sender type is ``unknown`` are hidden too and
-    counted separately: we cannot tell which side wrote them.
+  * The REQUESTER's messages only (D72 amendment). The requester is identified
+    by the ticket's ``requester_id``, never by role: ``ticket_extraction``
+    sets ``sender_type == "requester"`` exactly when ``author_id ==
+    requester_id``, checked before any role. That matches production, which
+    also labels turns by requester id (thread_transcript ``_is_requester``).
+    EVERY other sender — agents, ``other_end_user``, ``unknown`` — is hidden
+    and counted. Roles cannot be trusted here: they come from the CURRENT
+    users pull, so past-year staff whose accounts are now ``end-user`` would
+    otherwise pass as co-authors and leak chair text (D63, fixing D22).
   * PUBLIC messages only, matching production exactly. The model never sees a
     non-public comment: the follow-up transcript keeps only public turns
     (backend/app/pipeline/thread_transcript.py, ``build_transcript``), and
     first ingest classifies the first PUBLIC requester message
     (backend/app/integrations/zendesk/adapter.py, the initial-inquiry rule).
-    Non-public author messages are therefore hidden and counted like agent
-    replies. No visibility marker is ever shown on a message — every shown
+    Non-public requester messages are therefore hidden and counted with the
+    rest. No visibility marker is ever shown on a message — every shown
     message is public — so none can bias the labeler.
   * Nothing about WHY a ticket is in the pool. Bucket membership lives in a
     separate sidecar file and is never read here, so it cannot nudge a label.
@@ -69,8 +73,8 @@ RECIPROCAL_LABEL_KEY = "is_reciprocal_label"
 PHASE2_FIELDS = (APPEAL_KEY, CODES_KEY, RECIPROCAL_LABEL_KEY, DEFERRED_KEY)
 PHASE0_ONLY_KEY = "appeal_reason"
 
-AUTHOR_SENDER_TYPES = frozenset({"requester", "other_end_user"})
-AGENT_SENDER_TYPE = "agent"
+# Set by ticket_extraction from author_id == requester_id alone (see module doc).
+REQUESTER_SENDER_TYPE = "requester"
 
 SAVE_KEY = ""  # a bare Enter
 DEFER_KEY = "s"
@@ -110,25 +114,20 @@ def load_phase2(path: Path) -> tuple[list[dict], int]:
     return records, migrated
 
 
-def author_view(record: dict) -> tuple[list[dict], int, int, int]:
-    """(shown, agent hidden, non-public author hidden, unknown hidden).
+def author_view(record: dict) -> tuple[list[dict], int]:
+    """(shown, hidden count).
 
-    Shown = PUBLIC author-side messages, in thread order. `is_public` is
-    matched with `is True`: a missing or non-boolean flag is hidden rather
-    than guessed public, since the model would not see it either.
+    Shown = the requester's PUBLIC messages, in thread order; everything else
+    is hidden and counted. `is_public` is matched with `is True`: a missing or
+    non-boolean flag is hidden rather than guessed public, since the model
+    would not see it either. The pool builder uses this same function for its
+    "anything visible to label?" check, so the two can never disagree.
     """
-    shown, agents, internal, unknown = [], 0, 0, 0
-    for entry in record.get("thread") or []:
-        sender = entry.get("sender_type")
-        if sender == AGENT_SENDER_TYPE:
-            agents += 1
-        elif sender not in AUTHOR_SENDER_TYPES:
-            unknown += 1
-        elif entry.get("is_public") is not True:
-            internal += 1
-        else:
-            shown.append(entry)
-    return shown, agents, internal, unknown
+    shown = [
+        e for e in record.get("thread") or []
+        if e.get("sender_type") == REQUESTER_SENDER_TYPE and e.get("is_public") is True
+    ]
+    return shown, len(record.get("thread") or []) - len(shown)
 
 
 class Selection:
@@ -225,12 +224,12 @@ def print_progress_phase2(records: list[dict], out: Callable[[str], None]) -> No
 
 def show_ticket_phase2(record: dict, position: int, remaining: int,
                        out: Callable[[str], None]) -> None:
-    """Ticket id, date, subject, and the author-side messages. Nothing else.
+    """Ticket id, date, subject, and the requester's messages. Nothing else.
 
     Deliberately omitted: `marc_reply_body`, `marc_replies`, `status`, and any
     pool/bucket information.
     """
-    shown, agents, internal, unknown = author_view(record)
+    shown, hidden = author_view(record)
     out("\n" + RULE)
     out("ticket {}   {}   [{}/{} this run]".format(
         record.get("ticket_id"), record.get("created_at"), position, remaining))
@@ -242,14 +241,9 @@ def show_ticket_phase2(record: dict, position: int, remaining: int,
         out(entry.get("body") or "(empty)")
     if not shown:
         out(THIN)
-        out("(no author-side messages in this thread)")
+        out("(no requester messages in this thread)")
     out(THIN)
-    hidden = "{} agent replies hidden".format(agents)
-    if internal:
-        hidden += "; {} non-public author messages hidden".format(internal)
-    if unknown:
-        hidden += "; {} messages of unknown sender hidden".format(unknown)
-    out(hidden)
+    out("{} other messages hidden".format(hidden))
     out(RULE)
 
 
