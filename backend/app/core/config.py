@@ -97,6 +97,17 @@ class Settings(BaseSettings):
     # turning the feature off cannot destroy data (D42).
     RECIPROCAL_DETECTOR_ENABLED: bool = True
 
+    # Appeal-reason classifier (reject-appeal Phase 2, D57/D65). A separate,
+    # conditional model call that names which registry reasons
+    # (app.pipeline.appeal_reasons) an appeal argues. OFF by default until a
+    # real eval run earns the flip, as with the detector (D54).
+    #
+    # ⚠️ Inert today: `app.pipeline.appeal_reason_classifier` is called by
+    # nothing yet. Once wired, this flag is read at the call site in
+    # `orchestrator._compute` (two-level gating, D44), and like the detector's
+    # flag it stops the CALL only — a stored answer is preserved (D66).
+    APPEAL_REASON_CLASSIFIER_ENABLED: bool = False
+
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the
     # calibrated confidence instead of the raw classifier score. Off by default
