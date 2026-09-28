@@ -3,9 +3,12 @@
 The FAQ lane is now a property of the generated *draft* (completeness,
 grounding, and the drafter's self-rated answer confidence), not the email's
 classified intent — EXCEPT for ``SENSITIVE_INTENTS``, which is the one lever
-that overrides that gate and now holds ``desk_reject_appeal`` until Phase 3
-reply templates exist (see router.py and reject_appeal.md D13).
+that overrides that gate and now holds ``desk_reject_appeal`` and
+``review_decision_appeal`` until Phase 3 reply templates exist (see router.py
+and reject_appeal.md D13, D62).
 """
+
+import pytest
 
 from app.pipeline.classifier import ClassificationResult
 from app.pipeline.drafter import DraftResponse
@@ -91,6 +94,28 @@ def test_desk_reject_appeal_is_held_even_with_a_perfect_draft():
     )
 
 
+@pytest.mark.parametrize(
+    "intent, reason_text",
+    [
+        ("desk_reject_appeal", "reject appeals require chair review"),
+        ("review_decision_appeal", "review-decision appeals require chair review"),
+    ],
+)
+def test_both_appeal_intents_are_held_even_with_a_perfect_draft(intent, reason_text):
+    """Both reject-appeal intents take the SENSITIVE-intent path (D55 + D62).
+
+    Same perfect draft as the desk-reject test above, so the sensitive override
+    is the only thing that can produce human_review. The exact override_reason
+    proves it was that path, not the draft-quality gate; the reason text proves
+    each intent has its own chair-facing explanation rather than the generic
+    fallback.
+    """
+    r = EmailRouter().route(_clf(intent=intent, confidence=0.99), ["c"], _draft(conf=0.99))
+    assert r.lane == LANE_HUMAN_REVIEW
+    assert r.override_reason == f"Intent '{intent}' always requires human review"
+    assert reason_text in r.reason
+
+
 def test_the_held_reason_explains_itself_to_a_chair():
     """The rationale panel shows this text; "is force-escalated" explains nothing."""
     r = EmailRouter().route(_clf(intent="desk_reject_appeal"), ["c"], _draft())
@@ -117,12 +142,17 @@ def test_a_sensitive_intent_without_a_reason_entry_still_routes():
 
 
 def test_non_sensitive_intents_still_reach_the_faq_lane():
-    """The hold is scoped to ONE intent — it must not become a blanket block.
+    """The hold is scoped to the two APPEAL intents — never a blanket block.
 
-    `review_decision_appeal` is checked explicitly: it is the neighbouring
-    appeal intent and the one most likely to be swept in by a careless edit.
+    ⚠️ INVERTED for one intent (D62). This used to include
+    `review_decision_appeal` and assert it REACHED the FAQ lane; it is now held
+    (see `test_both_appeal_intents_are_held_even_with_a_perfect_draft`), so it
+    was removed from this list. The other intents keep their original check.
+    `review_submission_help` takes over as the explicit neighbour check: after
+    the two appeals it is the closest name, and so the one most likely to be
+    swept in by a careless edit.
     """
-    for intent in ("submission_requirements", "review_decision_appeal", "cms_support"):
+    for intent in ("submission_requirements", "review_submission_help", "cms_support"):
         r = EmailRouter().route(_clf(intent=intent), ["c"], _draft())
         assert r.lane == LANE_FAQ, intent
         assert r.override_reason is None, intent

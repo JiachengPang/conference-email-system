@@ -5,9 +5,9 @@ replacement: the same ``RoutingDecision`` contract is returned. Two hard rules
 run before the bandit is ever consulted:
 
 - Sensitive intent → always human_review. ``SENSITIVE_INTENTS``
-  (``app.pipeline.router.SENSITIVE_INTENTS``) is currently EMPTY (appeals are
-  answerable per the taxonomy rework), so today this check is a no-op seam —
-  re-populate it to force specific intents to a human under any strategy.
+  (``app.pipeline.router.SENSITIVE_INTENTS``) currently holds
+  ``desk_reject_appeal`` and ``review_decision_appeal`` (reject_appeal.md D55,
+  D62), so both are forced to a human under any strategy.
 - Confidence below a hard floor → always human_review (see
   ``_CONFIDENCE_FLOOR`` below; still enforced and accurate).
 

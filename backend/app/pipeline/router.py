@@ -37,7 +37,11 @@ from app.pipeline.classifier import ClassificationResult
 # and never sees `extraction`, so a flag-level hold would mean making the
 # router depend on the extractor. Over-holding is the cheap, reversible side
 # of that trade — this is one line to undo.
-SENSITIVE_INTENTS: list[str] = ["desk_reject_appeal"]
+#
+# `review_decision_appeal` is held for the same reason (reject_appeal.md D62):
+# a post-review appeal gets a reply whose policy stance the chairs have not
+# signed off on either. It is where the live appeal volume is (D73).
+SENSITIVE_INTENTS: list[str] = ["desk_reject_appeal", "review_decision_appeal"]
 
 # Why each held intent is held, in words a chair reads in the routing-rationale
 # panel. A bare "is force-escalated" tells them the system did something without
@@ -48,6 +52,10 @@ _SENSITIVE_INTENT_REASONS: dict[str, str] = {
     "desk_reject_appeal": (
         "reject appeals require chair review — the reply states a policy "
         "stance that has not been signed off yet"
+    ),
+    "review_decision_appeal": (
+        "review-decision appeals require chair review — the reply states a "
+        "policy stance that has not been signed off yet"
     ),
 }
 

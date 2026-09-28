@@ -80,7 +80,8 @@ def test_confidence_below_floor_forces_human_review(isolated_state):
         assert decision.lane == "human_review"
 
 
-def test_sensitive_intent_holds_on_the_RL_path_too(isolated_state):
+@pytest.mark.parametrize("intent", ["desk_reject_appeal", "review_decision_appeal"])
+def test_sensitive_intent_holds_on_the_RL_path_too(isolated_state, intent):
     """The hold is STRATEGY-INDEPENDENT — one constant, both routers.
 
     `rl_router` imports `SENSITIVE_INTENTS` from `router` and checks it BEFORE
@@ -92,16 +93,18 @@ def test_sensitive_intent_holds_on_the_RL_path_too(isolated_state):
 
     Rewarding auto_reply 20× first means a bandit that ignored the hold would
     confidently choose the FAQ lane, so a pass here cannot be luck.
+
+    Parametrized over both held appeal intents (D55 + D62).
     """
     random.seed(0)
     router = RLRouter()
     for _ in range(20):
-        router.record_feedback("desk_reject_appeal", "auto_reply", "approved")
+        router.record_feedback(intent, "auto_reply", "approved")
     for _ in range(20):
-        decision = router.route("desk_reject_appeal", 0.99, 0.65)
+        decision = router.route(intent, 0.99, 0.65)
         assert decision.lane == "human_review"
         assert decision.override_reason == (
-            "Intent 'desk_reject_appeal' always requires human review"
+            f"Intent '{intent}' always requires human review"
         )
 
 
