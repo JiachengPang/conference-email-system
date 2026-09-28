@@ -74,7 +74,8 @@ APPEAL_REASONS: tuple[AppealReason, ...] = (
     AppealReason(
         "other", "o", False,
         "The author appeals on a specific ground not listed here, such as a "
-        "desk rejection for a hidden prompt injection.",
+        "desk rejection for an unrelated policy reason, or a claim about a "
+        "hidden prompt injection in the paper.",
     ),
 )
 
