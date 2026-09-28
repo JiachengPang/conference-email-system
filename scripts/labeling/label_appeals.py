@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """Hand-labeling CLI for the Phase 1 reject-appeal set.
 
+(``--phase2`` switches to the Phase 2 reason-labeling mode in label_phase2.py;
+without it, everything below is unchanged.)
+
 Walks data/labeling/phase1_appeals_2025-09-20_to_30.jsonl one ticket at a
 time and records a human judgment into the two label fields that extraction
 left null (``is_reject_appeal`` / ``appeal_reason``). Stdlib only.
@@ -269,6 +272,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Revisit pass: show ONLY tickets deferred with [s] that are still "
              "unlabeled. Labeling one clears its deferred flag.",
     )
+    parser.add_argument(
+        "--phase2",
+        action="store_true",
+        help="Phase 2 reason labeling (label_phase2.py): multi-label reasons, "
+             "a separate reciprocal box, author-only view. Defaults to "
+             "data/labeling/phase2_reasons_pool.jsonl.",
+    )
     return parser.parse_args(argv)
 
 
@@ -283,12 +293,25 @@ def main(argv: list[str] | None = None) -> int:
         except (AttributeError, ValueError):
             pass
 
+    if args.phase2:
+        # Lazy: label_phase2 imports from this module, and the Phase 0 path
+        # below must not depend on it.
+        from label_phase2 import main_phase2
+
+        return main_phase2(args.path, args.review_deferred)
+
     path = args.path or DATA_PATH
     if not path.exists():
         print("ERROR: data file not found: {}".format(path), file=sys.stderr)
         return 2
 
     records, migrated = load(path)
+    # A Phase 2 file labeled here would get single-code Phase 0 fields written
+    # beside its multi-label ones. Refuse rather than mix the two shapes.
+    if any("appeal_reason_codes" in r for r in records):
+        print("ERROR: {} is a Phase 2 file; run it with --phase2.".format(path.name),
+              file=sys.stderr)
+        return 2
     by_id = {r["ticket_id"]: r for r in records}
 
     # Nothing is written until a real label or defer happens. A migrated-only
