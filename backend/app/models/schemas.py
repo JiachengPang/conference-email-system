@@ -215,6 +215,14 @@ class ExtractionResult(BaseModel):
         "while False is a positive 'ruled out'. Null for every row persisted "
         "before this field existed, so treat null as unknown, never as no.",
     )
+    appeal_reason: list[str] | None = Field(
+        default=None,
+        description="The grounds an appeal argues, as full reason names, in a "
+        "fixed order. TRI-STATE: null means not asked, skipped, or failed — "
+        "never 'no reason applies'; [] means asked, and no listed reason "
+        "applies; a non-empty list is the reasons argued. Null for every row "
+        "persisted before this field existed.",
+    )
 
     @computed_field
     @property

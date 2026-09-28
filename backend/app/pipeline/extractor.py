@@ -57,6 +57,10 @@ be done in here: ``extract`` is synchronous, pure and never-raises, and a
 network call would end all three). A ``None`` coming out of this module
 therefore means only "not answered here" — never "ruled out".
 
+``appeal_reason`` is the same kind of field, for the same reason: it is set only
+by ``orchestrator._compute`` from the separate ``appeal_reason_classifier``
+call (reject_appeal.md D76), and ``extract()`` leaves it ``None``.
+
 The fallback is tuned for PRECISION over recall. Roughly half of real threads
 carry no submission reference at all, so returning nothing is the ordinary
 outcome, not a failure; attaching the WRONG paper to a ticket is far more
@@ -455,6 +459,20 @@ class ExtractionResult(BaseModel):
         "On a thread the detector judges the WHOLE conversation, not just the "
         "latest turn, so this does not flip to False when a dispute thread's "
         "newest message is only a follow-up.",
+    )
+    appeal_reason: list[str] | None = Field(
+        default=None,
+        description="The grounds an appeal argues, as full registry names "
+        "(`app.pipeline.appeal_reasons`), in registry order. TRI-STATE: None "
+        "means not asked, skipped, or failed — NEVER 'no reason applies'; [] "
+        "means asked, and no listed reason applies; a non-empty list is the "
+        "reasons argued.\n\n"
+        "NOT SET BY THE EXTRACTOR, on either path. `extract()` always leaves "
+        "it None; `orchestrator._compute` attaches the answer from the "
+        "separate `appeal_reason_classifier` call, which runs only when the "
+        "feature flag is on, the intent is a reject appeal, and the "
+        "reciprocal flag is not True. A stored answer is preserved when the "
+        "call is skipped or fails.",
     )
 
     @computed_field

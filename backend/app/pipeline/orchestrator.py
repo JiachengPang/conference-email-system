@@ -34,6 +34,9 @@ from app.pipeline.distiller import EmailDistiller
 from app.pipeline.drafter import DraftResponse, ResponseDrafter
 from app.pipeline.extractor import EmailExtractor
 from app.pipeline.reciprocal_detector import detect_reciprocal_dispute
+from app.pipeline.appeal_reason_classifier import classify_appeal_reason
+from app.pipeline.appeal_reasons import is_valid_stored
+from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
 from app.pipeline.retriever import (
     RetrievedChunk,
     get_retriever,
@@ -85,6 +88,25 @@ def _prior_dispute_flag(email) -> bool | None:
     extraction = getattr(email, "extraction", None) or {}
     value = extraction.get("is_reciprocal_dispute")
     return value if isinstance(value, bool) else None
+
+
+# The intents that trigger the appeal-reason call (reject_appeal.md D58): BOTH
+# appeal intents, unlike the reciprocal detector's narrow gate, because
+# post-review complaints land on `review_decision_appeal`. One constant, shared
+# with `taxonomy.is_reject_appeal`, so the gate and the taxonomy cannot drift.
+_APPEAL_REASON_GATE_INTENTS = REJECT_APPEAL_INTENTS
+
+
+def _prior_appeal_reason(email):
+    """The RAW stored ``appeal_reason`` (D66), or None when the row has none.
+
+    Deliberately not validated here: `_compute` validates ``prior_appeal_reason``
+    once, for every caller — including the public ``compute`` seam, whose caller
+    fills the key itself. A second check here would make each of the two
+    redundant, so deleting either one could never fail a test.
+    """
+    extraction = getattr(email, "extraction", None) or {}
+    return extraction.get("appeal_reason")
 
 _RETRIEVAL_QUERY_CHARS = 300
 # Fallback query when QUERY_STRATEGY == "distill" but distillation failed:
@@ -521,6 +543,48 @@ class EmailPipeline:
                 update={"is_reciprocal_dispute": dispute_flag}
             )
 
+            # --- appeal reasons (reject-appeal Phase 2) -------------------
+            # A SEPARATE, conditional model call, after the detector because it
+            # needs the detector's EFFECTIVE flag. Off by default (D65).
+            #
+            # PRESERVE RULE (D66): only a real answer — any valid list,
+            # INCLUDING [] — overwrites. `classify_appeal_reason` applies it
+            # itself, so it must be handed the STORED value as the prior; in
+            # every branch that does not call it, the stored value is carried
+            # forward unchanged (never None, never []).
+            #
+            # SKIP (D68): when the EFFECTIVE `is_reciprocal_dispute` is True —
+            # `dispute_flag` above, i.e. after D42's preserve rule, so a stored
+            # True skips even on a run where the detector did not fire. The
+            # reciprocal ground is owned by that flag (D60).
+            #
+            # Only a canonical registry list (including []) counts as a prior;
+            # anything else in storage (a letter code, a reordered list) is not
+            # ours and reads as "no prior". The ONE validation point (D66).
+            prior_reason_raw = email_data.get("prior_appeal_reason")
+            prior_reason = (
+                list(prior_reason_raw) if is_valid_stored(prior_reason_raw) else None
+            )
+            appeal_reason = prior_reason
+            if not settings.APPEAL_REASON_CLASSIFIER_ENABLED:
+                reason_status = "flag_off"
+            elif classification.intent not in _APPEAL_REASON_GATE_INTENTS:
+                reason_status = "gate_not_met"
+            elif dispute_flag is True:
+                reason_status = "skipped_reciprocal"
+            else:
+                appeal_reason = await classify_appeal_reason(email_data, prior_reason)
+                reason_status = "ran"
+            # Ids and states only — never subject, body or transcript.
+            logger.debug(
+                "Appeal-reason classifier: %s (intent=%s, prior=%s, final=%s)",
+                reason_status,
+                classification.intent,
+                prior_reason,
+                appeal_reason,
+            )
+            extraction = extraction.model_copy(update={"appeal_reason": appeal_reason})
+
             # Query formulation (E003): distilled queries joined into one string,
             # with NO intent token (it hurts dense retrieval — E001). Distill-mode
             # fallback is subject+body[:600]; the legacy prefix strategy keeps
@@ -830,7 +894,8 @@ class EmailPipeline:
         of the seam — so a caller that persists over an existing row must put
         the prior value into ``email_data`` itself, exactly as
         ``reprocess_email`` does. Omitting it reads as "no prior", which is
-        correct for a first computation and WRONG for a re-computation.
+        correct for a first computation and WRONG for a re-computation. The same
+        holds for ``prior_appeal_reason`` (D66).
         """
         return await self._compute(
             email_data,
@@ -844,8 +909,9 @@ class EmailPipeline:
     ) -> PipelineResult:
         """Run an email through the full pipeline and persist it as a NEW row.
 
-        Does NOT thread ``prior_is_reciprocal_dispute`` (D42) — by definition a
-        new row has no prior answer, so the absent key correctly reads as None.
+        Does NOT thread ``prior_is_reciprocal_dispute`` (D42) or
+        ``prior_appeal_reason`` (D66) — by definition a new row has no prior
+        answer, so the absent key correctly reads as None.
         """
         c = await self._compute(email_data, db)
         email = await self.email_repo.create_email(db, c.record)
@@ -879,6 +945,8 @@ class EmailPipeline:
             # D42: carried so a re-run cannot wipe a stored answer when the
             # detector does not run or cannot answer.
             "prior_is_reciprocal_dispute": _prior_dispute_flag(email),
+            # D66: the same, for the appeal-reason classifier.
+            "prior_appeal_reason": _prior_appeal_reason(email),
         }
         c = await self._compute(
             email_data,
@@ -924,6 +992,8 @@ class EmailPipeline:
             # message is "any update?" leaves the gate — without this the stored
             # True would be overwritten with None.
             "prior_is_reciprocal_dispute": _prior_dispute_flag(email),
+            # D66: the same, for the appeal-reason classifier.
+            "prior_appeal_reason": _prior_appeal_reason(email),
         }
         c = await self._compute(email_data, db)
         _append_draft_history(c.record, email.draft, triggering_comment_ids)
