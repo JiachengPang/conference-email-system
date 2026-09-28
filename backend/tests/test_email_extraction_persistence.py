@@ -243,6 +243,9 @@ async def test_extraction_round_trips_every_field_from_the_llm_path(
         # so this stays an exact-shape check and the field's removal from the
         # serialized record would fail here rather than pass silently.
         "is_reciprocal_dispute": None,
+        # None: set only by `_compute` from the appeal-reason classifier, which
+        # is OFF by default (D65/D76). Explicit for the same exact-shape reason.
+        "appeal_reason": None,
     }
 
 
@@ -398,6 +401,7 @@ async def test_extraction_is_serialized_with_model_dump(session):
         "authors",
         "method",
         "is_reciprocal_dispute",
+        "appeal_reason",
     }
 
 

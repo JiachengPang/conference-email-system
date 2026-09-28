@@ -15,6 +15,8 @@ case returns).
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 
 from app.core.config import Settings, settings
@@ -22,6 +24,10 @@ from app.pipeline import appeal_reason_classifier as arc
 from app.pipeline.appeal_reasons import APPEAL_REASONS, LABEL_CODE_TO_NAME, REASON_NAMES
 
 EMAIL = {"subject": "Appeal of decision", "body": "Please reconsider."}
+
+# The approved prompt (reject_appeal.md D75, approved 2026-09-28).
+_APPROVED_PROMPT_CHARS = 1903
+_APPROVED_PROMPT_SHA256 = "bb6f5407f1652454a7153e4c70b953d46372c0e5e3d2697439b40f128e0df504"
 
 
 def _answer(monkeypatch, text):
@@ -40,6 +46,27 @@ def _answer(monkeypatch, text):
 # ---------------------------------------------------------------------------
 # Prompt contract
 # ---------------------------------------------------------------------------
+def test_prompt_is_byte_identical_to_the_approved_version():
+    """⚠️ This prompt is APPROVED as of 2026-09-28 (D75). Changing it requires
+    re-approval of the wording BEFORE re-testing against the labeled set.
+
+    Pins the exact length AND hash, the reciprocal detector's pattern: the
+    clause tests below would let a paraphrase or an added sentence through. The
+    reason menu is built from `appeal_reasons.APPEAL_REASONS`, so editing a
+    registry DESCRIPTION also changes this prompt and fails this test — that is
+    intended.
+
+    If this fails, do not re-baseline it. Revert the edit, or get the new wording
+    approved and re-run the eval before updating both constants.
+
+    Hashed as UTF-8 bytes: the prompt contains an em dash (U+2014), so a hash
+    over any other encoding would not match.
+    """
+    p = arc._SYSTEM_PROMPT
+    assert len(p) == _APPROVED_PROMPT_CHARS
+    assert hashlib.sha256(p.encode("utf-8")).hexdigest() == _APPROVED_PROMPT_SHA256
+
+
 def test_prompt_lists_every_registry_reason_with_its_description():
     """The menu is built from the registry, so it can never drift from it."""
     for reason in APPEAL_REASONS:
