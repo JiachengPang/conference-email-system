@@ -15,7 +15,7 @@ Detect desk-reject appeal emails for AAAI-27, especially reciprocal-review duty 
 | 0 | Ground-truth labeling of appeal tickets | Done |
 | 1 | Detection: reject-appeal intent + `is_reciprocal_dispute` flag | **Live (detector ON, D54; 9c hold D55)** — only Step 10 deploy pending |
 | 2 | Reason classification (`appeal_reason[]`, full names, validated) | **Complete 2026-09-28** — labels 124/124 (D74); classifier built + prompt pinned (D75), wired (D76), evaluated (D77), e fallback-only (D78), ON locally only (D79); D62 hold in place; decisions D57–D79. ⚠️ Pending before production deploy: Marc/Ida notification (9c + D62) |
-| 3 | Reply templates per reason. `r` gets a policy-stance reply; only `a`/`b` may escalate. Needs Marc's sign-off | **In progress** — Step 1 investigation done 2026-09-28 (F1–F5, D80–D85); open questions (a)–(e) for Marc |
+| 3 | Reply templates per reason. `r` gets a policy-stance reply; only `a`/`b` may escalate. Needs Marc's sign-off | **In progress** — Step 1 investigation done 2026-09-28 (F1–F10, D80–D90); open questions (a)–(h) for Marc |
 | 4 | Drafter integration | Pending |
 | 5 | Bulk-reply queue for reciprocal disputes (dedicated DB column, deterministic `event_tag`, UI surface) | Pending |
 
@@ -543,7 +543,19 @@ Phase 3 = a library of pre-approved reply paragraphs per appeal reason (a, b, c,
 
 **F5. The drafter is the Phase 4 dependency.** Strategy choice is an if-chain on `MODEL_PROVIDER` inside `ResponseDrafter.draft` (`drafter.py:478`), no registry; a second strategy must match `draft(email, classification, retrieved_chunks, forced_policy_key) -> DraftResponse` and never raise. **The extraction (`appeal_reason`, `is_reciprocal_dispute`, submission numbers, OpenReview ids, author mentions) is computed in `_compute` but NOT passed to the drafter**, and `zendesk_ticket_id` is not available at draft time. `[Sender name]` is filled with a hard-coded name at draft time, on the model paths only (`drafter.py:124`). **No authenticated chair accounts exist yet** (`approved_by`/`reviewed_by` default to a placeholder actor).
 
-### Approved 2026-09-28 — Phase 3 decisions (D80–D85)
+*Step 1b/1c findings (2026-09-28), from 27 whole scrubbed chair replies in `data/labeling/phase3/b_examples.txt` (gitignored):*
+
+**F6. Marc's reply shape is short and direct:** "Dear {name}," → 1–3 short paragraphs (often a single sentence) → "Best regards," → name + "AAAI Team". Blunt when declining.
+
+**F7. On b (score) complaints Marc declined every time; 1 forward in 13 tickets.** 13 b tickets: 2 no reply · 6 stock explanation only · 2 explicit "decision is final" + explanation · 1 explanation + an explicit forward · 2 other short declines. No b reply reversed or reopened a decision. Three recurring bodies exist, and **each fails D85 as written**: (1) the stock "record number of submissions / reviews + SPC + AC" reply — stale year wording, internal roles; (2) "final decisions are not determined solely by the reviewer scores … decision is final … measures to detect collusion" — internal process; (3) "we have set up processes to detect unprofessional reviews … we will track and take action against such reviewers" — a promised outcome. Their safe sentences are reused; the rest is dropped.
+
+**F8. Marc points authors to an ethics report form for review misconduct** — one d reply (ticket 18598, 2025-09-17): OpenReview's messaging is for the ethics chairs to contact authors, and violations are reported through a Google Form (`https://docs.google.com/forms/d/e/1FAIpQLScKlSVxVc0XfNdLF03uCEUweYLkvS7e9Thx39kbLzZ8d6LJ0w/viewform`). **The AAAI-27 corpus has no report-form address**: policy_104 names a violations subcommittee but gives no contact. The form is from the 2025 cycle, so its validity for AAAI-27 is open question (f).
+
+**F9. a, e and other rest on very little evidence:** a has direct replies on 5 tickets (7 replies, most of them follow-ups or off-topic), e on 1, other on 2. Paragraphs for these reasons are largely new wording, not distilled practice.
+
+**F10. Marc's real replies almost never cite a paper number and never a ticket number:** across 100 distinct scrubbed paragraph variants, a paper number appears in 2 replies (one outcome notice; one reciprocal desk-reject confirmation), ticket numbers in 0, policy ids in 0. Recorded as the evidence for D86.
+
+### Approved 2026-09-28 — Phase 3 decisions (D80–D90)
 
 *(Proposed as D74–D79; renumbered because D74–D79 are the Phase 2 decisions above. Mapping: D74→D80, D75→D81, D76→D82, D77→D83, D78→D84, D79→D85.)*
 
@@ -559,12 +571,29 @@ Phase 3 = a library of pre-approved reply paragraphs per appeal reason (a, b, c,
 
 **D85. Safety lint test on every paragraph**: no concession or characterization of a review, no promised outcome, no scores / reviewer / decision-rationale detail, no year-specific or internal-role wording — the F2 failure kinds turned into a check. **Priority order: c, d, b, a, e, other, then r** (r needs Marc's policy statement; F4).
 
+**D86. No identifiers in reply text; provenance is a separate internal field.** *(Proposed as D89; D86 is the next free number.)* The text of every paragraph never contains policy ids, ticket or paper numbers, or source tags. Provenance is a separate internal field on the paragraph — **policy chunk ids only, never ticket ids** — shown to the chair in the citation panel and never in the email body. The D85 safety lint fails any paragraph whose text contains such an identifier.
+- **Consistent with what exists:** the drafter already keeps citations out of the body (`DraftResponse.citations`, rendered by `PolicyCitations` in `EmailDetail.tsx`), and the Phase 7 reply contract already scrubs internal `policy_NNN` ids from requester-facing text.
+- **Evidence from Marc's real replies** (scan of the 100 distinct scrubbed paragraph variants in `data/labeling/phase3/b_paragraphs.json`): a paper/submission number appears in **2** replies — one outcome notice (a, ticket 7479: "Paper <NUM> has moved to Phase 2 review") and one reciprocal desk-reject confirmation (r, 18786); **ticket/request numbers: 0**; **policy ids: 0**. The only "request #…" references in the data are Zendesk's automatic merge notices, which are system text, not chair-written, and are excluded from the paragraph set (F3). So a paragraph library with no identifiers matches how Marc actually writes.
+
+*Step 1c decisions (2026-09-28). Proposed without numbers; mapping: [CHAIR:] for other → D87 · b two versions → D88 · closing line → D89 · no identifiers → already **D86** (not duplicated) · standalone emails → D90.*
+
+**D87. The existing `[CHAIR: …]` placeholder is allowed for reason `other`** — **amends D84**, which allowed only the author name. `other` is by definition a ground the library does not cover (F9), so the chair must write the specific part. It reuses the existing mechanism: the approve endpoint already returns 409 while any `[CHAIR: …]` remains, so such a draft can never be sent unfilled. Every other reason stays on D84's allow-list.
+
+**D88. b has two versions: a standard one and a forward one.** Standard declines (the decision stands), matching F7. Forward is for the rare case the chair decides to pass the complaint on (1 in 13 in F7). The chair picks which one; the library never picks it automatically.
+
+**D89. Marc's closing line** ("we hope the feedback will be useful … another leading venue or future AAAI edition") **is used only on reviewed papers** — never on forward drafts, and never on reciprocal drafts, where no review happened. Year wording is still removed per D82/D85.
+
+**D90. Templates are complete standalone emails, one per reason, in Marc's format** (F6) — **amends D83**. Multi-reason combining (D83's "reason paragraphs in a fixed order") is **deferred to Phase 4**. Until then a multi-reason appeal gets the template for one reason, chosen by the chair.
+
 **Open questions for Marc:**
 - (a) Confirm the no-appeal stance, and its source — the corpus has none (F4).
 - (b) May replies name SPC / AC at all?
 - (c) The exact commitment wording for a and b (escalation grounds); the b threshold is still open.
 - (d) A reciprocal-review policy statement the r paragraph can rest on (F4).
 - (e) A paragraph for complaints about the AAAI-27 AI-generated review (F4).
+- (f) The ethics / violation report form address for AAAI-27 — the only one found is the 2025-cycle Google Form (F8); the corpus has none.
+- (g) Is it still true that deliberation notes and meta-reviews are not released to authors (a b reply said so, F7)?
+- (h) Timeframe wording for "we will investigate" (a 2023 reply said "a couple of days").
 
 ## Known risks
 
@@ -622,6 +651,8 @@ Phase 3 = a library of pre-approved reply paragraphs per appeal reason (a, b, c,
 - 2026-09-23: this log created.
 - 2026-09-25: Step 9a read-only report (no code, no model calls). Added D13–D17; recorded the template assessment, the `SENSITIVE_INTENTS` hold mechanism, and three blockers found for 9b (dead intent gold, `run_eval.py` has no distiller, `data/eval_real/` absent here). Baseline commit for before/after = **8c6eb49** (last commit before `8c52d2f`).
 - 2026-09-25: backend startup crash fixed — `sqlalchemy` → **`sqlalchemy[asyncio]>=2.0,<2.1`** in `pyproject.toml` (greenlet stopped arriving transitively when SQLAlchemy floated 2.0.52 → 2.1.1). Rebuilt: resolves to **2.0.54 + greenlet 3.5.6**, alembic + uvicorn start clean, 21 passed / 4 skipped (the 4 are `@needs_git`, unrunnable in a git-less container by design — see D20). D18 resolved as a side effect (image now at HEAD: 5,371-char prompt, `asks flag: True`). Two backlog items added: the server fix, and the no-lockfile exposure.
+- 2026-09-28: **Phase 3 Step 1c — findings F6–F10 + decisions D87–D90** (the no-identifiers decision was already D86, not duplicated). Marc's short direct shape; b always declined, 1 forward in 13; the three recurring bodies each fail D85; ethics report form found only in one 2025 reply (a Google Form), none in the corpus; a/e/other thin. Decided: `[CHAIR:]` allowed for other (amends D84); b standard + forward versions; the closing line only on reviewed papers; standalone emails per reason, combining deferred to Phase 4 (amends D83). Open questions (f)–(h) added. Docs only.
+- 2026-09-28: **D86 — no identifiers in reply text** (proposed as D89; next free number is D86). Paragraph text never carries policy ids, ticket/paper numbers or source tags; provenance (policy chunk ids only) is a separate internal field shown in the chair's citation panel; the D85 lint fails any paragraph with an identifier. Evidence: across 100 distinct scrubbed paragraph variants of Marc's replies, paper numbers appear in 2 (one outcome notice, one reciprocal desk-reject confirmation), ticket numbers and policy ids in 0. Docs only.
 - 2026-09-28: **Phase 3 Step 1 — read-only investigation logged (F1–F5) + decisions D80–D85** (proposed as D74–D79, renumbered: D74–D79 are taken). Replies mostly bespoke; five disclosure kinds found; r handled by merging (12 direct replies of 125); corpus has no appeals or reciprocal-duty chunk; extraction not passed to the drafter. Decided: hash-locked repo file, single loader, fresh wording, opening + reason + closing structure, author-name-only placeholders, safety lint; open questions (a)–(e) for Marc. Docs only.
 - 2026-09-28: **PHASE 2 COMPLETE.** Labeling done (124/124, D74). Appeal-reason classifier built, prompt approved and pinned, wired, evaluated, and `general_dissatisfaction` made fallback-only (D75–D78); enabled locally only (D79 — the AAAI server's `.env` untouched). D62 hold in place (`review_decision_appeal` → chair review). Hardening: backend image no longer carries ticket PII (`.dockerignore`), and the poller's Zendesk token is read-only (`ZENDESK_SYNC_OAUTH_SCOPE`, Backlog 6). ⚠️ **Pending before production deploy: notify Marc and Ida of the 9c + D62 chair-review holds.** Mechanical server steps: pre-deploy checklist (Backlog). Docs only.
 - 2026-09-28: **Backlog 6 DONE — read-only poller token (approved; uncommitted).** New `ZENDESK_SYNC_OAUTH_SCOPE="read"`; optional `scope=` on the OAuth provider + factory (back-compatible); the adapter requests `read`, the sender keeps `read write`. `.env.example` updated (new key + corrected comment); local `backend/.env` unchanged (default suffices). +7 tests; full non-ml 25 failed / 1732 → 1739 passed, failure set identical; 5/5 mutations caught. Added an AAAI server pre-deploy checklist at the top of the Backlog. No polling started.
