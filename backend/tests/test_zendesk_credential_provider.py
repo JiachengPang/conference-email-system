@@ -221,3 +221,85 @@ def test_oauth_missing_access_token_in_body_raises_auth_error(monkeypatch):
     )
     with pytest.raises(ZendeskAuthError):
         provider.get_auth_header()
+
+
+# === Per-provider scope: read path vs write path ===========================
+#
+# The ingest adapter (reads) and the sender (writes) each build their own
+# provider. The adapter must request ZENDESK_SYNC_OAUTH_SCOPE ("read") so the
+# poller's token CANNOT write; the sender keeps ZENDESK_OAUTH_SCOPE ("read
+# write"). Asserted on the token REQUEST each one actually sends.
+
+
+def _requested_scope(provider, monkeypatch) -> str:
+    monkeypatch.setattr(cp.time, "monotonic", lambda: 0.0)
+    fake = FakeClient(_ok_factory)
+    provider._client = fake  # swap the real httpx.Client for the recorder
+    provider.get_auth_header()
+    assert len(fake.calls) == 1
+    return fake.calls[0]["json"]["scope"]
+
+
+def test_scope_override_is_what_the_token_request_asks_for(monkeypatch):
+    settings = make_settings(ZENDESK_AUTH_MODE="oauth", ZENDESK_OAUTH_SCOPE="read write")
+    provider = OAuthCredentialProvider(settings, client=FakeClient(_ok_factory), scope="read")
+    assert _requested_scope(provider, monkeypatch) == "read"
+
+
+def test_no_override_falls_back_to_ZENDESK_OAUTH_SCOPE(monkeypatch):
+    """Backward compatible: callers that pass no scope behave exactly as before."""
+    settings = make_settings(ZENDESK_AUTH_MODE="oauth", ZENDESK_OAUTH_SCOPE="read write")
+    provider = OAuthCredentialProvider(settings, client=FakeClient(_ok_factory))
+    assert _requested_scope(provider, monkeypatch) == "read write"
+
+
+def test_factory_threads_the_scope_to_the_oauth_provider(monkeypatch):
+    settings = make_settings(ZENDESK_AUTH_MODE="oauth", ZENDESK_OAUTH_SCOPE="read write")
+    provider = get_zendesk_credential_provider(settings, scope="read")
+    assert _requested_scope(provider, monkeypatch) == "read"
+    default = get_zendesk_credential_provider(settings)
+    assert _requested_scope(default, monkeypatch) == "read write"
+
+
+def test_factory_scope_is_ignored_in_token_mode():
+    """An API token cannot be narrowed; passing a scope must not break token mode."""
+    provider = get_zendesk_credential_provider(make_settings(ZENDESK_AUTH_MODE="token"), scope="read")
+    assert isinstance(provider, TokenCredentialProvider)
+
+
+@pytest.fixture
+def oauth_app_settings(monkeypatch):
+    """The REAL settings object the adapter and sender read, in OAuth mode with
+    the two scopes deliberately different."""
+    from app.core.config import settings
+
+    for key, value in {
+        "ZENDESK_AUTH_MODE": "oauth",
+        "ZENDESK_SUBDOMAIN": "aaai",
+        "ZENDESK_OAUTH_CLIENT_ID": "confmail",
+        "ZENDESK_OAUTH_CLIENT_SECRET": "s3cret",
+        "ZENDESK_OAUTH_SCOPE": "read write",
+        "ZENDESK_SYNC_OAUTH_SCOPE": "read",
+    }.items():
+        monkeypatch.setattr(settings, key, value)
+    return settings
+
+
+def test_the_ingest_adapter_requests_a_READ_ONLY_token(oauth_app_settings, monkeypatch):
+    from app.integrations.zendesk.adapter import ZendeskIngestAdapter
+
+    provider = ZendeskIngestAdapter()._provider_obj()
+    assert _requested_scope(provider, monkeypatch) == "read"
+
+
+def test_the_sender_requests_a_READ_WRITE_token(oauth_app_settings, monkeypatch):
+    from app.integrations.zendesk.sender import ZendeskSender
+
+    provider = ZendeskSender()._provider_obj()
+    assert _requested_scope(provider, monkeypatch) == "read write"
+
+
+def test_the_sync_scope_defaults_to_read():
+    from app.core.config import Settings
+
+    assert Settings.model_fields["ZENDESK_SYNC_OAUTH_SCOPE"].default == "read"
