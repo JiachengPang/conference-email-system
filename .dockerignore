@@ -1,7 +1,8 @@
 # Build context for the BACKEND image (context = repo root).
 # Keep: backend/ source, backend/models/ (small trained artifacts, needed at
-# runtime), and data/ (the dataset the pipeline reads). Exclude everything the
-# image never needs so the context stays small.
+# runtime), and data/ (the dataset the pipeline reads) MINUS the real-ticket PII
+# paths listed at the bottom. Exclude everything the image never needs so the
+# context stays small.
 
 # VCS / IDE / OS
 .git
@@ -41,3 +42,18 @@ frontend
 # Docs / large binaries not needed at runtime
 *.pdf
 docs
+
+# REAL TICKET PII — never bake into an image. The Dockerfile copies all of
+# data/, so every path .gitignore marks as PII must also be excluded here, or a
+# pushed image would carry it. Nothing in backend/app, main.py, migrations or
+# the test suite reads these; only offline research scripts do, and they must
+# get the data via a read-only bind mount at run time, e.g.
+#   docker compose run --rm --no-deps -v "<repo>/data/labeling:/app/data/labeling:ro" backend ...
+# Keep this list in step with the PII entries in .gitignore.
+data/tickets
+data/labeling
+data/mining
+data/eval_real
+data/style_guide/pairs.jsonl
+data/style_guide/batches.json
+data/style_guide/batches

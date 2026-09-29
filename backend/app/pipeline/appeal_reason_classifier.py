@@ -55,6 +55,15 @@ _MAX_TOKENS = 2000
 
 _NONE_TOKEN = "NONE"
 
+# `general_dissatisfaction` is the "no specific ground" reason — by its registry
+# description it applies only when nothing more specific does. The model reads it
+# as additive instead: in the first real eval, 11 of its 12 predictions sat
+# ALONGSIDE a correct specific reason (reject_appeal.md D77/D78). So it is
+# dropped whenever any other reason is present, deterministically, after parsing.
+# A post-processing rule rather than a prompt edit, so the approved, pinned
+# prompt (D75) is untouched.
+_FALLBACK_ONLY_REASON = "general_dissatisfaction"
+
 # Built from the registry, so the prompt can never list a name the parser
 # rejects (or omit one it accepts). Full names only — never the letter codes,
 # which exist for scoring against the hand labels (D4/D59).
@@ -119,6 +128,8 @@ def _parse(text: str) -> list[str] | None:
       not two. A failed classification, never a partial guess.
     * No verdict line → ``None``. An empty value splits to ``[""]`` and is
       rejected by the same rule.
+    * Finally, ``general_dissatisfaction`` is dropped when another reason is
+      present (``drop_redundant_fallback``, D78).
     """
     match = _APPEAL_REASONS_RE.search(text or "")
     if not match:
@@ -126,7 +137,24 @@ def _parse(text: str) -> list[str] | None:
     value = match.group(1).strip()
     if value.upper() == _NONE_TOKEN:
         return []
-    return normalize_reasons([token.strip() for token in value.split(",")])
+    return drop_redundant_fallback(
+        normalize_reasons([token.strip() for token in value.split(",")])
+    )
+
+
+def drop_redundant_fallback(reasons: list[str] | None) -> list[str] | None:
+    """Drop ``general_dissatisfaction`` when any other reason is present (D78).
+
+    Applied AFTER ``normalize_reasons``, so an invalid answer is still ``None``
+    (never rescued by the drop) and the result stays in registry order. Alone,
+    it is kept — then it is exactly the "no specific ground" case it describes.
+    ``None`` and ``[]`` pass through unchanged. Returns a new list.
+    """
+    if reasons is None:
+        return None
+    if _FALLBACK_ONLY_REASON in reasons and len(reasons) > 1:
+        return [r for r in reasons if r != _FALLBACK_ONLY_REASON]
+    return list(reasons)
 
 
 def _build_user_prompt(

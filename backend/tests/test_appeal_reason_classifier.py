@@ -195,6 +195,51 @@ async def test_the_first_verdict_line_wins(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# D78: general_dissatisfaction is dropped when a specific reason is present
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "reasons, expected",
+    [
+        (["general_dissatisfaction"], ["general_dissatisfaction"]),  # alone -> kept
+        (["reviewer_misunderstanding", "general_dissatisfaction"],
+         ["reviewer_misunderstanding"]),  # e + c -> c
+        (["wrong_paper_review", "score_outcome_mismatch", "general_dissatisfaction"],
+         ["wrong_paper_review", "score_outcome_mismatch"]),  # e + a + b -> a, b
+        (["wrong_paper_review", "other"], ["wrong_paper_review", "other"]),  # no e
+        ([], []),
+        (None, None),
+    ],
+)
+def test_drop_redundant_fallback(reasons, expected):
+    assert arc.drop_redundant_fallback(reasons) == expected
+
+
+def test_the_dropped_reason_is_a_registry_name():
+    """Guards a typo in the constant, which would make the rule a silent no-op."""
+    assert arc._FALLBACK_ONLY_REASON in REASON_NAMES
+
+
+@pytest.mark.asyncio
+async def test_the_drop_applies_to_a_real_model_answer(monkeypatch):
+    _answer(monkeypatch, "APPEAL_REASONS: general_dissatisfaction, reviewer_misunderstanding")
+    assert await arc.classify_appeal_reason(EMAIL) == ["reviewer_misunderstanding"]
+
+
+@pytest.mark.asyncio
+async def test_general_dissatisfaction_alone_survives_end_to_end(monkeypatch):
+    _answer(monkeypatch, "APPEAL_REASONS: general_dissatisfaction")
+    assert await arc.classify_appeal_reason(EMAIL) == ["general_dissatisfaction"]
+
+
+@pytest.mark.asyncio
+async def test_the_drop_never_rescues_an_invalid_answer(monkeypatch):
+    """The rule runs AFTER normalization: an unknown name still fails the whole
+    answer, even though dropping e would leave a list that looks plausible."""
+    _answer(monkeypatch, "APPEAL_REASONS: general_dissatisfaction, made_up_reason")
+    assert await arc.classify_appeal_reason(EMAIL) is None
+
+
+# ---------------------------------------------------------------------------
 # D66 preserve rule
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
