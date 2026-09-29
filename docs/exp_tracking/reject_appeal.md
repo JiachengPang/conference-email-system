@@ -15,7 +15,7 @@ Detect desk-reject appeal emails for AAAI-27, especially reciprocal-review duty 
 | 0 | Ground-truth labeling of appeal tickets | Done |
 | 1 | Detection: reject-appeal intent + `is_reciprocal_dispute` flag | **Live (detector ON, D54; 9c hold D55)** — only Step 10 deploy pending |
 | 2 | Reason classification (`appeal_reason[]`, full names, validated) | **Complete 2026-09-28** — labels 124/124 (D74); classifier built + prompt pinned (D75), wired (D76), evaluated (D77), e fallback-only (D78), ON locally only (D79); D62 hold in place; decisions D57–D79. ⚠️ Pending before production deploy: Marc/Ida notification (9c + D62) |
-| 3 | Reply templates per reason. `r` gets a policy-stance reply; only `a`/`b` may escalate. Needs Marc's sign-off | Pending |
+| 3 | Reply templates per reason. `r` gets a policy-stance reply; only `a`/`b` may escalate. Needs Marc's sign-off | **In progress** — Step 1 investigation done 2026-09-28 (F1–F5, D80–D85); open questions (a)–(e) for Marc |
 | 4 | Drafter integration | Pending |
 | 5 | Bulk-reply queue for reciprocal disputes (dedicated DB column, deterministic `event_tag`, UI surface) | Pending |
 
@@ -517,6 +517,55 @@ Each description states the author's CLAIM, not its truth, and carries no D-numb
 - **Verified without starting the service.** A fresh container on the current image reads the same `env_file`: effective `APPEAL_REASON_CLASSIFIER_ENABLED=True`, code default `False`, gate `{desk_reject_appeal, review_decision_appeal}`, `RECIPROCAL_DETECTOR_ENABLED=True`. No rebuild was needed — compose reads `env_file` at container creation. ⚠️ **The `backend` service was deliberately NOT started:** the same `.env` has `ZENDESK_POLLING_ENABLED=True`, so starting it would begin ingesting live tickets and making real model calls (now including this classifier), and its startup runs `alembic upgrade head` on the demo DB. To bring it up with the flag live but no ingest: `ZENDESK_POLLING_ENABLED=False` in the shell or `.env` first.
 - **Tests:** full non-ml suite 25 failed / 1732 passed, **identical** to before the flip (the hermetic conftest pins `MODEL_PROVIDER=fallback`, so the classifier self-gates to a no-op; the wiring tests set the flag explicitly).
 
+---
+
+### Phase 3 — Step 1 investigation (2026-09-28) — read-only
+
+Phase 3 = a library of pre-approved reply paragraphs per appeal reason (a, b, c, d, e, other) plus one for reciprocal complaints (r). No LLM writes them; Marc approves them; Phase 4 later assembles drafts from approved paragraphs only. Step 1 made **no code changes and no model calls**. Labels = Phase 0 file ∪ Phase 2 pool, 320 tickets deduped (the 4 overlapping ids take the Phase 2 label), joined to every PUBLIC agent/staff-like reply in `data/tickets`; Zendesk merge notices and forwarded-message headers removed as system text. Chair text was scrubbed (emails, non-aaai.org URLs, dates, numbers, ids, quoted strings, names) before anything was stored or printed. Full scrubbed detail: `data/labeling/phase3/phase3_step1_report.md` + `b_*.json` (gitignored).
+
+**F1. Replies are mostly bespoke.** Two paragraphs recur: the "record number of submissions / reviewer evaluations + SPC + AC were all considered" explanation (2 a · 8 b · 7 c · 3 d · 1 e tickets) and the closing "hope the feedback helps … another leading venue or future AAAI edition" line (6 b · 4 c · 2 d). Both carry stale year wording ("this year", "record number") and name internal roles (SPC, AC). Everything else varies: distinct/total paragraphs a 8/9 · b 19/31 · c 21/30 · d 17/21 · e 2/2 · other 2/2.
+
+**F2. Real replies contained five kinds of disclosure, plus concessions.** (1) a hidden reviewer comment quoted to an author; (2) a staff-to-staff note (decision rationale, first-name signature) posted as a PUBLIC comment; (3) internal process — SPC/AC recommendations withheld from authors by prior agreement; (4) collusion-detection efforts; (5) automatic detection/flagging of unprofessional reviews. Concessions/promises: "track and take action" against reviewers, a reviewer "at fault … will get recorded", an ethics ruling reinstating a paper, "should not have been rejected … we will reinstate it". Flag scan (tickets with a hit / tickets with an agent reply; most exposure and stale hits are the F1 paragraph itself):
+
+| Reason | Concede / soften | Information exposure | Stale year / process |
+|---|---|---|---|
+| a | 1/5 | 2/5 | 3/5 |
+| b | 3/11 | 9/11 | 9/11 |
+| c | 6/14 | 7/14 | 12/14 |
+| d | 3/7 | 4/7 | 4/7 |
+| e | 0/1 | 1/1 | 1/1 |
+| other | 0/2 | 0/2 | 0/2 |
+| r | 8/12 | 3/12 | 11/12 |
+
+**F3. Reason r (125 tickets) was handled by MERGING, not per-ticket replies.** 68 had an agent comment, but 56 of those were only Zendesk "closed and merged into request #…" notices; **12 have a direct agent reply**. One numbered 4-paragraph template (policy stated → authors expected to coordinate with nominees → your nominee did not complete → the desk rejection stands) appears on 3 tickets. Relevant to Phase 5 (bulk replies), which assumed per-ticket answers.
+
+**F4. The AAAI-27 policy corpus (93 chunks) cannot ground the key paragraphs.** **0 chunks on appeals / reconsideration** — nothing states or contradicts "no formal appeal process this year". **No chunk states the reciprocal-review duty or its desk-reject consequence**; reciprocal reviewing appears only in policy_104, as an ethics violation (arranging it to inflate scores). policy_102 / 106–108 add one identified, non-decisional AI review in Phase 1 (no ratings) — a new likely source of reason-d complaints no past reply addresses. policy_107: Phase 1–rejected authors immediately see their reviews, including the AI review. policy_117: **Phase 1 reject notifications were Thu Sep 24** — matching the live appeal spike on 09-25 (D73).
+
+**F5. The drafter is the Phase 4 dependency.** Strategy choice is an if-chain on `MODEL_PROVIDER` inside `ResponseDrafter.draft` (`drafter.py:478`), no registry; a second strategy must match `draft(email, classification, retrieved_chunks, forced_policy_key) -> DraftResponse` and never raise. **The extraction (`appeal_reason`, `is_reciprocal_dispute`, submission numbers, OpenReview ids, author mentions) is computed in `_compute` but NOT passed to the drafter**, and `zendesk_ticket_id` is not available at draft time. `[Sender name]` is filled with a hard-coded name at draft time, on the model paths only (`drafter.py:124`). **No authenticated chair accounts exist yet** (`approved_by`/`reviewed_by` default to a placeholder actor).
+
+### Approved 2026-09-28 — Phase 3 decisions (D80–D85)
+
+*(Proposed as D74–D79; renumbered because D74–D79 are the Phase 2 decisions above. Mapping: D74→D80, D75→D81, D76→D82, D77→D83, D78→D84, D79→D85.)*
+
+**D80. Storage: a versioned, hash-locked file in the repo (Option 1).** Each paragraph carries `id`, reason code(s), `text`, `status` (`draft` / `approved` / `retired`), `approved_by`, `approved_at`, `cycle` (`AAAI-27`), and the `sha256` of its text. It follows the repo's existing protection for approved text (the length + sha256 prompt pins, D75/Step 1b) and makes git history the approval record. **A DB table (Option 2) is deferred until real chair accounts exist** — without authentication a stored `approved_by` could not be trusted (F5).
+
+**D81. Loader rule.** ONE loader returns only paragraphs with `status == approved` whose text hash matches the recorded `sha256` and whose `cycle` matches the configured cycle; anything else is refused and logged. A CI test pins the approved (`id`, hash) set, so changing approved text fails the build until it is re-approved. A source-scan test ensures Phase 4 reads paragraphs only through the loader.
+
+**D82. Wording is written fresh.** The two recurring paragraphs (F1) are a tone reference only, used after removing year-specific words and internal roles. No past reply is copied, given F2.
+
+**D83. Structure: shared opening + reason paragraphs + shared closing.** Each reason paragraph must stand alone and combine with the others in a fixed order (the registry order), so a multi-reason appeal reads as one reply rather than stacked templates.
+
+**D84. Placeholders: an allow-list of fields actually available at draft time** (F5). For now **only the author name**, falling back to "Author". No paper or submission number until one is plumbed to the drafter. An unknown placeholder makes the paragraph unusable.
+
+**D85. Safety lint test on every paragraph**: no concession or characterization of a review, no promised outcome, no scores / reviewer / decision-rationale detail, no year-specific or internal-role wording — the F2 failure kinds turned into a check. **Priority order: c, d, b, a, e, other, then r** (r needs Marc's policy statement; F4).
+
+**Open questions for Marc:**
+- (a) Confirm the no-appeal stance, and its source — the corpus has none (F4).
+- (b) May replies name SPC / AC at all?
+- (c) The exact commitment wording for a and b (escalation grounds); the b threshold is still open.
+- (d) A reciprocal-review policy statement the r paragraph can rest on (F4).
+- (e) A paragraph for complaints about the AAAI-27 AI-generated review (F4).
+
 ## Known risks
 
 - Reciprocal complaints now classify as `desk_reject_appeal`. 9a assessed the template: the opening line fits, but the body is **verbatim policy text**, which for a requester *disputing the facts* ("my reviewers did submit") restates the rule that rejected them rather than answering — non-responsive, and readable as dismissive. Mitigated by D13.
@@ -573,6 +622,7 @@ Each description states the author's CLAIM, not its truth, and carries no D-numb
 - 2026-09-23: this log created.
 - 2026-09-25: Step 9a read-only report (no code, no model calls). Added D13–D17; recorded the template assessment, the `SENSITIVE_INTENTS` hold mechanism, and three blockers found for 9b (dead intent gold, `run_eval.py` has no distiller, `data/eval_real/` absent here). Baseline commit for before/after = **8c6eb49** (last commit before `8c52d2f`).
 - 2026-09-25: backend startup crash fixed — `sqlalchemy` → **`sqlalchemy[asyncio]>=2.0,<2.1`** in `pyproject.toml` (greenlet stopped arriving transitively when SQLAlchemy floated 2.0.52 → 2.1.1). Rebuilt: resolves to **2.0.54 + greenlet 3.5.6**, alembic + uvicorn start clean, 21 passed / 4 skipped (the 4 are `@needs_git`, unrunnable in a git-less container by design — see D20). D18 resolved as a side effect (image now at HEAD: 5,371-char prompt, `asks flag: True`). Two backlog items added: the server fix, and the no-lockfile exposure.
+- 2026-09-28: **Phase 3 Step 1 — read-only investigation logged (F1–F5) + decisions D80–D85** (proposed as D74–D79, renumbered: D74–D79 are taken). Replies mostly bespoke; five disclosure kinds found; r handled by merging (12 direct replies of 125); corpus has no appeals or reciprocal-duty chunk; extraction not passed to the drafter. Decided: hash-locked repo file, single loader, fresh wording, opening + reason + closing structure, author-name-only placeholders, safety lint; open questions (a)–(e) for Marc. Docs only.
 - 2026-09-28: **PHASE 2 COMPLETE.** Labeling done (124/124, D74). Appeal-reason classifier built, prompt approved and pinned, wired, evaluated, and `general_dissatisfaction` made fallback-only (D75–D78); enabled locally only (D79 — the AAAI server's `.env` untouched). D62 hold in place (`review_decision_appeal` → chair review). Hardening: backend image no longer carries ticket PII (`.dockerignore`), and the poller's Zendesk token is read-only (`ZENDESK_SYNC_OAUTH_SCOPE`, Backlog 6). ⚠️ **Pending before production deploy: notify Marc and Ida of the 9c + D62 chair-review holds.** Mechanical server steps: pre-deploy checklist (Backlog). Docs only.
 - 2026-09-28: **Backlog 6 DONE — read-only poller token (approved; uncommitted).** New `ZENDESK_SYNC_OAUTH_SCOPE="read"`; optional `scope=` on the OAuth provider + factory (back-compatible); the adapter requests `read`, the sender keeps `read write`. `.env.example` updated (new key + corrected comment); local `backend/.env` unchanged (default suffices). +7 tests; full non-ml 25 failed / 1732 → 1739 passed, failure set identical; 5/5 mutations caught. Added an AAAI server pre-deploy checklist at the top of the Backlog. No polling started.
 - 2026-09-28: **Read-only poller token — investigated, needs a code change, NOT done (Backlog 6).** Adapter and sender each build their own OAuth provider, but both read the single `ZENDESK_OAUTH_SCOPE` (local `.env`: `read write`), so the poller cannot be scoped to `read` via config without also breaking sends. Change described in Backlog 6; awaiting approval. No file other than this log changed; `backend/.env` and `.env.example` untouched; no polling started.
