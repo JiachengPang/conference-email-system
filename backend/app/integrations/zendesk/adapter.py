@@ -201,7 +201,12 @@ class ZendeskIngestAdapter:
 
     def _provider_obj(self) -> ZendeskCredentialProvider:
         if self._provider is None:
-            self._provider = get_zendesk_credential_provider(settings)
+            # The READ scope (ZENDESK_SYNC_OAUTH_SCOPE, default "read"), not the
+            # sender's ZENDESK_OAUTH_SCOPE: this adapter only ever GETs, so its
+            # token should be unable to write (OAuth mode; see config.py).
+            self._provider = get_zendesk_credential_provider(
+                settings, scope=settings.ZENDESK_SYNC_OAUTH_SCOPE
+            )
         return self._provider
 
     def _pipeline_obj(self) -> EmailPipeline:

@@ -149,7 +149,8 @@ class OAuthCredentialProvider(ZendeskCredentialProvider):
 
     Reads ``ZENDESK_SUBDOMAIN``, ``ZENDESK_OAUTH_CLIENT_ID`` and
     ``ZENDESK_OAUTH_CLIENT_SECRET`` from Settings (``ZENDESK_OAUTH_SCOPE``
-    defaults to read-only). It exchanges the client id + secret for a bearer
+    defaults to read-only; a per-provider ``scope=`` overrides it). It
+    exchanges the client id + secret for a bearer
     token at ``https://{subdomain}.zendesk.com/oauth/tokens`` and caches it,
     refreshing proactively once the token is older than
     :data:`TOKEN_LIFETIME_SLACK_SECONDS`.
@@ -160,7 +161,20 @@ class OAuthCredentialProvider(ZendeskCredentialProvider):
     A failed token fetch raises :class:`ZendeskAuthError`.
     """
 
-    def __init__(self, settings: Settings, *, client: httpx.Client | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        client: httpx.Client | None = None,
+        scope: str | None = None,
+    ) -> None:
+        """``scope`` overrides ``settings.ZENDESK_OAUTH_SCOPE`` for THIS provider.
+
+        Lets the read path ask for a narrower token than the write path: the
+        ingest adapter passes ``ZENDESK_SYNC_OAUTH_SCOPE`` (``read``), while the
+        sender passes nothing and keeps ``ZENDESK_OAUTH_SCOPE`` (``read write``).
+        ``None`` (the default) is the previous behaviour, unchanged.
+        """
         subdomain = (settings.ZENDESK_SUBDOMAIN or "").strip()
         client_id = (settings.ZENDESK_OAUTH_CLIENT_ID or "").strip()
         client_secret = (settings.ZENDESK_OAUTH_CLIENT_SECRET or "").strip()
@@ -186,7 +200,8 @@ class OAuthCredentialProvider(ZendeskCredentialProvider):
         self._client_secret = client_secret
         # Scope has a config default ("read"), so it is always present; still
         # guard against an explicitly-blank override falling through to Zendesk.
-        self._scope = (settings.ZENDESK_OAUTH_SCOPE or "read").strip() or "read"
+        requested = scope if scope is not None else settings.ZENDESK_OAUTH_SCOPE
+        self._scope = (requested or "read").strip() or "read"
         self._token_url = f"https://{subdomain}.zendesk.com/oauth/tokens"
 
         self._client = client or httpx.Client(timeout=60)
@@ -245,17 +260,24 @@ class OAuthCredentialProvider(ZendeskCredentialProvider):
         return {"Authorization": f"Bearer {self._token}"}
 
 
-def get_zendesk_credential_provider(settings: Settings) -> ZendeskCredentialProvider:
+def get_zendesk_credential_provider(
+    settings: Settings, *, scope: str | None = None
+) -> ZendeskCredentialProvider:
     """Return the credential provider selected by ``ZENDESK_AUTH_MODE``.
 
     ``token`` → :class:`TokenCredentialProvider`; ``oauth`` →
     :class:`OAuthCredentialProvider`. Any other value raises
     :class:`ZendeskCredentialError`. Adding a future auth mode is one branch here
     plus a new subclass — callers, which hold only the interface, don't change.
+
+    ``scope`` is passed to the OAuth provider only (``None`` → the provider falls
+    back to ``ZENDESK_OAUTH_SCOPE``). ⚠️ It is IGNORED in ``token`` mode: a
+    Zendesk API token carries the full permissions of its user and cannot be
+    narrowed, so read-only enforcement exists in OAuth mode alone.
     """
     mode = settings.ZENDESK_AUTH_MODE
     if mode == "token":
         return TokenCredentialProvider(settings)
     if mode == "oauth":
-        return OAuthCredentialProvider(settings)
+        return OAuthCredentialProvider(settings, scope=scope)
     raise ZendeskCredentialError(f"Unsupported ZENDESK_AUTH_MODE: {mode!r}")

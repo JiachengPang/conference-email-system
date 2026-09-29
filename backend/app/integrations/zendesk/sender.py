@@ -14,7 +14,9 @@ Per ZENDESK_API.md §4:
   overwrite-prone ``ticket.tags``), guarded by ``safe_update`` + ``updated_stamp``
   so a concurrent change surfaces as 409 instead of clobbering another writer.
 
-Credentials come from the same config-driven provider the read path uses; the
+Credentials come from the same config-driven provider factory the read path
+uses, but this sender requests ``ZENDESK_OAUTH_SCOPE`` (``read write``) while the
+ingest adapter requests the narrower ``ZENDESK_SYNC_OAUTH_SCOPE`` (``read``). The
 OAuth client already has ``read write`` scope (verified in Piece 2).
 """
 

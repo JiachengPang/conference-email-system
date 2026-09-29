@@ -226,10 +226,19 @@ class Settings(BaseSettings):
     ZENDESK_API_TOKEN: str | None = None
     # OAuth client_credentials fields — required only when
     # ZENDESK_AUTH_MODE=oauth. The client secret is read here (Settings/.env),
-    # never from a checked-in secrets file. Scope defaults to read-only.
+    # never from a checked-in secrets file.
     ZENDESK_OAUTH_CLIENT_ID: str | None = None
     ZENDESK_OAUTH_CLIENT_SECRET: str | None = None
+    # Scope of the WRITE path's token (ZendeskSender: Approve & Send, set-status,
+    # the OpenReview auto-solve). Sending needs "read write"; the default stays
+    # "read" so a setup that never configures it cannot write by accident.
     ZENDESK_OAUTH_SCOPE: str = "read"
+    # Scope of the READ path's token (ZendeskIngestAdapter: polling, manual sync,
+    # post-send refresh). Separate so the poller holds a token that CANNOT write
+    # even though the sender's can — read-only by credential, not only by code.
+    # OAuth mode only: a Zendesk API token (ZENDESK_AUTH_MODE=token) carries its
+    # user's full permissions and cannot be narrowed.
+    ZENDESK_SYNC_OAUTH_SCOPE: str = "read"
 
     # --- Zendesk ingest poller (Piece 4, read-only) -----------------------
     # Master switch for the background polling loop. Default False so the loop
