@@ -20,6 +20,7 @@ from app.pipeline.appeal_reply_templates import (
     get_template,
     load_approved_templates,
     templates_for_reason,
+    templates_of_kind,
 )
 
 CYCLE = "AAAI-27"
@@ -35,7 +36,8 @@ def entry(**overrides) -> dict:
     """An entry that passes every rule unless overridden."""
     body = overrides.pop("body", BODY)
     base = {
-        "id": "b_standard", "title": "t", "reasons": ["score_outcome_mismatch"],
+        "id": "b_standard", "title": "t", "kind": "holding", "order": None, "optional": False,
+        "reasons": ["score_outcome_mismatch"],
         "when_used": "w", "body": body, "status": "approved",
         "approved_by": "Marc", "approved_at": "2026-10-01",
         "approved_sha256": compute_body_sha256(body),
@@ -45,9 +47,10 @@ def entry(**overrides) -> dict:
     return base
 
 
-def write(tmp_path: Path, *entries: dict) -> Path:
+def write(tmp_path: Path, *entries: dict, schema_version: int = 2) -> Path:
     p = tmp_path / "templates.json"
-    p.write_text(json.dumps({"schema_version": 1, "templates": list(entries)}), encoding="utf-8")
+    p.write_text(json.dumps({"schema_version": schema_version, "templates": list(entries)}),
+                 encoding="utf-8")
     return p
 
 
@@ -198,6 +201,80 @@ def test_get_template(tmp_path):
     assert get_template("b_standard", p, cycle=CYCLE).id == "b_standard"
     assert get_template("b_forward", p, cycle=CYCLE) is None
     assert get_template("nope", p, cycle=CYCLE) is None
+
+
+# --- schema 2: kind / order / optional (D95) -------------------------------------
+@pytest.mark.parametrize("version", [1, 3, None])
+def test_any_schema_version_other_than_2_serves_nothing(tmp_path, version):
+    assert load_approved_templates(write(tmp_path, entry(), schema_version=version), cycle=CYCLE) == []
+
+
+def test_an_unknown_kind_is_refused(tmp_path):
+    assert load_approved_templates(write(tmp_path, entry(kind="paragraph")), cycle=CYCLE) == []
+
+
+@pytest.mark.parametrize("order", [None, "1", 1.5, True])
+def test_a_point_without_an_integer_order_is_refused(tmp_path, order):
+    p = write(tmp_path, entry(kind="point", order=order))
+    assert load_approved_templates(p, cycle=CYCLE) == []
+
+
+def test_a_non_point_with_an_order_is_refused(tmp_path):
+    assert load_approved_templates(write(tmp_path, entry(kind="holding", order=1)), cycle=CYCLE) == []
+
+
+@pytest.mark.parametrize("optional", [None, "false", 0])
+def test_a_non_bool_optional_is_refused(tmp_path, optional):
+    assert load_approved_templates(write(tmp_path, entry(optional=optional)), cycle=CYCLE) == []
+
+
+@pytest.mark.parametrize("field", ["kind", "order", "optional"])
+def test_a_v2_entry_missing_a_new_field_is_refused(tmp_path, field):
+    e = entry()
+    del e[field]
+    assert load_approved_templates(write(tmp_path, e), cycle=CYCLE) == []
+
+
+def test_approved_blocks_carry_kind_order_and_optional(tmp_path):
+    (t,) = load_approved_templates(write(tmp_path, entry(kind="point", order=4, optional=True)), cycle=CYCLE)
+    assert (t.kind, t.order, t.optional) == ("point", 4, True)
+
+
+def test_templates_of_kind_sorts_points_by_order_then_id(tmp_path):
+    p = write(tmp_path,
+              entry(id="p_z", kind="point", order=2), entry(id="p_b", kind="point", order=1),
+              entry(id="p_a", kind="point", order=2), entry(id="h_1", kind="holding"))
+    assert ids(templates_of_kind("point", p, cycle=CYCLE)) == ["p_b", "p_a", "p_z"]
+    assert ids(templates_of_kind("holding", p, cycle=CYCLE)) == ["h_1"]
+    assert templates_of_kind("closing", p, cycle=CYCLE) == []
+
+
+def test_templates_of_kind_sorts_unordered_kinds_by_id(tmp_path):
+    p = write(tmp_path, entry(id="h_b", kind="holding"), entry(id="h_a", kind="holding"))
+    assert ids(templates_of_kind("holding", p, cycle=CYCLE)) == ["h_a", "h_b"]
+
+
+def test_templates_for_reason_returns_blocks_of_every_kind_and_picks_none(tmp_path):
+    p = write(tmp_path,
+              entry(id="point_scores", kind="point", order=1),
+              entry(id="holding_score_mismatch", kind="holding"),
+              entry(id="point_other", kind="point", order=2, reasons=["reviewer_misunderstanding"]))
+    got = templates_for_reason("score_outcome_mismatch", p, cycle=CYCLE)
+    assert ids(got) == ["point_scores", "holding_score_mismatch"]
+
+
+def test_the_real_file_is_schema_2_and_every_entry_would_pass_the_shape_rules():
+    """Guards the real file against the loader's shape rules; nothing is approved,
+    so the only rules any entry may fail are the approval/blocked ones."""
+    data = json.loads(art.DEFAULT_PATH.read_text(encoding="utf-8"))
+    assert data["schema_version"] == art.SCHEMA_VERSION
+    for e in data["templates"]:
+        allowed = {"not_approved", "approval_record_incomplete", "blocked"}
+        if e["blocked_on"]:
+            # A blocked entry may still hold its pending placeholder (e.g. the
+            # ethics form address); the loader refuses it until it is filled.
+            allowed.add("unknown_placeholder")
+        assert set(art._failing_rules(e, CYCLE)) <= allowed, (e["id"], art._failing_rules(e, CYCLE))
 
 
 def test_returned_templates_are_frozen(tmp_path):

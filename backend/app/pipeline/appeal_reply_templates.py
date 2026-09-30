@@ -8,7 +8,13 @@ file, so a caller cannot bypass the rules below by reading the JSON itself.
 
 ⚠️ CALLED BY NOTHING YET. Wiring into the drafter / pipeline / UI is Phase 4.
 
+Schema 2 (D95): each entry is a BLOCK with a ``kind`` (opening, lead_in, point,
+closing, holding, standalone_body, standalone_full, chair_line), an ``order``
+(an int for points, null otherwise) and an ``optional`` flag. A file with any
+other ``schema_version`` is refused as a whole.
+
 An entry is returned only if it passes EVERY rule (``_failing_rules``):
+  * ``kind`` is a known kind, ``order`` fits the kind, ``optional`` is a bool;
   * ``status == "approved"``;
   * ``approved_by``, ``approved_at`` and ``approved_sha256`` are all set;
   * ``approved_sha256`` equals ``compute_body_sha256(body)`` — so editing an
@@ -47,9 +53,17 @@ DEFAULT_PATH = (
 )
 
 REQUIRED_SCOPE = "phase1_reject"
+# Schema 2 (D95): the file holds composable BLOCKS, not whole emails. Any other
+# schema_version is refused as a whole — a v1 file has no `kind` to compose by.
+SCHEMA_VERSION = 2
+KINDS = frozenset({
+    "opening", "lead_in", "point", "closing", "holding",
+    "standalone_body", "standalone_full", "chair_line",
+})
 _REQUIRED_FIELDS = (
-    "id", "title", "reasons", "when_used", "body", "status", "approved_by",
-    "approved_at", "approved_sha256", "cycle", "scope", "basis", "blocked_on",
+    "id", "title", "kind", "order", "optional", "reasons", "when_used", "body",
+    "status", "approved_by", "approved_at", "approved_sha256", "cycle", "scope",
+    "basis", "blocked_on",
 )
 # Any square-bracket placeholder; `[CHAIR: ...]` is the one allowed kind. The
 # CHAIR form mirrors `drafter.PLACEHOLDER_RE` (pinned by test), so a CHAIR
@@ -64,6 +78,9 @@ class ApprovedTemplate:
 
     id: str
     title: str
+    kind: str
+    order: int | None
+    optional: bool
     reasons: tuple[str, ...]
     when_used: str
     body: str
@@ -93,6 +110,16 @@ def _failing_rules(entry: dict, cycle: str) -> list[str]:
             or not isinstance(entry["basis"], list) or not isinstance(entry["blocked_on"], list):
         return ["wrong_field_types"]
     rules = []
+    if entry["kind"] not in KINDS:
+        rules.append("bad_kind")
+    # `order` is an int for points and null for everything else (bool is an
+    # int subclass in Python, so it is excluded explicitly).
+    order = entry["order"]
+    is_int = isinstance(order, int) and not isinstance(order, bool)
+    if (entry["kind"] == "point" and not is_int) or (entry["kind"] != "point" and order is not None):
+        rules.append("bad_order")
+    if not isinstance(entry["optional"], bool):
+        rules.append("bad_optional")
     if entry["status"] != "approved":
         rules.append("not_approved")
     if not (entry["approved_by"] and entry["approved_at"] and entry["approved_sha256"]):
@@ -124,6 +151,8 @@ def load_approved_templates(
     cycle = settings.APPEAL_REPLY_CYCLE if cycle is None else cycle
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if data.get("schema_version") != SCHEMA_VERSION:
+            raise ValueError("unsupported schema_version")
         entries = data["templates"]
         if not isinstance(entries, list):
             raise TypeError("'templates' is not a list")
@@ -146,7 +175,8 @@ def load_approved_templates(
             logger.warning("Appeal reply template %r refused: %s", entry_id, ", ".join(rules))
             continue
         approved.append(ApprovedTemplate(
-            id=entry["id"], title=entry["title"], reasons=tuple(entry["reasons"]),
+            id=entry["id"], title=entry["title"], kind=entry["kind"], order=entry["order"],
+            optional=entry["optional"], reasons=tuple(entry["reasons"]),
             when_used=entry["when_used"], body=entry["body"],
             approved_by=entry["approved_by"], approved_at=entry["approved_at"],
             approved_sha256=entry["approved_sha256"], cycle=entry["cycle"],
@@ -158,12 +188,23 @@ def load_approved_templates(
 def templates_for_reason(
     reason: str, path: Path | str = DEFAULT_PATH, *, cycle: str | None = None
 ) -> list[ApprovedTemplate]:
-    """ALL approved templates that serve ``reason``, in file order.
+    """ALL approved blocks that serve ``reason``, of any kind, in file order.
 
-    Deliberately never chooses between them — e.g. the standard and forward
-    score templates are both returned; the chair picks (D88).
+    Deliberately never chooses between them — e.g. a score point and a score
+    holding reply are both returned; the chair picks (D88).
     """
     return [t for t in load_approved_templates(path, cycle=cycle) if reason in t.reasons]
+
+
+def templates_of_kind(
+    kind: str, path: Path | str = DEFAULT_PATH, *, cycle: str | None = None
+) -> list[ApprovedTemplate]:
+    """Approved blocks of ``kind``, sorted by ``order`` (points) then ``id``.
+
+    Non-point kinds have no order, so they sort by id alone.
+    """
+    blocks = [t for t in load_approved_templates(path, cycle=cycle) if t.kind == kind]
+    return sorted(blocks, key=lambda t: (t.order is None, t.order or 0, t.id))
 
 
 def get_template(

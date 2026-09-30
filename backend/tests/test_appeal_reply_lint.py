@@ -141,7 +141,8 @@ def test_blocked_on_tolerates_only_its_own_placeholder():
 # --- the loader enforces the lint --------------------------------------------------------------
 def _entry(body: str) -> dict:
     return {
-        "id": "b_standard", "title": "t", "reasons": ["score_outcome_mismatch"], "when_used": "w",
+        "id": "b_standard", "title": "t", "kind": "holding", "order": None, "optional": False,
+        "reasons": ["score_outcome_mismatch"], "when_used": "w",
         "body": body, "status": "approved", "approved_by": "Marc", "approved_at": "2026-10-01",
         "approved_sha256": compute_body_sha256(body), "cycle": "AAAI-27", "scope": "phase1_reject",
         "basis": [], "blocked_on": [],
@@ -150,7 +151,7 @@ def _entry(body: str) -> dict:
 
 def _write(tmp_path, entry: dict):
     p = tmp_path / "templates.json"
-    p.write_text(json.dumps({"schema_version": 1, "templates": [entry]}), encoding="utf-8")
+    p.write_text(json.dumps({"schema_version": 2, "templates": [entry]}), encoding="utf-8")
     return p
 
 
