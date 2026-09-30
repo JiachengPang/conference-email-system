@@ -18,7 +18,9 @@ An entry is returned only if it passes EVERY rule (``_failing_rules``):
   * ``scope == "phase1_reject"``;
   * ``blocked_on`` is empty;
   * the body holds no square-bracket placeholder except ``[CHAIR: ...]``, which
-    the approve endpoint already blocks until the chair fills it (D87).
+    the approve endpoint already blocks until the chair fills it (D87);
+  * the body passes the wording check ``appeal_reply_lint.lint_template_body``
+    with the entry's own ``blocked_on`` (D94).
 
 Refusals are logged with the entry id and the failing rule names ONLY — never
 the body text. Bad content never raises: an unreadable or malformed file is
@@ -35,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.config import settings
+from app.pipeline.appeal_reply_lint import lint_template_body
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +107,10 @@ def _failing_rules(entry: dict, cycle: str) -> list[str]:
         rules.append("blocked")
     if any(not _CHAIR_RE.fullmatch(m) for m in _BRACKET_RE.findall(body)):
         rules.append("unknown_placeholder")
+    # Wording check (D94). Rule NAMES only — the matched text is never kept here,
+    # so it can never reach the refusal log.
+    lint_rules = sorted({name for name, _ in lint_template_body(body, tuple(entry["blocked_on"]))})
+    rules.extend(f"lint:{name}" for name in lint_rules)
     return rules
 
 
