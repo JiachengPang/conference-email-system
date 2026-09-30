@@ -207,6 +207,39 @@ def templates_of_kind(
     return sorted(blocks, key=lambda t: (t.order is None, t.order or 0, t.id))
 
 
+def expected_points_for_reasons(
+    reasons, path: Path | str = DEFAULT_PATH
+) -> list[tuple[str, bool]]:
+    """``(id, optional)`` for every POINT in the file whose reasons intersect
+    ``reasons`` — INCLUDING points that are not approved — in the global point
+    order (``order``, then ``id``). Never raises.
+
+    Ids and flags only, never body text: the composer uses it to know which
+    points a reply NEEDS, so a required point that is not approved is refused
+    rather than silently dropped. Malformed point entries are skipped.
+    """
+    try:
+        wanted = {r for r in reasons if isinstance(r, str)}
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if data.get("schema_version") != SCHEMA_VERSION:
+            return []
+        entries = data["templates"]
+        found = []
+        for e in entries if isinstance(entries, list) else []:
+            if not isinstance(e, dict) or e.get("kind") != "point":
+                continue
+            eid, order, optional, e_reasons = e.get("id"), e.get("order"), e.get("optional"), e.get("reasons")
+            if not (isinstance(eid, str) and isinstance(order, int) and not isinstance(order, bool)
+                    and isinstance(optional, bool) and isinstance(e_reasons, list)):
+                continue
+            if wanted & set(r for r in e_reasons if isinstance(r, str)):
+                found.append((order, eid, optional))
+        return [(eid, optional) for _, eid, optional in sorted(found)]
+    except Exception as exc:  # noqa: BLE001 - never raises
+        logger.warning("Appeal reply points unreadable (%s); expecting none.", type(exc).__name__)
+        return []
+
+
 def get_template(
     template_id: str, path: Path | str = DEFAULT_PATH, *, cycle: str | None = None
 ) -> ApprovedTemplate | None:
