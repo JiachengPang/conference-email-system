@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     # flag it stops the CALL only — a stored answer is preserved (D66).
     APPEAL_REASON_CLASSIFIER_ENABLED: bool = False
 
+    # The conference cycle the approved appeal reply templates must belong to
+    # (reject-appeal Phase 3, D81). `app.pipeline.appeal_reply_templates`
+    # refuses any template whose `cycle` differs, so last year's wording can
+    # never be served after the cycle rolls over. Nothing else reads it yet.
+    APPEAL_REPLY_CYCLE: str = "AAAI-27"
+
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the
     # calibrated confidence instead of the raw classifier score. Off by default
