@@ -103,17 +103,41 @@ def test_extract_submission_number_and_forum_id_pass_through_independently():
     assert only_forum.openreview_forum_ids == ["Ab3xY9kLm2"]
 
 
-def test_extract_does_not_revalidate_identifier_shape():
-    """Pass-through is verbatim: shape enforcement is the prompt's job, and a
-    value the model insisted on must stay visible rather than be silently
-    dropped here."""
+def test_extract_drops_a_model_submission_number_that_is_not_a_number():
+    """Submission numbers key (A)PC routing and the appeal report, so a value
+    that is not a paper number must not reach them. Forum ids still pass
+    through verbatim."""
     result = _extract(
         _distilled(
             submission_numbers_raw=["AAAI-2026"], openreview_ids_raw=["short"]
         )
     )
-    assert result.submission_numbers == ["AAAI-2026"]
+    assert result.submission_numbers == []
     assert result.openreview_forum_ids == ["short"]
+
+
+def test_extract_strips_the_label_a_model_wraps_around_a_submission_number():
+    for raw in ["615", "#615", "Submission 615", "submission #615", "Paper ID: 615",
+                "paper no. 615", "615.", " 615 "]:
+        result = _extract(_distilled(submission_numbers_raw=[raw]))
+        assert result.submission_numbers == ["615"], raw
+
+
+def test_extract_accepts_any_length_model_submission_number():
+    result = _extract(_distilled(submission_numbers_raw=["7", "42", "123456", "1234567"]))
+    assert result.submission_numbers == ["7", "42", "123456", "1234567"]
+
+
+def test_extract_rejects_unusable_model_submission_numbers():
+    for raw in ["0615", "12345678", "615-620", "615, 620", "about 615",
+                "AAAI-27", "615a", "N/A", "unknown"]:
+        result = _extract(_distilled(submission_numbers_raw=[raw]))
+        assert result.submission_numbers == [], raw
+
+
+def test_extract_dedupes_labelled_and_bare_forms_of_one_number():
+    result = _extract(_distilled(submission_numbers_raw=["#615", "615", "Submission 9"]))
+    assert result.submission_numbers == ["615", "9"]
 
 
 # ---------------------------------------------------------------------------
@@ -656,10 +680,77 @@ def test_regex_known_limitation_bare_conjunction_second_item_still_missed():
     assert _regex_extract(body="Paper IDs 3157, 17066").submission_numbers == ["3157"]
 
 
-def test_regex_submission_number_rejects_wrong_length():
-    """4-5 digits only: shorter is a count, longer is not a submission number."""
-    assert _regex_extract(body="paper 123").submission_numbers == []
-    assert _regex_extract(body="paper 123456").submission_numbers == []
+def test_regex_submission_number_accepts_any_length_after_a_direct_cue():
+    """Papers are numbered from 1 upward, so 1 to 7 digits are all real."""
+    for text, expected in [
+        ("Re: Desk rejection of Submission 7", ["7"]),
+        ("our paper #42 was rejected", ["42"]),
+        ("Paper ID: 615 was rejected", ["615"]),
+        ("Submission123 decision", ["123"]),
+        ("paper 123456 was rejected", ["123456"]),
+        ("submission 1234567 was rejected", ["1234567"]),
+    ]:
+        assert _regex_extract(body=text).submission_numbers == expected, text
+
+
+def test_regex_submission_number_rejects_leading_zero_and_over_long():
+    """Paper numbers are never zero-padded; eight or more digits are not papers."""
+    for text in ["paper 0123", "paper 007", "paper 0", "paper 12345678"]:
+        assert _regex_extract(body=text).submission_numbers == [], text
+
+
+def test_regex_short_number_needs_the_cue_to_introduce_it_directly():
+    """A filler word before a short number is noise in real traffic."""
+    for text in [
+        "the submission deadline 15 August",
+        "a paper with 2 reviews",
+        "my paper is 3 days late",
+        "submission has 4 issues",
+    ]:
+        assert _regex_extract(body=text).submission_numbers == [], text
+
+
+def test_regex_long_number_still_crosses_a_filler_word():
+    """The direct-cue rule is for short numbers only; 4+ digits keep the old rule."""
+    assert _regex_extract(body="our paper titled 12345 was rejected").submission_numbers == ["12345"]
+
+
+def test_regex_short_number_rejected_when_it_reads_as_a_count():
+    for text in [
+        "paper 3 reviewers disagreed",
+        "submission 8 pages long",
+        "papers 2 authors only",
+        "submission 30 minutes ago",
+        "paper 50% done",
+        "submission 2nd round",
+    ]:
+        assert _regex_extract(body=text).submission_numbers == [], text
+
+
+def test_regex_short_number_kept_before_ordinary_words():
+    """Only count nouns reject; a singular "reviewer" may follow a real id."""
+    for text, expected in [
+        ("paper 12 reviewer 2 misread the method", ["12"]),
+        ("Submission 9 help needed", ["9"]),
+        ("Paper 615.", ["615"]),
+    ]:
+        assert _regex_extract(body=text).submission_numbers == expected, text
+
+
+def test_regex_bare_hash_short_number_is_not_a_submission():
+    """Bare short "#N" is overwhelmingly "reviewer #2", "question #3" in real traffic."""
+    for text in ["Reviewer #2 misread the paper", "see question #3", "#12 below"]:
+        assert _regex_extract(body=text).submission_numbers == [], text
+
+
+def test_regex_bare_hash_accepts_four_to_seven_digits():
+    assert _regex_extract(body="regarding #123456 please").submission_numbers == ["123456"]
+
+
+def test_regex_colour_code_is_not_a_submission():
+    """Digit-only colours share the bare-hash shape."""
+    for text in ["color #333333", "background: #1234567", "colour #4455"]:
+        assert _regex_extract(body=text).submission_numbers == [], text
 
 
 # --- OpenReview forum id ---------------------------------------------------

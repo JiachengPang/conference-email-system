@@ -85,25 +85,47 @@ _AUTHOR_FIELD_COUNT = 3
 ExtractionMethod = Literal["llm_distiller", "regex_fallback", "none"]
 
 # --- regex-fallback patterns ------------------------------------------------
-# Real submission numbers are 4-5 digits and are only trustworthy next to a cue
-# word: an ungated \d{4,5} sweep pulls in years, dates, counts and phone
+# Submission numbers run from a single digit up past five (AAAI-27 numbers its
+# papers 1-50328), never with a leading zero, and are only trustworthy next to
+# a cue word: an ungated digit sweep pulls in years, dates, counts and phone
 # fragments. `filler` captures at most ONE intervening word so the cue stays
 # close, and is inspected afterwards — a number the cue introduces directly
 # ("Submission 2026") is believed, one reached across a word ("paper due 2026")
-# is not.
+# is not. Numbers shorter than _MIN_UNGUARDED_DIGITS get stricter acceptance in
+# `_accept_submission_match`, because short numbers are mostly counts.
+_SUBMISSION_NUMBER = r"(?P<number>[1-9]\d{0,6})(?!\d)"
 _SUBMISSION_CUE_RE = re.compile(
     r"(?<![A-Za-z0-9])"
     r"(?:paper|submission)s?"
     r"(?:\s*(?:id|no\.?|number))?"
     r"(?P<filler>(?:\s*[A-Za-z][A-Za-z.\-]{0,11}){0,1})"
     r"\s*[#:\-]?\s*"
-    r"(?P<number>\d{4,5})"
-    r"(?!\d)",
+    + _SUBMISSION_NUMBER,
     re.IGNORECASE,
 )
 # A bare "#12345" is its own cue — no preceding word needed. The lookbehind
-# keeps it out of URL fragments and anchors.
-_HASH_NUMBER_RE = re.compile(r"(?<![\w/])#(?P<number>\d{4,5})(?!\d)")
+# keeps it out of URL fragments and anchors. Four digits minimum on purpose:
+# in real traffic a bare short "#N" is almost always "reviewer #2",
+# "question #3" and the like. A short submission number still matches through
+# the cue form above ("paper #12").
+_HASH_NUMBER_RE = re.compile(r"(?<![\w/])#(?P<number>[1-9]\d{3,6})(?!\d)")
+
+# Below this many digits a number is far more often a count than a paper, so
+# it is accepted only when the cue introduces it directly and nothing after it
+# reads as a count ("paper 3 reviewers", "submission 2nd round").
+_MIN_UNGUARDED_DIGITS = 4
+_COUNT_NOUN_AFTER_RE = re.compile(
+    r"\s*(?:%|percent\b|"
+    r"(?:pages?|words?|authors?|reviews|reviewers|times?|"
+    r"min|mins|minutes?|hours?|hrs?|days?|weeks?|months?|years?)\b)",
+    re.IGNORECASE,
+)
+# A number glued to letters is an ordinal or a token, not a paper ("2nd").
+_LETTER_AFTER_RE = re.compile(r"[A-Za-z]")
+# Digit-only CSS colours ("color #333333") share the bare-hash shape.
+_COLOR_WORD_BEFORE_RE = re.compile(
+    r"(?:colou?r|background|fill)\W*$", re.IGNORECASE
+)
 
 # Anchored to the two link shapes that actually carry a forum id. `?id=` alone
 # is NOT enough: AAAI's committee/group URLs (openreview.net/group?id=...) share
@@ -213,11 +235,30 @@ def _reads_as_conference_year(value: str) -> bool:
 
 
 def _accept_submission_match(match: re.Match[str], text: str) -> bool:
-    """Reject the two false-positive shapes real ticket traffic produces."""
-    if _CONFERENCE_PREFIX_RE.search(text[: match.start("number")]):
+    """Reject the false-positive shapes real ticket traffic produces.
+
+    Every length: a number right after a conference designator, a year reached
+    across a filler word, and a digit-only colour code. Short numbers (fewer
+    than _MIN_UNGUARDED_DIGITS digits) must additionally be introduced by the
+    cue directly and must not read as a count or an ordinal.
+    """
+    before = text[: match.start("number")]
+    if _CONFERENCE_PREFIX_RE.search(before):
         return False
+    if _COLOR_WORD_BEFORE_RE.search(before):
+        return False
+    number = match.group("number")
     filler = (match.groupdict().get("filler") or "").strip()
-    return not (filler and _reads_as_conference_year(match.group("number")))
+    if filler and _reads_as_conference_year(number):
+        return False
+    if len(number) >= _MIN_UNGUARDED_DIGITS:
+        return True
+    after = text[match.end("number") :]
+    return not (
+        filler
+        or _LETTER_AFTER_RE.match(after)
+        or _COUNT_NOUN_AFTER_RE.match(after)
+    )
 
 
 def _find_submission_numbers(subject: str, body: str) -> list[str]:
@@ -541,6 +582,38 @@ def _dedupe_identifiers(values: list[str]) -> list[str]:
     return unique
 
 
+# The shapes a model actually writes on a SUBMISSION_NUMBER line despite being
+# asked for digits only: a bare number, or one wrapped in its own label
+# ("#615", "Submission 615", "Paper ID: 615"). Anything else — a year beside a
+# designator, a range, prose, a leading zero — is not a paper number and is
+# dropped rather than guessed at.
+_LLM_SUBMISSION_NUMBER_RE = re.compile(
+    r"(?:(?:paper|submission)\s*)?"
+    r"(?:(?:id|no\.?|number)\s*)?"
+    r"[#:]?\s*"
+    r"(?P<number>[1-9]\d{0,6})"
+    r"\.?",
+    re.IGNORECASE,
+)
+
+
+def _normalize_llm_submission_numbers(values: list[str]) -> list[str]:
+    """The model's SUBMISSION_NUMBER answers as bare digit strings, deduplicated.
+
+    A value is kept only if the whole of it is a paper number, optionally inside
+    its own label; the label is stripped so "#615" and "615" dedupe together.
+    Unusable values are dropped, never repaired.
+    """
+    numbers: list[str] = []
+    for value in values:
+        match = _LLM_SUBMISSION_NUMBER_RE.fullmatch(value.strip())
+        if match is None:
+            logger.debug("Dropped a non-numeric SUBMISSION_NUMBER answer.")
+            continue
+        numbers.append(match.group("number"))
+    return _dedupe_identifiers(numbers)
+
+
 def _field_or_none(value: str) -> str | None:
     """Normalize one raw author field: blank or the ``NONE`` sentinel → None."""
     cleaned = value.strip()
@@ -665,7 +738,7 @@ class EmailExtractor:
             forum_ids = _dedupe_identifiers(distilled.openreview_ids_raw)
 
             return ExtractionResult(
-                submission_numbers=_dedupe_identifiers(
+                submission_numbers=_normalize_llm_submission_numbers(
                     distilled.submission_numbers_raw
                 ),
                 openreview_forum_ids=forum_ids,
