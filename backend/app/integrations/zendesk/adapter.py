@@ -620,6 +620,10 @@ class ZendeskIngestAdapter:
                 "subject": ticket.get("subject") or "",
                 "body": initial.get("plain_body") or "",
                 "timestamp": ticket.get("created_at") or "",
+                # The row only gets its ticket id after process_email returns
+                # (apply_zendesk_fields), so rows the pipeline writes keyed to
+                # the ticket (phase-1 appeals) read it from here.
+                "zendesk_ticket_id": int(ticket["id"]),
             }
             pipeline_result = await self._pipeline_obj().process_email(email_data, db)
             result.classified += 1

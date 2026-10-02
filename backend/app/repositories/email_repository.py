@@ -694,6 +694,21 @@ class EmailRepository:
         )
         return list(result.scalars().all())
 
+    async def get_emails_by_intent(
+        self, db: AsyncSession, intent: str
+    ) -> list[Email]:
+        """Return every email whose stored classification intent is ``intent``.
+
+        Oldest id first. Uses the dialect-agnostic JSON accessor, like the lane
+        filter in ``_queue_conditions``; rows with no classification never match.
+        """
+        result = await db.execute(
+            select(Email)
+            .where(Email.classification["intent"].as_string() == intent)
+            .order_by(Email.id.asc())
+        )
+        return list(result.scalars().all())
+
     async def get_email_queue(
         self,
         db: AsyncSession,

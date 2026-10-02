@@ -50,6 +50,7 @@ from app.integrations.openreview.client import (
     OpenReviewDependencyError,
 )
 from app.integrations.zendesk.adapter import ZendeskIngestAdapter
+from app.integrations.zendesk.links import zendesk_ticket_url
 from app.integrations.zendesk.sender import (
     ZendeskSender,
     ZendeskSendError,
@@ -393,11 +394,7 @@ def _email_to_dict(email: Email) -> dict:
         # Deep link to the ticket in the Zendesk agent UI. Built from the
         # existing ZENDESK_SUBDOMAIN config so the frontend needs no Zendesk env
         # var. Null unless this row has a ticket id AND a subdomain is configured.
-        "zendesk_ticket_url": (
-            f"https://{settings.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/{email.zendesk_ticket_id}"
-            if email.zendesk_ticket_id is not None and settings.ZENDESK_SUBDOMAIN
-            else None
-        ),
+        "zendesk_ticket_url": zendesk_ticket_url(email.zendesk_ticket_id),
         "zendesk_status": email.zendesk_status,
         "classification": email.classification,
         "routing": email.routing,

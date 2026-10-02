@@ -5,6 +5,7 @@ flags" below are the architectural seams that let us replace pipeline modules
 (classifier, retriever, router, drafter) without rewriting the app.
 """
 
+from datetime import datetime
 from functools import lru_cache
 from typing import ClassVar, Literal
 
@@ -107,6 +108,19 @@ class Settings(BaseSettings):
     # `orchestrator._compute` (two-level gating, D44), and like the detector's
     # flag it stops the CALL only — a stored answer is preserved (D66).
     APPEAL_REASON_CLASSIFIER_ENABLED: bool = False
+
+    # Phase-1 rejection appeal classification. When on, an email whose intent is
+    # PHASE1_APPEAL_INTENT and whose ticket was created on/after
+    # PHASE1_APPEAL_START gets ONE extra model call
+    # (app.pipeline.phase1_appeal_classifier) and its result is stored as rows in
+    # `phase1_appeals` (exported as CSV). Drafting, routing and the queue are
+    # unchanged. OFF by default: off means no call and no row changes.
+    PHASE1_APPEAL_ENABLED: bool = False
+    # Earliest ticket creation time that qualifies (ISO-8601; a naive value is
+    # read as UTC). None = no date gate.
+    PHASE1_APPEAL_START: datetime | None = None
+    # The level-1 intent that qualifies an email for the call.
+    PHASE1_APPEAL_INTENT: str = "review_decision_appeal"
 
     # The conference cycle the approved appeal reply templates must belong to
     # (reject-appeal Phase 3, D81). `app.pipeline.appeal_reply_templates`

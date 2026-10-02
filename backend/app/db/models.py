@@ -543,3 +543,79 @@ class SuggestionAuditLog(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class PaperAssignment(Base):
+    """Which Associate Program Chair (APC) owns a submission, and its forum link.
+
+    Loaded from the program committee's assignment sheet by
+    ``scripts/load_paper_assignments.py``; read by the phase-1 appeal path to
+    fill ``apc_name`` / ``openreview_url`` on each appeal row. Keyed by the
+    submission number as a string (the same form ``extraction`` stores).
+    ``openreview_forum_id`` is the ``?id=`` of ``openreview_url``, kept as its
+    own indexed column so an email that names only a forum link can still be
+    mapped back to a submission number. Nullable because a URL may carry no id.
+    """
+
+    __tablename__ = "paper_assignments"
+
+    paper_number: Mapped[str] = mapped_column(String(16), primary_key=True)
+    apc_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    openreview_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    openreview_forum_id: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, index=True
+    )
+    cycle: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="AAAI-27", server_default="AAAI-27"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class Phase1Appeal(Base):
+    """One appealed paper in one phase-1 rejection appeal email.
+
+    Written by the pipeline from the phase-1 appeal classifier's result: one row
+    per paper the author disputes, or a single row with ``submission_number``
+    NULL when no paper could be identified. The set of rows for an email is
+    replaced wholesale on every reprocess (``Phase1AppealRepository.
+    replace_for_email``), so rows never accumulate across runs. ``apc_name`` /
+    ``openreview_url`` are denormalized from ``paper_assignments`` at write time
+    (NULL when the paper is not in the sheet) so the CSV export is a plain read.
+    ``reasons`` is a JSON list of ``{"reason", "quote"}``. ``prompt_sha256`` and
+    ``model`` record which prompt and model produced the row.
+
+    Rows die with their email (ON DELETE CASCADE, enforced on Postgres and on
+    SQLite when ``PRAGMA foreign_keys=ON``).
+    """
+
+    __tablename__ = "phase1_appeals"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email_id: Mapped[int] = mapped_column(
+        ForeignKey("emails.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    zendesk_ticket_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, index=True
+    )
+    submission_number: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, index=True
+    )
+    apc_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    openreview_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    relation: Mapped[str] = mapped_column(String(16), nullable=False)
+    reasons: Mapped[list] = mapped_column(JSON, nullable=False)
+    must_verify: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    prompt_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    classified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

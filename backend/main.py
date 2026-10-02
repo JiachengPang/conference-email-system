@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import audit, auto_replies, dashboard, emails
 from app.api.routes.training import router as training_router
 from app.api.v1.analytics import router as analytics_router
+from app.api.v1.appeals import router as appeals_router
 from app.api.v1.chairs import router as chairs_router
 from app.api.v1.emails import router as emails_router
 from app.api.v1.policies import router as policies_router
@@ -110,6 +111,7 @@ app.include_router(retrieval_router, prefix="/api/v1")
 app.include_router(chairs_router, prefix="/api/v1")
 app.include_router(policies_router, prefix="/api/v1")
 app.include_router(zendesk_router, prefix="/api/v1")
+app.include_router(appeals_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["system"])

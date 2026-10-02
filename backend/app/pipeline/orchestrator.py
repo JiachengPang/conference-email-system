@@ -36,6 +36,8 @@ from app.pipeline.extractor import EmailExtractor
 from app.pipeline.reciprocal_detector import detect_reciprocal_dispute
 from app.pipeline.appeal_reason_classifier import classify_appeal_reason
 from app.pipeline.appeal_reasons import is_valid_stored
+from app.pipeline.phase1_appeal_classifier import classify_phase1_appeal
+from app.pipeline import phase1_appeal_outcome
 from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
 from app.pipeline.retriever import (
     RetrievedChunk,
@@ -144,6 +146,10 @@ class _Computed:
     record: dict
     tracer: PipelineTracer
     start: float
+    # The phase-1 appeal outcome, persisted only by the callers that write the
+    # email row (never by the public ``compute`` seam). None when the flag is
+    # off, which means: leave the rows alone.
+    phase1: phase1_appeal_outcome.Phase1Outcome | None = None
 
 
 def _append_draft_history(
@@ -412,6 +418,9 @@ class EmailPipeline:
         a new key. If the forced key is itself excluded, exclusion wins and no
         forced chunk is appended. Excluded chunks never reach the drafter, so
         there is no prompt representation of a removal.
+
+        The phase-1 appeal outcome is decided here and carried in the result;
+        only the callers that write the email row persist it.
         """
         start = time.perf_counter()
         subject = email_data.get("subject", "")
@@ -584,6 +593,42 @@ class EmailPipeline:
                 appeal_reason,
             )
             extraction = extraction.model_copy(update={"appeal_reason": appeal_reason})
+
+            # --- phase-1 rejection appeal ---------------------------------
+            # A SEPARATE, conditional model call; its outcome is only carried
+            # here and persisted by the callers that write the email row (see
+            # app.pipeline.phase1_appeal_outcome for the rules). Off by default.
+            #
+            # Ticket creation time for the date gate. The update paths put the
+            # stored row's value in email_data["ticket_created_at"]
+            # (zendesk_created_at, else received_at). The ingest paths have no
+            # row yet, so it is email_data["timestamp"]: the Zendesk ticket's
+            # created_at from the adapter, or the /ingest payload's timestamp.
+            # Unknown counts as meeting the gate.
+            ticket_created_at = email_data.get("ticket_created_at")
+            if ticket_created_at is None:
+                ticket_created_at = _parse_received_at(email_data.get("timestamp"))
+            phase1_outcome = None
+            if not settings.PHASE1_APPEAL_ENABLED:
+                phase1_status = "flag_off"
+            elif not phase1_appeal_outcome.gate_met(
+                classification.intent, ticket_created_at
+            ):
+                phase1_outcome = phase1_appeal_outcome.Phase1Outcome(
+                    phase1_appeal_outcome.GATE_NOT_MET
+                )
+                phase1_status = phase1_outcome.state
+            else:
+                phase1_outcome = phase1_appeal_outcome.outcome_for(
+                    await classify_phase1_appeal(email_data)
+                )
+                phase1_status = phase1_outcome.state
+            # Ids and states only — never subject, body or quotes.
+            logger.debug(
+                "Phase-1 appeal classifier: %s (intent=%s)",
+                phase1_status,
+                classification.intent,
+            )
 
             # Query formulation (E003): distilled queries joined into one string,
             # with NO intent token (it hurts dense retrieval — E001). Distill-mode
@@ -813,6 +858,31 @@ class EmailPipeline:
             record=record,
             tracer=tracer,
             start=start,
+            phase1=phase1_outcome,
+        )
+
+    async def _persist_phase1(
+        self,
+        db: AsyncSession,
+        email_id: int,
+        zendesk_ticket_id: int | None,
+        c: _Computed,
+    ) -> None:
+        """Apply the run's phase-1 appeal outcome, after the email row is committed.
+
+        No-op when there is no outcome (flag off). Best-effort and never raises,
+        like ``_assign_chair``: the repository commits on its own, so a failure
+        there cannot touch the email row already written.
+        """
+        if c.phase1 is None:
+            return
+        await phase1_appeal_outcome.persist_phase1_outcome(
+            db,
+            email_id=email_id,
+            zendesk_ticket_id=zendesk_ticket_id,
+            extraction=c.record.get("extraction"),
+            outcome=c.phase1,
+            model=phase1_appeal_outcome.active_model_id(),
         )
 
     async def _finalize(
@@ -896,6 +966,10 @@ class EmailPipeline:
         ``reprocess_email`` does. Omitting it reads as "no prior", which is
         correct for a first computation and WRONG for a re-computation. The same
         holds for ``prior_appeal_reason`` (D66).
+
+        The phase-1 appeal outcome is computed and carried in the result like
+        everything else, but this seam never writes it: its rows are keyed to an
+        Email row, which this seam does not write either.
         """
         return await self._compute(
             email_data,
@@ -915,7 +989,16 @@ class EmailPipeline:
         """
         c = await self._compute(email_data, db)
         email = await self.email_repo.create_email(db, c.record)
-        return await self._finalize(db, str(email.id), c)
+        # Plain values, read now: a failed phase-1 write rolls the session back,
+        # which expires ``email``, and an async lazy reload would raise.
+        email_pk = email.id
+        # A Zendesk ticket's id is applied to the row by the adapter only after
+        # this returns, so the adapter also passes it in email_data.
+        ticket_id = getattr(email, "zendesk_ticket_id", None) or email_data.get(
+            "zendesk_ticket_id"
+        )
+        await self._persist_phase1(db, email_pk, ticket_id, c)
+        return await self._finalize(db, str(email_pk), c)
 
     async def reprocess_email(
         self,
@@ -947,15 +1030,22 @@ class EmailPipeline:
             "prior_is_reciprocal_dispute": _prior_dispute_flag(email),
             # D66: the same, for the appeal-reason classifier.
             "prior_appeal_reason": _prior_appeal_reason(email),
+            # The phase-1 appeal date gate reads the stored creation time.
+            "ticket_created_at": phase1_appeal_outcome.ticket_created_at(email),
         }
+        # Plain values, read now: a failed phase-1 write rolls the session back,
+        # which expires ``email``, and an async lazy reload would raise.
+        email_pk = email.id
+        ticket_id = getattr(email, "zendesk_ticket_id", None)
         c = await self._compute(
             email_data,
             db,
             forced_policy_key=forced_policy_key,
             excluded_policy_ids=excluded_policy_ids,
         )
-        await self.email_repo.update_email_outputs(db, str(email.id), c.record)
-        return await self._finalize(db, str(email.id), c)
+        await self.email_repo.update_email_outputs(db, str(email_pk), c.record)
+        await self._persist_phase1(db, email_pk, ticket_id, c)
+        return await self._finalize(db, str(email_pk), c)
 
     async def reprocess_email_with_thread(
         self,
@@ -994,8 +1084,15 @@ class EmailPipeline:
             "prior_is_reciprocal_dispute": _prior_dispute_flag(email),
             # D66: the same, for the appeal-reason classifier.
             "prior_appeal_reason": _prior_appeal_reason(email),
+            # The phase-1 appeal date gate reads the stored creation time.
+            "ticket_created_at": phase1_appeal_outcome.ticket_created_at(email),
         }
+        # Plain values, read now: a failed phase-1 write rolls the session back,
+        # which expires ``email``, and an async lazy reload would raise.
+        email_pk = email.id
+        ticket_id = getattr(email, "zendesk_ticket_id", None)
         c = await self._compute(email_data, db)
         _append_draft_history(c.record, email.draft, triggering_comment_ids)
-        await self.email_repo.update_email_outputs(db, str(email.id), c.record)
-        return await self._finalize(db, str(email.id), c)
+        await self.email_repo.update_email_outputs(db, str(email_pk), c.record)
+        await self._persist_phase1(db, email_pk, ticket_id, c)
+        return await self._finalize(db, str(email_pk), c)
