@@ -713,3 +713,52 @@ async def test_no_exclusions_sweep_keeps_exactly_the_five_ctx_keys(session, monk
     ctx = (await session.execute(select(Email))).scalars().first().retrieval_context
     assert set(ctx) == {"query", "intent", "prior_intent", "retrieved_ids", "chunk_hash"}
     assert "excluded_policy_ids" not in ctx
+
+
+# --- appeal reply hook (reject-appeal Phase 4): option (A) -----------------------------------
+def _appeal_email() -> Email:
+    email = _open_email()
+    email.subject = "Appeal"
+    email.classification = {"intent": "review_decision_appeal", "confidence": 0.9,
+                            "reasoning": "x", "method": "llm_distiller"}
+    email.draft = {**email.draft, "draft_text": "COMPOSED APPEAL REPLY",
+                   "appeal_reply": {"mode": "merged", "reasons": ["score_outcome_mismatch"],
+                                    "block_ids": ["opening_warm"]}}
+    return email
+
+
+async def test_flag_on_the_sweep_skips_appeal_tickets_and_counts_them(session, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APPEAL_REPLY_COMPOSER_ENABLED", True)
+    session.add_all([_appeal_email(), _open_email()])
+    await session.commit()
+    monkeypatch.setattr(
+        "app.pipeline.reevaluation.get_retriever", lambda: _StubRetriever(["policy_999"])
+    )
+    stats = await reevaluate_open_tickets(session_factory=_factory(session))
+    assert stats == {
+        "open": 2, "redrafted": 1, "skipped_edited": 0, "skipped_no_context": 0,
+        "skipped_contended": 0, "unaffected": 0, "skipped_appeal": 1,
+    }
+    appeal = (await session.execute(select(Email).where(Email.subject == "Appeal"))).scalars().one()
+    assert appeal.draft["draft_text"] == "COMPOSED APPEAL REPLY", "never replaced by a model draft"
+    assert appeal.draft["appeal_reply"]["mode"] == "merged"
+    assert appeal.retrieval_context["retrieved_ids"] == ["policy_101"]
+    assert appeal.redrafting is False
+
+
+async def test_flag_off_the_sweep_is_unchanged_and_has_no_skipped_appeal_key(session, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APPEAL_REPLY_COMPOSER_ENABLED", False)
+    session.add_all([_appeal_email(), _open_email()])
+    await session.commit()
+    monkeypatch.setattr(
+        "app.pipeline.reevaluation.get_retriever", lambda: _StubRetriever(["policy_999"])
+    )
+    stats = await reevaluate_open_tickets(session_factory=_factory(session))
+    assert stats == {
+        "open": 2, "redrafted": 2, "skipped_edited": 0, "skipped_no_context": 0,
+        "skipped_contended": 0, "unaffected": 0,
+    }

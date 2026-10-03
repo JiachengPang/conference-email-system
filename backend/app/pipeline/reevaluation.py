@@ -28,6 +28,7 @@ from app.pipeline.drafter import ResponseDrafter
 from app.pipeline.orchestrator import resolve_forced_chunk, resolve_lineage_roots
 from app.pipeline.retriever import get_retriever, grounded_chunks_hash
 from app.pipeline.router import EmailRouter, apply_self_sufficiency_floor
+from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.email_repository import EmailRepository
 
@@ -121,7 +122,8 @@ async def reevaluate_open_tickets(session_factory=async_session_factory) -> dict
     """Sweep open tickets; re-draft the ones whose retrieval changed.
 
     Returns a summary: {"open", "redrafted", "skipped_edited", "skipped_no_context",
-    "skipped_contended", "unaffected"}. Runs in two passes (see module docstring):
+    "skipped_contended", "unaffected"}, plus "skipped_appeal" ONLY when
+    APPEAL_REPLY_COMPOSER_ENABLED is on. Runs in two passes (see module docstring):
     all affected tickets are marked "re-drafting" first, then each is re-drafted.
     Best-effort per ticket — a failure on one ticket is logged, its ``redrafting``
     flag cleared, and the sweep continues.
@@ -141,6 +143,14 @@ async def reevaluate_open_tickets(session_factory=async_session_factory) -> dict
         "skipped_contended": 0,
         "unaffected": 0,
     }
+    # Appeal reply hook (reject-appeal Phase 4): with the flag ON, an appeal
+    # ticket's draft comes from the approved reply blocks, which do not use the
+    # knowledge base — so a KB edit has nothing to change in it, and re-drafting
+    # it here would replace it with a MODEL draft. Such tickets are skipped. The
+    # counter exists only when the flag is on, so flag-off output is unchanged.
+    skip_appeals = settings.APPEAL_REPLY_COMPOSER_ENABLED
+    if skip_appeals:
+        stats["skipped_appeal"] = 0
 
     async with session_factory() as db:
         tickets = await email_repo.get_open_tickets(db)
@@ -151,6 +161,9 @@ async def reevaluate_open_tickets(session_factory=async_session_factory) -> dict
         # in-progress at once; the work list is drafted in Pass 2.
         work: list[dict] = []
         for email in tickets:
+            if skip_appeals and (email.classification or {}).get("intent") in REJECT_APPEAL_INTENTS:
+                stats["skipped_appeal"] += 1
+                continue
             # Legacy / never-captured ticket (retrieval_context back-filled NULL by the
             # migration): no basis to compare, and an empty query retrieves arbitrary
             # policies — re-drafting would clobber a good draft with irrelevant

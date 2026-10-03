@@ -39,6 +39,7 @@ from app.pipeline.appeal_reasons import is_valid_stored
 from app.pipeline.phase1_appeal_classifier import classify_phase1_appeal
 from app.pipeline import phase1_appeal_outcome
 from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
+from app.pipeline.appeal_reply_hook import prepare_appeal_draft
 from app.pipeline.retriever import (
     RetrievedChunk,
     get_retriever,
@@ -150,6 +151,15 @@ class _Computed:
     # email row (never by the public ``compute`` seam). None when the flag is
     # off, which means: leave the rows alone.
     phase1: phase1_appeal_outcome.Phase1Outcome | None = None
+
+
+def _with_appeal_reply(draft: dict, appeal_reply: dict | None) -> dict:
+    """The stored draft dict, with ``appeal_reply`` added ONLY when the appeal
+    reply hook ran. Absent — not null — otherwise, so a flag-off or non-appeal
+    record is byte-for-byte what it always was."""
+    if appeal_reply is not None:
+        draft["appeal_reply"] = appeal_reply
+    return draft
 
 
 def _append_draft_history(
@@ -733,10 +743,29 @@ class EmailPipeline:
             raise
 
         # --- draft (non-fatal: failure downgrades status) -----------------
+        # Appeal reply hook (reject-appeal Phase 4). With the flag ON, a reject-
+        # appeal email's draft comes from the approved reply blocks — composed text
+        # or a [CHAIR: ...] placeholder — and the model drafter is NOT called for
+        # it. prepare_appeal_draft never raises (a failure is the chair-writes
+        # placeholder). With the flag OFF, or for any other intent, the drafter is
+        # called exactly as before.
+        appeal_reply = None
         with tracer.stage("drafter", {}) as st:
-            draft = await self.drafter.draft(
-                email_data, classification, retrieved_chunks, forced_policy_key
-            )
+            if (
+                settings.APPEAL_REPLY_COMPOSER_ENABLED
+                and classification.intent in REJECT_APPEAL_INTENTS
+            ):
+                draft, appeal_reply = prepare_appeal_draft(
+                    classification.intent,
+                    extraction.appeal_reason,
+                    dispute_flag,
+                    email_data,
+                    window_end=settings.APPEAL_REPLY_WINDOW_END,
+                )
+            else:
+                draft = await self.drafter.draft(
+                    email_data, classification, retrieved_chunks, forced_policy_key
+                )
             st.output_summary = {
                 "draft_length": len(draft.draft_text),
                 "provider": draft.generation_metadata.get("provider", self.drafter.provider),
@@ -790,7 +819,7 @@ class EmailPipeline:
             "status": _LIFECYCLE_STATUS[status],
             "classification": classification.model_dump(),
             "routing": routing.model_dump(),
-            "draft": draft.model_dump(),
+            "draft": _with_appeal_reply(draft.model_dump(), appeal_reply),
             "extraction": extraction.model_dump(),
             "assigned_chair_id": (
                 chair_assignment.chair_id if chair_assignment else None

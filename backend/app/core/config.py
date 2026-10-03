@@ -128,6 +128,23 @@ class Settings(BaseSettings):
     # never be served after the cycle rolls over. Nothing else reads it yet.
     APPEAL_REPLY_CYCLE: str = "AAAI-27"
 
+    # Appeal reply hook (reject-appeal Phase 4, Step 4). When True, an email whose
+    # intent is one of the two reject-appeal intents gets its draft from the
+    # approved reply blocks (app.pipeline.appeal_reply_hook) instead of the model
+    # drafter — composed text, or a [CHAIR: ...] placeholder with a chair note,
+    # NEVER a model-written draft. Every other intent is untouched. OFF by default:
+    # off means the hook is skipped entirely and the drafter is called exactly as
+    # before. Needs APPEAL_REASON_CLASSIFIER_ENABLED too, or every appeal gets the
+    # "reason not determined" placeholder.
+    APPEAL_REPLY_COMPOSER_ENABLED: bool = False
+    # Phase 1 window (ISO-8601; a value without an offset is read as UTC). When
+    # set, composed reply TEXT is only used for tickets created on or before it;
+    # a later ticket, or one whose creation time is unknown, gets the chair-writes
+    # placeholder instead ("Appeal reply wording is for Phase 1 rejections only").
+    # Outcomes with no wording (no draft, reciprocal review, chair writes) keep
+    # their own notes. None = no window.
+    APPEAL_REPLY_WINDOW_END: datetime | None = None
+
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the
     # calibrated confidence instead of the raw classifier score. Off by default
