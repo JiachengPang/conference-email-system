@@ -1,50 +1,58 @@
-"""Appeal reply composer (reject-appeal Phase 3, D96).
+"""Appeal reply composer (reject-appeal Phase 3, D96; rules per D97-D111).
 
 Joins APPROVED reply blocks into the MIDDLE of an email by fixed rules — no
-greeting, no sign-off (the drafter adds those in Phase 4). Pure: it reads blocks
-only through the loader's approved-only functions plus its id-only
+greeting, no sign-off (the drafter hook adds those in Phase 4). Pure: it reads
+blocks only through the loader's approved-only functions plus its id-only
 ``expected_points_for_reasons``, and never opens the template file itself.
 
 ⚠️ CALLED BY NOTHING YET. Phase 4 maps the classifier's ``appeal_reason`` plus
-``is_reciprocal_dispute`` into ``reasons`` and passes the chair's "forward"
-choice for score complaints.
+``is_reciprocal_dispute`` into ``reasons`` (``is_reciprocal_dispute == True`` ->
+add ``reciprocal_dispute``).
 
 Rules, applied in this order (reasons are registry names plus
 ``reciprocal_dispute``):
-  * R7 reciprocal — ``reciprocal_dispute`` present: the body is
-    ``full_reciprocal`` alone. Other reasons go to a chair note.
-  * R6 holding — ``wrong_paper_review`` present, or ``score_outcome_mismatch``
-    present AND the chair forwards it: a holding reply (``holding_both`` /
-    ``holding_wrong_paper`` / ``holding_score_mismatch``). No opening, closing
-    or "final" wording. Other reasons go to a chair note.
-  * Otherwise, with S = the remaining reasons:
-      R4 drop ``general_dissatisfaction`` if S has any other reason;
-      R8 refuse if S has more than 3 distinct reasons;
-      S == {other} -> the chair line alone;
-      S == {general_dissatisfaction} -> opening + reconsider body + closing;
-      else MERGED: opening + lead-in, the needed points numbered "(n)" in the
-      ONE global point order, deduplicated by id (R3), the chair line after the
-      list when ``other`` is in S (R5), then the closing.
-  * A needed block that is not approved refuses the reply
-    (``missing_approved_block:<id>``) — except an OPTIONAL point, which is
-    simply omitted.
+  1. NO DRAFT — ``wrong_paper_review`` present, alone or with others (D98/D108):
+     mode ``no_draft``, body None, refusal None. The chair note says to
+     investigate first and not to reply to or close the ticket yet; any other
+     reasons are listed. Needs no block.
+  2. RECIPROCAL REVIEW — ``reciprocal_dispute`` present (D99/D111): mode
+     ``reciprocal_review``, body None, refusal None. The chair note tags it for
+     Marc; any other reasons are listed. ``full_reciprocal`` is NEVER served,
+     even when approved. Needs no block.
+  3. STANDALONE ONLY ALONE — ``general_dissatisfaction`` and
+     ``llm_generated_review`` are each answered by ONE complete middle
+     (``standalone_general_stage1`` / ``standalone_ai_review``, D103/D104), mode
+     ``standalone``. Combined with each other or with ANY other reason, the
+     chair writes (mode ``chair_writes``, the chair line, a note naming the
+     reasons) — D105.
+  4. Then, with only ``score_outcome_mismatch``, ``reviewer_misunderstanding``
+     and ``other`` left:
+       more than ``MAX_REASONS`` -> the chair writes (a defensive guard: with
+       today's registry rule 3 already catches every larger set);
+       {other} -> the chair line alone (mode ``chair_writes``);
+       else MERGED: opening + lead-in, the needed points numbered "(n)" in the
+       ONE global point order (the file's ``order``), each point once even when
+       two reasons need it, the chair line after the list when ``other`` is
+       present, then ``closing_reviewed``.
+  * Every block a reply needs must be approved, else the reply is refused
+    (mode ``refused``, ``missing_approved_block:<id>``). There are no optional
+    points (the report-form point is retired, D101).
   * The composed body is finally linted; any violation refuses it
     (``lint:<rule_name>``, never the matched text). The only rules tolerated are
     those waived by the blocks this reply actually USED (the union of their
-    ``lint_waivers``, D107/D109). Waivers come from the loader's approved blocks,
-    which validated them; a block whose waiver is missing or invalid is either
-    not served at all or fails here, so the reply is refused as before. Waivers
-    on blocks the reply did not use are ignored.
+    ``lint_waivers``, D107/D109). Waivers on blocks it did not use are ignored.
 
-Chair notes are plain text for the chair and NEVER part of the body. Never
-raises for any input; the same set of reasons in any order gives identical
-output.
+``no_draft`` and ``reciprocal_review`` are deliberate answers, not failures:
+they have ``refusal is None``, which is how a caller tells them from
+``refused``. Chair notes are plain text for the chair and NEVER part of the
+body. Never raises for any input; the same set of reasons in any order gives
+identical output.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.pipeline.appeal_reasons import REASON_NAMES
@@ -59,10 +67,10 @@ logger = logging.getLogger(__name__)
 
 RECIPROCAL = "reciprocal_dispute"
 WRONG_PAPER = "wrong_paper_review"
-SCORE = "score_outcome_mismatch"
 GENERAL = "general_dissatisfaction"
+LLM = "llm_generated_review"
 OTHER = "other"
-MAX_REASONS = 3                                 # R8
+MAX_REASONS = 3                                 # rule 4 guard
 SEP = "\n\n"                                    # paragraph separator everywhere
 
 # Registry order + reciprocal last: the one canonical order for sets of reasons,
@@ -71,16 +79,24 @@ _ORDER = {name: i for i, name in enumerate(REASON_NAMES)} | {RECIPROCAL: len(REA
 ALLOWED_REASONS = frozenset(_ORDER)
 
 OPENING, LEAD_IN, CLOSING = "opening_warm", "lead_in_concerns", "closing_reviewed"
-RECONSIDER, CHAIR_LINE, FULL_RECIPROCAL = "body_reconsider", "line_chair_writes", "full_reciprocal"
-HOLDING_BOTH, HOLDING_WRONG_PAPER, HOLDING_SCORE = (
-    "holding_both", "holding_wrong_paper", "holding_score_mismatch",
+CHAIR_LINE = "line_chair_writes"
+# Reasons answered by ONE complete middle, never merged with anything (D103-D105).
+STANDALONE = {GENERAL: "standalone_general_stage1", LLM: "standalone_ai_review"}
+
+NOTE_NO_DRAFT = (
+    "Investigate first: the author says a review is about a different paper. "
+    "Do not reply to or close the ticket yet."
+)
+NOTE_RECIPROCAL = (
+    "Reciprocal-review complaint: tagged for Marc to review himself. No reply is drafted."
 )
 
 
 @dataclass(frozen=True)
 class ComposeResult:
     body: str | None
-    mode: str  # merged | holding | standalone | reciprocal | chair_writes | refused
+    # merged | standalone | chair_writes | no_draft | reciprocal_review | refused
+    mode: str
     used_ids: tuple[str, ...] = ()
     chair_notes: tuple[str, ...] = ()
     refusal: str | None = None
@@ -114,18 +130,14 @@ def _canonical(reasons) -> list[str]:
     return sorted(distinct, key=_ORDER.__getitem__)
 
 
-def _note(unanswered: list[str]) -> tuple[str, ...]:
-    if not unanswered:
-        return ()
-    return (f"Also raised: {', '.join(unanswered)}. Not answered in this reply.",)
+def _also_raised(reasons: list[str]) -> tuple[str, ...]:
+    return (f"Also raised: {', '.join(reasons)}.",) if reasons else ()
 
 
-def compose_reply(
-    reasons, *, chair_forwards_score_mismatch: bool = False, path: Path | str = DEFAULT_PATH
-) -> ComposeResult:
+def compose_reply(reasons, *, path: Path | str = DEFAULT_PATH) -> ComposeResult:
     """Compose the middle of a reply from approved blocks. Never raises."""
     try:
-        return _compose(reasons, chair_forwards_score_mismatch is True, path)
+        return _compose(reasons, path)
     except _Refused as r:
         return _refused(r.reason)
     except Exception as exc:  # noqa: BLE001 - must never raise
@@ -133,8 +145,24 @@ def compose_reply(
         return ComposeResult(body=None, mode="refused", refusal="internal_error")
 
 
-def _compose(reasons, forwards_score: bool, path) -> ComposeResult:
+def _compose(reasons, path) -> ComposeResult:
     ordered = _canonical(reasons)
+    present = set(ordered)
+
+    # 1. Wrong-paper review: no draft at all; the chair investigates first.
+    if WRONG_PAPER in present:
+        return ComposeResult(
+            body=None, mode="no_draft",
+            chair_notes=(NOTE_NO_DRAFT,) + _also_raised([r for r in ordered if r != WRONG_PAPER]),
+        )
+
+    # 2. Reciprocal complaint: no draft; tagged for Marc. full_reciprocal is never served.
+    if RECIPROCAL in present:
+        return ComposeResult(
+            body=None, mode="reciprocal_review",
+            chair_notes=(NOTE_RECIPROCAL,) + _also_raised([r for r in ordered if r != RECIPROCAL]),
+        )
+
     blocks = {t.id: t for t in load_approved_templates(path)}
 
     def need(block_id: str) -> str:
@@ -142,69 +170,37 @@ def _compose(reasons, forwards_score: bool, path) -> ComposeResult:
             raise _Refused(f"missing_approved_block:{block_id}")
         return blocks[block_id].body
 
-    present = set(ordered)
+    def chair_writes(note: str) -> ComposeResult:
+        return _finish(need(CHAIR_LINE), "chair_writes", (CHAIR_LINE,), (note,), blocks=blocks)
 
-    # R7 — reciprocal.
-    if RECIPROCAL in present:
-        body = need(FULL_RECIPROCAL)
-        return _finish(body, "reciprocal", (FULL_RECIPROCAL,),
-                       _note([r for r in ordered if r != RECIPROCAL]), blocks=blocks)
+    # 3. A standalone reply only ever stands alone.
+    if present & STANDALONE.keys():
+        if len(ordered) > 1:
+            return chair_writes(
+                "Chair writes: no approved reply covers these reasons together: "
+                f"{', '.join(ordered)}."
+            )
+        block_id = STANDALONE[ordered[0]]
+        return _finish(need(block_id), "standalone", (block_id,), (), blocks=blocks)
 
-    # R6 — holding.
-    wrong_paper = WRONG_PAPER in present
-    score_forwarded = SCORE in present and forwards_score
-    if wrong_paper or score_forwarded:
-        hold_id = HOLDING_BOTH if (wrong_paper and score_forwarded) else (
-            HOLDING_WRONG_PAPER if wrong_paper else HOLDING_SCORE)
-        answered = {WRONG_PAPER} | ({SCORE} if score_forwarded else set())
-        return _finish(need(hold_id), "holding", (hold_id,),
-                       _note([r for r in ordered if r not in answered]), blocks=blocks)
-
-    s = list(ordered)
-    # R4 — general dissatisfaction only on its own.
-    if GENERAL in s and len(s) > 1:
-        s.remove(GENERAL)
-    # R8 — too many reasons.
-    if len(s) > MAX_REASONS:
-        raise _Refused("too_many_reasons")
-
-    if s == [OTHER]:
+    # 4. Only score_outcome_mismatch, reviewer_misunderstanding and other remain.
+    if len(ordered) > MAX_REASONS:
+        return chair_writes(
+            f"Chair writes: more than {MAX_REASONS} issues raised: {', '.join(ordered)}."
+        )
+    if ordered == [OTHER]:
         return _finish(need(CHAIR_LINE), "chair_writes", (CHAIR_LINE,), (), blocks=blocks)
-    if s == [GENERAL]:
-        body = SEP.join([need(OPENING), need(RECONSIDER), need(CLOSING)])
-        return _finish(body, "standalone", (OPENING, RECONSIDER, CLOSING), (), blocks=blocks)
 
-    # MERGED. Points are gathered per reason, then deduplicated (R3) and put in
-    # the one global order — so a point shared by two reasons appears once and
-    # the numbering never depends on which reason brought it in.
-    point_reasons = [r for r in s if r != OTHER]
-    gathered: list[tuple[str, bool]] = []
-    for r in point_reasons:
-        gathered.extend(expected_points_for_reasons([r], path))
-    rank = {pid: i for i, (pid, _) in enumerate(expected_points_for_reasons(point_reasons, path))}
-    seen: set[str] = set()
-    points: list[tuple[str, bool]] = []
-    for pid, optional in gathered:
-        if pid not in seen:
-            seen.add(pid)
-            points.append((pid, optional))
-    points.sort(key=lambda p: rank.get(p[0], len(rank)))
-
-    texts: list[str] = []
-    used = [OPENING, LEAD_IN]
-    for pid, optional in points:
-        if pid not in blocks:
-            if optional:
-                continue  # an optional point that is not approved is simply omitted
-            raise _Refused(f"missing_approved_block:{pid}")
-        texts.append(blocks[pid].body)
-        used.append(pid)
-    if not texts:
+    # MERGED. The file says which points each reason needs, and in which order;
+    # the helper returns each point once, so a point two reasons share (the
+    # rebuttal point) appears once. Every needed point must be approved.
+    point_ids = [pid for pid, _ in expected_points_for_reasons([r for r in ordered if r != OTHER], path)]
+    if not point_ids:
         raise _Refused("no_points")
-
     parts = [f"{need(OPENING)} {need(LEAD_IN)}"]
-    parts += [f"({n}) {text}" for n, text in enumerate(texts, start=1)]
-    if OTHER in s:  # R5 — after the list, before the closing
+    parts += [f"({n}) {need(pid)}" for n, pid in enumerate(point_ids, start=1)]
+    used = [OPENING, LEAD_IN, *point_ids]
+    if OTHER in present:  # after the list, before the closing
         parts.append(need(CHAIR_LINE))
         used.append(CHAIR_LINE)
     parts.append(need(CLOSING))
@@ -222,8 +218,8 @@ def _finish(
 
     The only rules tolerated are those waived by a block in ``used`` (D107/D109).
     ``blocks`` holds the loader's approved blocks only, whose waivers the loader
-    already validated; every id in ``used`` is one of them, because a block is
-    added to ``used`` only after ``need`` / the point loop found it there.
+    already validated; every id in ``used`` is one of them, because each was
+    fetched with ``need`` before the body was built.
     """
     body = "\n".join(line.rstrip() for line in body.split("\n")).rstrip()
     waived = frozenset(w.rule for block_id in used for w in blocks[block_id].lint_waivers)

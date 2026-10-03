@@ -31,6 +31,14 @@ EXPECTED_IDS = {
     "closing_reviewed",
     "holding_wrong_paper", "holding_score_mismatch", "holding_both",
     "body_reconsider", "line_chair_writes", "full_reciprocal",
+    "standalone_general_stage1", "standalone_ai_review",
+}
+
+# Kept in the file but no longer used (D97/D98/D101/D104).
+RETIRED_IDS = {
+    "point_ai_review", "point_report_form",
+    "holding_wrong_paper", "holding_score_mismatch", "holding_both",
+    "body_reconsider",
 }
 
 REQUIRED_FIELDS = {
@@ -54,10 +62,10 @@ def test_the_file_is_schema_version_2(data):
     assert data["schema_version"] == 2
 
 
-def test_the_file_holds_exactly_the_fifteen_expected_ids(templates):
+def test_the_file_holds_exactly_the_expected_ids(templates):
     ids = [t["id"] for t in templates]
-    assert len(ids) == 15
-    assert len(set(ids)) == 15, "template ids must be unique"
+    assert len(ids) == 17
+    assert len(set(ids)) == 17, "template ids must be unique"
     assert set(ids) == EXPECTED_IDS
 
 
@@ -130,8 +138,43 @@ def test_every_entry_has_the_cycle_and_scope(templates):
         assert (t["cycle"], t["scope"]) == ("AAAI-27", "phase1_reject"), t["id"]
 
 
-def test_all_current_entries_are_draft(templates):
-    """Nothing is approved yet — Marc has not signed off any wording."""
-    assert [t["id"] for t in templates if t["status"] != "draft"] == []
+def test_nothing_is_approved_and_exactly_the_expected_entries_are_retired(templates):
+    """Nothing is approved yet: every entry is draft except the six retired ones
+    (D97/D98/D101/D104), and no entry carries an approval record."""
+    assert {t["id"] for t in templates if t["status"] == "retired"} == RETIRED_IDS
+    assert {t["id"] for t in templates if t["status"] == "draft"} == EXPECTED_IDS - RETIRED_IDS
     for t in templates:
         assert (t["approved_by"], t["approved_at"], t["approved_sha256"]) == (None, None, None), t["id"]
+
+
+def test_the_new_standalone_blocks_are_complete_middles_for_one_reason(templates):
+    """Yan's two replies (D103/D104) are standalone_full blocks: no wrapper, no order."""
+    by_id = {t["id"]: t for t in templates}
+    for block_id, reason in (("standalone_general_stage1", "general_dissatisfaction"),
+                             ("standalone_ai_review", "llm_generated_review")):
+        t = by_id[block_id]
+        assert (t["kind"], t["order"], t["reasons"]) == ("standalone_full", None, [reason]), block_id
+        assert len(t["body"].split("\n\n")) == 4, block_id
+        assert not t["body"].lstrip().lower().startswith("dear"), "middle text only"
+
+
+def test_the_live_points_have_the_decided_reasons_and_order(templates):
+    """T1 = scores + rebuttal; T2 = reviewers + rebuttal + thanks (D97/D100). The
+    thanks point is no longer shared with the AI-review reason (D103)."""
+    live = {t["id"]: (t["order"], t["reasons"]) for t in templates
+            if t["kind"] == "point" and t["status"] != "retired"}
+    assert live == {
+        "point_scores": (1, ["score_outcome_mismatch"]),
+        "point_all_assessments": (2, ["reviewer_misunderstanding"]),
+        "point_rebuttal": (3, ["score_outcome_mismatch", "reviewer_misunderstanding"]),
+        "point_consider_input": (4, ["reviewer_misunderstanding"]),
+    }
+
+
+def test_the_blockers_are_as_decided(templates):
+    """Marc answered question (d), so the reciprocal reply is unblocked (it is still
+    never served, D111); Yan B waits on Yan's confirmation of "the authors' responses"."""
+    by_id = {t["id"]: t for t in templates}
+    assert by_id["full_reciprocal"]["blocked_on"] == []
+    assert by_id["standalone_ai_review"]["blocked_on"] == ["yan_confirm_authors_responses"]
+    assert by_id["standalone_general_stage1"]["blocked_on"] == []

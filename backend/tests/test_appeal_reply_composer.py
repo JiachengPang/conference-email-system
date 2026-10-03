@@ -1,13 +1,15 @@
-"""Tests for the appeal reply composer (reject-appeal Phase 3, D96).
+"""Tests for the appeal reply composer (reject-appeal Phase 3, D96; rules per D97-D111).
 
 Golden outputs are written out as LITERAL strings — never built by calling the
-composer. The blocks come from a temp copy of the real template file in which
-every entry is approved with a correct hash (``approved_copy``); the real file
-itself (all draft) must refuse every input.
+composer or reading the file. The blocks come from a temp copy of the real
+template file in which every non-retired entry is approved with a correct hash
+(``approved_copy``); the real file itself (all draft or retired) must produce no
+reply for any input.
 """
 
 from __future__ import annotations
 
+import inspect
 import itertools
 import json
 import logging
@@ -24,25 +26,32 @@ from app.pipeline.appeal_reply_templates import compute_body_sha256, expected_po
 
 SCORE, REVIEWER, LLM = "score_outcome_mismatch", "reviewer_misunderstanding", "llm_generated_review"
 WRONG, GENERAL, OTHER, RECIP = "wrong_paper_review", "general_dissatisfaction", "other", "reciprocal_dispute"
+ROLES = "internal_roles_or_process"
 
 
 def approved_copy(tmp_path: Path, *, overrides: dict | None = None, draft: set | None = None,
-                  unblock: set = frozenset({"full_reciprocal"})) -> Path:
-    """A temp copy of the real file with every entry approved and correctly hashed.
+                  unblock: frozenset = frozenset({"standalone_ai_review"}),
+                  approve_retired: bool = False) -> Path:
+    """A temp copy of the real file with every non-retired entry approved and
+    correctly hashed.
 
-    ``point_report_form`` stays draft (its form address is still missing).
     ``overrides`` maps id -> fields to change BEFORE hashing; ``draft`` lists ids
-    to leave unapproved; ``unblock`` lists ids whose blocked_on is cleared.
+    to leave unapproved; ``unblock`` lists ids whose blocked_on is cleared (Yan B
+    by default — it waits on Yan in the real file); ``approve_retired`` approves
+    the retired entries too, to prove the composer never uses them.
     """
     data = json.loads(art.DEFAULT_PATH.read_text(encoding="utf-8"))
-    keep_draft = {"point_report_form"} | (draft or set())
     for e in data["templates"]:
         e.update((overrides or {}).get(e["id"], {}))
         if e["id"] in unblock:
             e["blocked_on"] = []
-        if e["id"] in keep_draft:
+        if e["id"] in (draft or set()):
             continue
-        e.update(status="approved", approved_by="test", approved_at="2026-09-29",
+        if e["status"] == "retired" and not approve_retired:
+            continue
+        if e["status"] == "retired":
+            e["blocked_on"] = []
+        e.update(status="approved", approved_by="test", approved_at="2026-10-02",
                  approved_sha256=compute_body_sha256(e["body"]))
     p = tmp_path / "templates.json"
     p.write_text(json.dumps(data), encoding="utf-8")
@@ -55,221 +64,315 @@ def blocks(tmp_path) -> Path:
 
 
 # --- golden strings (literals) --------------------------------------------------------
-G_SCORE = (
+OPENING = (
     "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) Final decisions are not determined solely by the reviewer scores that are visible to you. "
-    "Additional input from senior members of the program committee is also considered, and all "
-    "factors are carefully weighed.\n\n"
-    "(2) We understand that not having a chance for rebuttal is frustrating, but this is how the "
-    "two-phase process works.\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
+    "in preparing your submission. We would like to respond to your concerns:"
 )
-G_REVIEWER = (
-    "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) Decisions are not based on any single review; all assessments are weighed together.\n\n"
-    "(2) We understand that not having a chance for rebuttal is frustrating, but this is how the "
-    "two-phase process works.\n\n"
-    "(3) Thank you for sharing your view of the review. We will consider your input when studying "
-    "possible changes for future editions.\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
+P_SCORES = (
+    "Decisions are not based solely on the visible reviewer scores. Senior program committee members "
+    "evaluated both the paper and the reviews, including whether the raised concerns can be addressed "
+    "with minor clarifications or require substantial revision."
 )
-G_LLM = (
-    "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) The review process includes one review that is clearly identified as AI-generated. It carries "
-    "no ratings and plays no part in the decision.\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
+P_REVIEWERS = "Decisions are not based on any single review; all assessments are weighed together."
+P_REBUTTAL = (
+    "AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We "
+    "understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in "
+    "response to author objections."
 )
-G_HOLD_WRONG = "Thank you for flagging this. We will investigate and follow up with you."
-G_HOLD_SCORE = ("Thank you for flagging your concern about the consistency of the outcome. "
-                "We will investigate and follow up with you.")
-G_HOLD_BOTH = "Thank you for flagging these concerns. We will investigate and follow up with you."
-G_GENERAL = (
-    "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission.\n\n"
-    "We understand your wish for the decision to be reconsidered. We also understand that not having "
-    "a chance for rebuttal is frustrating, but this is how the two-phase process works.\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
+P_THANKS = (
+    "Thank you for sharing your view of the review process. We will consider your input when studying "
+    "possible changes for future editions."
 )
-G_OTHER = "[CHAIR: write reply]"
-G_RECIP = (
-    "We understand that this situation is disappointing, and we appreciate the effort you invested in "
-    "preparing your submission. We would like to clarify the circumstances:\n\n"
-    "(1) Reciprocal reviewers were informed that failure to complete their assigned reviews could "
-    "result in desk rejection of the paper(s) that nominated them.\n\n"
-    "(2) We expected authors to coordinate with their co-authors on reciprocal reviewing "
-    "responsibilities, so first authors were not warned separately when a nominee had not completed "
-    "their review.\n\n"
-    "(3) In your case, the nominated reciprocal reviewer did not complete their assigned review. The "
-    "desk rejection is therefore consistent with the stated policy.\n\n"
-    "The desk rejection is final, but we hope to see your work at a future AAAI conference."
+CLOSING = (
+    "The decision is final, but we hope the feedback will be useful in further strengthening your work "
+    "and helping you secure publication in another leading venue or future AAAI edition."
 )
-G_EXAMPLE_A = (
-    "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) Final decisions are not determined solely by the reviewer scores that are visible to you. "
-    "Additional input from senior members of the program committee is also considered, and all "
-    "factors are carefully weighed.\n\n"
-    "(2) Decisions are not based on any single review; all assessments are weighed together.\n\n"
-    "(3) We understand that not having a chance for rebuttal is frustrating, but this is how the "
-    "two-phase process works.\n\n"
-    "(4) Thank you for sharing your view of the review. We will consider your input when studying "
-    "possible changes for future editions.\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
+CHAIR_LINE = "[CHAIR: write reply]"
+
+G_T1 = f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}"
+G_T2 = f"{OPENING}\n\n(1) {P_REVIEWERS}\n\n(2) {P_REBUTTAL}\n\n(3) {P_THANKS}\n\n{CLOSING}"
+G_T1_T2 = (f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REVIEWERS}\n\n(3) {P_REBUTTAL}\n\n"
+           f"(4) {P_THANKS}\n\n{CLOSING}")
+G_T1_OTHER = f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REBUTTAL}\n\n{CHAIR_LINE}\n\n{CLOSING}"
+G_T1_T2_OTHER = (f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REVIEWERS}\n\n(3) {P_REBUTTAL}\n\n"
+                 f"(4) {P_THANKS}\n\n{CHAIR_LINE}\n\n{CLOSING}")
+G_YAN_A = (
+    "Thank you for taking the time to share your concerns regarding the review process for your "
+    "submission. We take concerns about fairness in the review process seriously and have carefully "
+    "considered the issues you raised.\n\n"
+    "We understand that aspects of the reviews may have led you to feel that your submission did not "
+    "receive fair consideration. We would like to emphasize that the final decision on a submission is "
+    "not determined by any single review or reviewer.\n\n"
+    "To further strengthen the consistency and fairness of the decision-making process, we have "
+    "introduced a new Senior Program Chair (SPC) buddy system. Under this system, each SPC is paired "
+    "with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. "
+    "This additional layer of cross-checking is intended to reduce the influence of any individual "
+    "assessment and promote greater consistency and fairness across the review process. In addition, "
+    "the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the "
+    "quality of a particular review, these concerns are taken into account when the reviews are "
+    "weighed as part of the overall assessment.\n\n"
+    "Your feedback is valuable to us, not only in reviewing the process surrounding your submission "
+    "but also in identifying areas where the review process can be improved. We will document the "
+    "concerns raised and share relevant information with future AAAI Program Chairs to support "
+    "continued improvements in the quality, fairness, and integrity of the review process. We "
+    "appreciate your engagement with the process and your effort in bringing these concerns to our "
+    "attention."
 )
-G_EXAMPLE_B = (
-    "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) Decisions are not based on any single review; all assessments are weighed together.\n\n"
-    "(2) We understand that not having a chance for rebuttal is frustrating, but this is how the "
-    "two-phase process works.\n\n"
-    "(3) Thank you for sharing your view of the review. We will consider your input when studying "
-    "possible changes for future editions.\n\n"
-    "(4) The review process includes one review that is clearly identified as AI-generated. It carries "
-    "no ratings and plays no part in the decision.\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
-)
-G_SCORE_OTHER = (
-    "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) Final decisions are not determined solely by the reviewer scores that are visible to you. "
-    "Additional input from senior members of the program committee is also considered, and all "
-    "factors are carefully weighed.\n\n"
-    "(2) We understand that not having a chance for rebuttal is frustrating, but this is how the "
-    "two-phase process works.\n\n"
-    "[CHAIR: write reply]\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
-)
-G_THREE = (
-    "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
-    "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) Final decisions are not determined solely by the reviewer scores that are visible to you. "
-    "Additional input from senior members of the program committee is also considered, and all "
-    "factors are carefully weighed.\n\n"
-    "(2) Decisions are not based on any single review; all assessments are weighed together.\n\n"
-    "(3) We understand that not having a chance for rebuttal is frustrating, but this is how the "
-    "two-phase process works.\n\n"
-    "(4) Thank you for sharing your view of the review. We will consider your input when studying "
-    "possible changes for future editions.\n\n"
-    "(5) The review process includes one review that is clearly identified as AI-generated. It carries "
-    "no ratings and plays no part in the decision.\n\n"
-    "The decision is final, but we hope the feedback will be useful in further strengthening your "
-    "work and helping you secure publication in another leading venue or future AAAI edition."
+G_YAN_B = (
+    "Thank you for providing the detailed information regarding your concerns about the reviews of "
+    "your submission. We take concerns about the integrity and quality of the review process seriously "
+    "and have carefully considered the issues you raised.\n\n"
+    "We recognize that some characteristics of a review may raise concerns about the possible use of "
+    "AI tools. But rest assured that the decision on your submission does not rely on any single "
+    "review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the "
+    "reviews and the authors' responses, and formed their own assessment of the submission. The final "
+    "decision is made based on this broader evaluation rather than on the assessment or "
+    "recommendation of any individual reviewer.\n\n"
+    "In addition, we ask Senior Program Chairs to assess the quality of the reviews and provide "
+    "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
+    "with AI-generated content. Your feedback is also very valuable to us. We will document these "
+    "concerns and share the relevant information with future AAAI Program Chairs to help further "
+    "improve the quality and integrity of the review process.\n\n"
+    "Thank you again for raising your concerns and for providing the supporting details. We "
+    "appreciate your engagement with the review process."
 )
 
+NOTE_NO_DRAFT = (
+    "Investigate first: the author says a review is about a different paper. "
+    "Do not reply to or close the ticket yet."
+)
+NOTE_RECIP = "Reciprocal-review complaint: tagged for Marc to review himself. No reply is drafted."
+
+# (reasons, mode, expected body, expected used ids, rules that fire on the body)
 GOLDEN_CASES = [
-    ([SCORE], {}, "merged", G_SCORE),
-    ([REVIEWER], {}, "merged", G_REVIEWER),
-    ([LLM], {}, "merged", G_LLM),
-    ([WRONG], {}, "holding", G_HOLD_WRONG),
-    ([SCORE], {"chair_forwards_score_mismatch": True}, "holding", G_HOLD_SCORE),
-    ([WRONG, SCORE], {"chair_forwards_score_mismatch": True}, "holding", G_HOLD_BOTH),
-    ([GENERAL], {}, "standalone", G_GENERAL),
-    ([OTHER], {}, "chair_writes", G_OTHER),
-    ([RECIP], {}, "reciprocal", G_RECIP),
-    ([SCORE, REVIEWER], {}, "merged", G_EXAMPLE_A),
-    ([REVIEWER, LLM], {}, "merged", G_EXAMPLE_B),
-    ([SCORE, OTHER], {}, "merged", G_SCORE_OTHER),
-    ([SCORE, REVIEWER, LLM], {}, "merged", G_THREE),
+    ([SCORE], "merged", G_T1,
+     ("opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed"), {ROLES}),
+    ([REVIEWER], "merged", G_T2,
+     ("opening_warm", "lead_in_concerns", "point_all_assessments", "point_rebuttal",
+      "point_consider_input", "closing_reviewed"), set()),
+    ([SCORE, REVIEWER], "merged", G_T1_T2,
+     ("opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments", "point_rebuttal",
+      "point_consider_input", "closing_reviewed"), {ROLES}),
+    ([SCORE, OTHER], "merged", G_T1_OTHER,
+     ("opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "line_chair_writes",
+      "closing_reviewed"), {ROLES}),
+    ([SCORE, REVIEWER, OTHER], "merged", G_T1_T2_OTHER,
+     ("opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments", "point_rebuttal",
+      "point_consider_input", "line_chair_writes", "closing_reviewed"), {ROLES}),
+    ([GENERAL], "standalone", G_YAN_A, ("standalone_general_stage1",), {ROLES}),
+    ([LLM], "standalone", G_YAN_B, ("standalone_ai_review",), {ROLES}),
+    ([OTHER], "chair_writes", CHAIR_LINE, ("line_chair_writes",), set()),
 ]
+_IDS = ["+".join(c[0]) for c in GOLDEN_CASES]
 
 
 # --- golden outputs --------------------------------------------------------------------------
-@pytest.mark.parametrize("reasons, kwargs, mode, expected", GOLDEN_CASES,
-                         ids=[f"{'+'.join(c[0])}{'-fwd' if c[1] else ''}" for c in GOLDEN_CASES])
-def test_golden_output(blocks, reasons, kwargs, mode, expected):
-    r = compose_reply(reasons, path=blocks, **kwargs)
+@pytest.mark.parametrize("reasons, mode, expected, used, _rules", GOLDEN_CASES, ids=_IDS)
+def test_golden_output(blocks, reasons, mode, expected, used, _rules):
+    r = compose_reply(reasons, path=blocks)
     assert r.refusal is None, r.refusal
-    assert r.mode == mode
-    assert r.body == expected
+    assert (r.mode, r.body, r.used_ids, r.chair_notes) == (mode, expected, used, ())
 
 
-@pytest.mark.parametrize("expected", [c[3] for c in GOLDEN_CASES],
-                         ids=[f"{'+'.join(c[0])}{'-fwd' if c[1] else ''}" for c in GOLDEN_CASES])
-def test_every_golden_output_passes_the_lint(expected):
-    assert lint_template_body(expected) == []
+@pytest.mark.parametrize("reasons, _mode, expected, _used, rules", GOLDEN_CASES, ids=_IDS)
+def test_every_golden_output_trips_only_the_waived_rule(reasons, _mode, expected, _used, rules):
+    """The finished email lints clean except for the one rule the used blocks waive."""
+    assert {name for name, _ in lint_template_body(expected)} == rules
 
 
 def test_every_golden_body_is_clean_text(blocks):
     """Blank line between paragraphs; no trailing whitespace; no trailing newline."""
-    for reasons, kwargs, _, _ in GOLDEN_CASES:
-        body = compose_reply(reasons, path=blocks, **kwargs).body
+    for reasons, *_ in GOLDEN_CASES:
+        body = compose_reply(reasons, path=blocks).body
         assert not body.endswith("\n") and body == body.strip()
         assert all(line == line.rstrip() for line in body.split("\n"))
         assert "\n\n\n" not in body
 
 
-def test_score_without_the_forward_flag_is_the_merged_reply(blocks):
-    r = compose_reply([SCORE], chair_forwards_score_mismatch=False, path=blocks)
-    assert (r.mode, r.body) == ("merged", G_SCORE)
-
-
-def test_example_c_wrong_paper_plus_reviewer_is_a_holding_reply_with_a_note(blocks):
-    r = compose_reply([WRONG, REVIEWER], path=blocks)
-    assert (r.mode, r.body) == ("holding", G_HOLD_WRONG)
-    assert r.chair_notes == ("Also raised: reviewer_misunderstanding. Not answered in this reply.",)
-    assert "reviewer_misunderstanding" not in r.body
-
-
-def test_holding_has_no_opening_closing_or_final_wording(blocks):
-    for reasons, kw in (([WRONG], {}), ([SCORE], {"chair_forwards_score_mismatch": True}),
-                        ([WRONG, SCORE], {"chair_forwards_score_mismatch": True})):
-        body = compose_reply(reasons, path=blocks, **kw).body
-        assert "final" not in body.lower() and "disappointing" not in body
-
-
-def test_wrong_paper_with_an_unforwarded_score_notes_the_score(blocks):
-    r = compose_reply([WRONG, SCORE], path=blocks)
-    assert (r.mode, r.body) == ("holding", G_HOLD_WRONG)
-    assert r.chair_notes == ("Also raised: score_outcome_mismatch. Not answered in this reply.",)
-
-
-# --- rules ------------------------------------------------------------------------------------
-def test_r3_a_shared_point_appears_exactly_once(blocks):
+# --- merged replies (T1 / T2) ------------------------------------------------------------------
+def test_t1_plus_t2_has_the_rebuttal_point_exactly_once_in_the_fixed_order(blocks):
     body = compose_reply([SCORE, REVIEWER], path=blocks).body
-    assert body.count("not having a chance for rebuttal") == 1
+    assert body.count("forgoes rebuttal") == 1
     assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3", "4"]
+    positions = [body.index(p) for p in (P_SCORES, P_REVIEWERS, P_REBUTTAL, P_THANKS)]
+    assert positions == sorted(positions)
 
 
-def test_r4_general_dissatisfaction_is_dropped_beside_another_reason(blocks):
-    r = compose_reply([GENERAL, SCORE], path=blocks)
-    assert (r.mode, r.body) == ("merged", G_SCORE)
-    assert "reconsidered" not in r.body
-    assert "body_reconsider" not in r.used_ids
-
-
-def test_r5_the_chair_line_sits_after_the_last_point_and_before_the_closing(blocks):
-    body = compose_reply([SCORE, OTHER], path=blocks).body
-    paras = body.split("\n\n")
-    assert paras[-2] == "[CHAIR: write reply]"
+def test_the_chair_line_sits_after_the_last_point_and_before_the_closing(blocks):
+    paras = compose_reply([SCORE, OTHER], path=blocks).body.split("\n\n")
+    assert paras[-2] == CHAIR_LINE
     assert paras[-3].startswith("(2) ")
     assert paras[-1].startswith("The decision is final")
 
 
-def test_r7_reciprocal_wins_and_notes_the_rest(blocks):
-    r = compose_reply([RECIP, SCORE], path=blocks)
-    assert (r.mode, r.body) == ("reciprocal", G_RECIP)
-    assert r.chair_notes == ("Also raised: score_outcome_mismatch. Not answered in this reply.",)
+def test_every_ordering_of_a_three_reason_set_gives_identical_output(blocks):
+    results = {compose_reply(list(p), path=blocks) for p in itertools.permutations([SCORE, REVIEWER, OTHER])}
+    assert len(results) == 1
+    assert next(iter(results)).body == G_T1_T2_OTHER
 
 
-def test_r8_four_reasons_are_refused_and_three_pass(blocks):
+def test_duplicate_reasons_count_once(blocks):
+    assert compose_reply([SCORE, SCORE], path=blocks).body == G_T1
+
+
+# --- Yan's standalone replies -------------------------------------------------------------------
+@pytest.mark.parametrize("reason, block_id", [(GENERAL, "standalone_general_stage1"),
+                                              (LLM, "standalone_ai_review")])
+def test_a_standalone_reply_has_no_opening_list_or_closing(blocks, reason, block_id):
+    r = compose_reply([reason], path=blocks)
+    assert (r.mode, r.used_ids) == ("standalone", (block_id,))
+    assert OPENING not in r.body and CLOSING not in r.body
+    assert not re.search(r"(?m)^\(\d\)", r.body)
+
+
+def test_yan_b_is_refused_while_its_blocker_stands(tmp_path):
+    """In the real file Yan B is blocked on Yan's confirmation; approved but still
+    blocked, the loader refuses it and so does the composer."""
+    p = approved_copy(tmp_path, unblock=frozenset())
+    r = compose_reply([LLM], path=p)
+    assert (r.mode, r.body, r.refusal) == ("refused", None, "missing_approved_block:standalone_ai_review")
+
+
+@pytest.mark.parametrize("reasons, note", [
+    ([GENERAL, SCORE],
+     "Chair writes: no approved reply covers these reasons together: "
+     "score_outcome_mismatch, general_dissatisfaction."),
+    ([LLM, SCORE],
+     "Chair writes: no approved reply covers these reasons together: "
+     "score_outcome_mismatch, llm_generated_review."),
+    ([GENERAL, LLM],
+     "Chair writes: no approved reply covers these reasons together: "
+     "llm_generated_review, general_dissatisfaction."),
+    ([LLM, OTHER],
+     "Chair writes: no approved reply covers these reasons together: llm_generated_review, other."),
+    ([GENERAL, REVIEWER, OTHER],
+     "Chair writes: no approved reply covers these reasons together: "
+     "reviewer_misunderstanding, general_dissatisfaction, other."),
+], ids=["general+score", "llm+score", "general+llm", "llm+other", "general+reviewer+other"])
+def test_a_standalone_reason_mixed_with_any_other_reason_goes_to_the_chair(blocks, reasons, note):
+    r = compose_reply(reasons, path=blocks)
+    assert r.refusal is None
+    assert (r.mode, r.body, r.used_ids, r.chair_notes) == (
+        "chair_writes", CHAIR_LINE, ("line_chair_writes",), (note,))
+
+
+def test_more_than_three_issues_go_to_the_chair(blocks):
     r = compose_reply([SCORE, REVIEWER, LLM, OTHER], path=blocks)
-    assert (r.mode, r.refusal, r.body) == ("refused", "too_many_reasons", None)
-    assert compose_reply([SCORE, REVIEWER, LLM], path=blocks).body == G_THREE
+    assert (r.mode, r.body, r.refusal) == ("chair_writes", CHAIR_LINE, None)
+    assert r.chair_notes == ("Chair writes: no approved reply covers these reasons together: "
+                             "score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, other.",)
 
 
-def test_r8_counts_after_r4(blocks):
-    """general_dissatisfaction is dropped first, so it does not count toward 3."""
-    assert compose_reply([GENERAL, SCORE, REVIEWER, LLM], path=blocks).body == G_THREE
+def test_the_issue_count_guard_sends_a_too_large_merged_set_to_the_chair(blocks, monkeypatch):
+    """With today's registry rule 3 catches every set larger than three before the
+    guard; lowering the limit is the only way to reach the guard itself."""
+    monkeypatch.setattr(arc, "MAX_REASONS", 2)
+    r = compose_reply([SCORE, REVIEWER, OTHER], path=blocks)
+    assert (r.mode, r.body, r.refusal) == ("chair_writes", CHAIR_LINE, None)
+    assert r.chair_notes == ("Chair writes: more than 2 issues raised: "
+                             "score_outcome_mismatch, reviewer_misunderstanding, other.",)
+
+
+# --- no draft: wrong-paper review ---------------------------------------------------------------
+def test_a_wrong_paper_review_alone_is_no_draft(blocks):
+    r = compose_reply([WRONG], path=blocks)
+    assert r == ComposeResult(body=None, mode="no_draft", used_ids=(), chair_notes=(NOTE_NO_DRAFT,),
+                              refusal=None)
+
+
+@pytest.mark.parametrize("reasons, also", [
+    ([WRONG, SCORE], "Also raised: score_outcome_mismatch."),
+    ([WRONG, REVIEWER, LLM, OTHER],
+     "Also raised: reviewer_misunderstanding, llm_generated_review, other."),
+    ([WRONG, RECIP], "Also raised: reciprocal_dispute."),
+    ([WRONG, GENERAL, RECIP], "Also raised: general_dissatisfaction, reciprocal_dispute."),
+], ids=["with-score", "with-three-more", "beats-reciprocal", "beats-reciprocal-and-general"])
+def test_a_wrong_paper_review_with_other_reasons_is_no_draft_listing_them(blocks, reasons, also):
+    r = compose_reply(reasons, path=blocks)
+    assert r == ComposeResult(body=None, mode="no_draft", used_ids=(),
+                              chair_notes=(NOTE_NO_DRAFT, also), refusal=None)
+
+
+# --- reciprocal review ---------------------------------------------------------------------------
+def test_a_reciprocal_complaint_alone_is_tagged_for_marc(blocks):
+    r = compose_reply([RECIP], path=blocks)
+    assert r == ComposeResult(body=None, mode="reciprocal_review", used_ids=(),
+                              chair_notes=(NOTE_RECIP,), refusal=None)
+
+
+@pytest.mark.parametrize("reasons, also", [
+    ([RECIP, SCORE, GENERAL], "Also raised: score_outcome_mismatch, general_dissatisfaction."),
+    ([RECIP, LLM], "Also raised: llm_generated_review."),
+], ids=["with-score-and-general", "beats-the-mixing-rule"])
+def test_a_reciprocal_complaint_with_other_reasons_lists_them(blocks, reasons, also):
+    r = compose_reply(reasons, path=blocks)
+    assert r == ComposeResult(body=None, mode="reciprocal_review", used_ids=(),
+                              chair_notes=(NOTE_RECIP, also), refusal=None)
+
+
+def test_full_reciprocal_is_never_served_even_when_approved(blocks):
+    """D111: stored approved, never served (the approved copy approves it)."""
+    assert "full_reciprocal" in {t.id for t in art.load_approved_templates(blocks)}
+    r = compose_reply([RECIP], path=blocks)
+    assert r.body is None and "full_reciprocal" not in r.used_ids
+
+
+def test_no_draft_and_reciprocal_review_are_not_refusals_and_need_no_block(tmp_path):
+    """A deliberate "no draft" is told apart from a failure by refusal is None,
+    and it does not depend on any approved block existing."""
+    missing = tmp_path / "absent.json"
+    assert compose_reply([WRONG], path=missing).mode == "no_draft"
+    assert compose_reply([RECIP], path=missing).mode == "reciprocal_review"
+    assert compose_reply([SCORE], path=missing).mode == "refused"
+    for reasons in ([WRONG], [RECIP]):
+        assert compose_reply(reasons, path=missing).refusal is None
+
+
+# --- retired blocks are never used ------------------------------------------------------------------
+def test_retired_blocks_are_never_used_even_if_approved(tmp_path):
+    p = approved_copy(tmp_path, approve_retired=True)
+    retired = {"point_ai_review", "point_report_form", "holding_wrong_paper",
+               "holding_score_mismatch", "holding_both", "body_reconsider"}
+    # point_report_form still holds its [ETHICS FORM ADDRESS] placeholder, which the
+    # loader refuses once unblocked, so it is the one retired block not served here.
+    assert retired - {"point_report_form"} <= {t.id for t in art.load_approved_templates(p)}, \
+        "the copy approves them"
+    for reasons, *_ in GOLDEN_CASES:
+        assert not retired & set(compose_reply(reasons, path=p).used_ids), reasons
+    assert compose_reply([WRONG], path=p).mode == "no_draft"
+    assert compose_reply([LLM], path=p).body == G_YAN_B
+
+
+def test_the_forward_choice_is_gone():
+    """D97: the score-mismatch forward reply and its parameter are removed."""
+    assert "chair_forwards_score_mismatch" not in inspect.signature(compose_reply).parameters
+
+
+# --- refusals --------------------------------------------------------------------------------------
+@pytest.mark.parametrize("missing, reasons", [
+    ("opening_warm", [SCORE]),
+    ("lead_in_concerns", [SCORE]),
+    ("closing_reviewed", [SCORE]),
+    ("point_scores", [SCORE]),
+    ("point_rebuttal", [SCORE]),
+    ("point_all_assessments", [REVIEWER]),
+    ("point_consider_input", [REVIEWER]),
+    ("standalone_general_stage1", [GENERAL]),
+    ("standalone_ai_review", [LLM]),
+    ("line_chair_writes", [OTHER]),
+    ("line_chair_writes", [SCORE, OTHER]),
+    ("line_chair_writes", [GENERAL, SCORE]),
+])
+def test_a_missing_approved_block_refuses_with_its_id(tmp_path, missing, reasons):
+    p = approved_copy(tmp_path, draft={missing})
+    r = compose_reply(reasons, path=p)
+    assert (r.mode, r.refusal, r.body) == ("refused", f"missing_approved_block:{missing}", None)
+
+
+def test_the_score_point_without_its_waiver_is_not_served_so_t1_is_refused(tmp_path):
+    p = approved_copy(tmp_path, overrides={"point_scores": {"lint_waivers": []}})
+    r = compose_reply([SCORE], path=p)
+    assert (r.mode, r.refusal, r.body) == ("refused", "missing_approved_block:point_scores", None)
 
 
 @pytest.mark.parametrize("reasons, refusal", [
@@ -282,44 +385,6 @@ def test_unknown_or_empty_reasons_are_refused(blocks, reasons, refusal):
     assert (r.mode, r.refusal, r.body) == ("refused", refusal, None)
 
 
-def test_every_ordering_of_a_three_reason_set_gives_identical_output(blocks):
-    results = {compose_reply(list(p), path=blocks) for p in itertools.permutations([SCORE, REVIEWER, LLM])}
-    assert len(results) == 1
-    assert next(iter(results)).body == G_THREE
-
-
-def test_duplicate_reasons_count_once(blocks):
-    assert compose_reply([SCORE, SCORE], path=blocks).body == G_SCORE
-
-
-# --- missing blocks -----------------------------------------------------------------------------
-@pytest.mark.parametrize("missing, reasons", [
-    ("opening_warm", [SCORE]),
-    ("lead_in_concerns", [SCORE]),
-    ("closing_reviewed", [SCORE]),
-    ("point_rebuttal", [SCORE]),
-    ("holding_wrong_paper", [WRONG]),
-    ("body_reconsider", [GENERAL]),
-    ("line_chair_writes", [OTHER]),
-    ("full_reciprocal", [RECIP]),
-])
-def test_a_missing_required_block_refuses_with_its_id(tmp_path, missing, reasons):
-    p = approved_copy(tmp_path, draft={missing})
-    r = compose_reply(reasons, path=p)
-    assert (r.mode, r.refusal, r.body) == ("refused", f"missing_approved_block:{missing}", None)
-
-
-def test_an_optional_point_that_is_not_approved_is_omitted_not_refused(blocks):
-    r = compose_reply([LLM], path=blocks)
-    assert r.body == G_LLM
-    assert "point_report_form" not in r.used_ids
-
-
-def test_the_report_form_point_is_still_expected_for_llm_reviews():
-    assert ("point_report_form", True) in expected_points_for_reasons([LLM])
-
-
-# --- the final lint ------------------------------------------------------------------------------
 def test_a_composed_body_that_fails_the_lint_is_refused_without_text(tmp_path, caplog):
     """Each block is clean alone; the JOIN forms "this year" across the opening
     and the lead-in, so only the composer's final lint can catch it."""
@@ -328,12 +393,11 @@ def test_a_composed_body_that_fails_the_lint_is_refused_without_text(tmp_path, c
         "lead_in_concerns": {"body": "year as follows:"},
     })
     with caplog.at_level(logging.WARNING):
-        r = compose_reply([SCORE], path=p)
+        r = compose_reply([REVIEWER], path=p)
     assert (r.mode, r.refusal, r.body) == ("refused", "lint:year_or_time_specific", None)
     assert "this year" not in caplog.text and "as follows" not in caplog.text
 
 
-# --- never raises -------------------------------------------------------------------------------
 @pytest.mark.parametrize("junk", [None, "a string", 42, 3.5, {"score": 1}, [SCORE, None],
                                   [[SCORE]], [{"x": 1}], b"bytes", object()])
 def test_never_raises_on_junk(blocks, junk):
@@ -347,22 +411,35 @@ def test_a_missing_file_is_refused_not_raised(tmp_path):
     assert r.mode == "refused" and r.body is None
 
 
-# --- the REAL file (all draft) ----------------------------------------------------------------------
-@pytest.mark.parametrize("reasons, kwargs", [(c[0], c[1]) for c in GOLDEN_CASES])
-def test_the_real_file_refuses_everything_today(reasons, kwargs):
-    r = compose_reply(reasons, **kwargs)
-    assert r.mode == "refused" and r.body is None
-    assert r.refusal.startswith("missing_approved_block:")
+# --- the REAL file (all draft or retired) ------------------------------------------------------------
+REAL_FILE_CASES = [c[0] for c in GOLDEN_CASES] + [[GENERAL, SCORE], [WRONG], [RECIP]]
+
+
+@pytest.mark.parametrize("reasons", REAL_FILE_CASES, ids=["+".join(r) for r in REAL_FILE_CASES])
+def test_the_real_file_produces_no_reply_today(reasons):
+    r = compose_reply(reasons)
+    assert r.body is None
+    if WRONG in reasons:
+        assert r.mode == "no_draft"
+    elif RECIP in reasons:
+        assert r.mode == "reciprocal_review"
+    else:
+        assert r.mode == "refused" and r.refusal.startswith("missing_approved_block:")
 
 
 # --- expected_points_for_reasons (loader helper) --------------------------------------------------
 def test_expected_points_include_unapproved_points_in_the_global_order():
-    """The real file is all draft, yet the helper still lists what is needed."""
+    """The real file is all draft or retired, yet the helper still lists what is
+    needed. It lists retired points too (it does not read status); the composer
+    never asks it about llm_generated_review, which is a standalone reply."""
+    assert expected_points_for_reasons([SCORE]) == [("point_scores", False), ("point_rebuttal", False)]
+    assert expected_points_for_reasons([REVIEWER]) == [
+        ("point_all_assessments", False), ("point_rebuttal", False), ("point_consider_input", False),
+    ]
     assert expected_points_for_reasons([SCORE, REVIEWER]) == [
         ("point_scores", False), ("point_all_assessments", False),
         ("point_rebuttal", False), ("point_consider_input", False),
     ]
-    assert expected_points_for_reasons([LLM]) == [("point_ai_review", False), ("point_report_form", True)]
     assert expected_points_for_reasons([WRONG, GENERAL, OTHER]) == []
 
 

@@ -266,7 +266,8 @@ def test_the_composer_honors_the_waiver_of_a_block_it_used(tmp_path):
 
 
 def test_the_composer_refuses_when_the_used_block_has_no_waiver(tmp_path):
-    p = approved_copy(tmp_path, {"point_scores": {"body": SPC_BODY}})
+    # The real point_scores carries a waiver since Step 3b-2, so remove it explicitly.
+    p = approved_copy(tmp_path, {"point_scores": {"body": SPC_BODY, "lint_waivers": []}})
     r = compose_reply([SCORE], path=p)
     assert (r.mode, r.body, r.refusal) == ("refused", None, "missing_approved_block:point_scores")
 

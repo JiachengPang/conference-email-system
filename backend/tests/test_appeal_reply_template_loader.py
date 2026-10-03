@@ -34,9 +34,20 @@ APPROVED_PINS: frozenset[tuple[str, str]] = frozenset()
 # ⚠️ Every lint waiver must edit this constant too (D107/D109). It lists, for each
 # entry in the REAL file that carries a non-empty `lint_waivers`, the triple
 # (id, sha256 of its body as stored, sorted waived rule names) — whatever the
-# entry's status, so even a waiver on a draft cannot be added unnoticed. Empty:
-# no block has a waiver yet. Never re-baseline it without a reviewed exception.
-WAIVER_PINS: frozenset[tuple[str, str, tuple[str, ...]]] = frozenset()
+# entry's status, so even a waiver on a draft cannot be added unnoticed. Never
+# re-baseline it without a reviewed exception. Today: Marc's score point and
+# Yan's two replies (D109), all still draft, so none of these waivers is in effect.
+WAIVER_PINS: frozenset[tuple[str, str, tuple[str, ...]]] = frozenset({
+    ("point_scores",
+     "4b6ffa2312cf31af2409e06375d369baabcdb04b5fb939e31b3ca0361ce59b13",
+     ("internal_roles_or_process",)),
+    ("standalone_general_stage1",
+     "8af14fdc4f77f24c96f6ac5808e539ae9c25af1aff630f2eb630998ea2178824",
+     ("internal_roles_or_process",)),
+    ("standalone_ai_review",
+     "1901e5357729e1acb4ab5cc681bbc93e8ea77b3d65158934fe85657c0eaf6f04",
+     ("internal_roles_or_process",)),
+})
 
 
 def entry(**overrides) -> dict:
@@ -281,6 +292,10 @@ def test_the_real_file_is_schema_2_and_every_entry_would_pass_the_shape_rules():
             # A blocked entry may still hold its pending placeholder (e.g. the
             # ethics form address); the loader refuses it until it is filled.
             allowed.add("unknown_placeholder")
+        # A waiver has no effect until the entry is approved (D107/D109), so on a
+        # draft the rule it names still shows. Only that entry's OWN waived rules
+        # are tolerated here; any other lint rule still fails this test.
+        allowed |= {f"lint:{w['rule']}" for w in e.get("lint_waivers", [])}
         assert set(art._failing_rules(e, CYCLE)) <= allowed, (e["id"], art._failing_rules(e, CYCLE))
 
 
@@ -292,7 +307,7 @@ def test_returned_templates_are_frozen(tmp_path):
 
 # --- the REAL file -----------------------------------------------------------------
 def test_the_real_file_serves_nothing_today():
-    """All eight templates are draft (D91), so nothing may be served."""
+    """Nothing is approved (every entry is draft or retired), so nothing may be served."""
     assert art.DEFAULT_PATH.exists(), art.DEFAULT_PATH
     assert load_approved_templates() == []
 
