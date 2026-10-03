@@ -28,7 +28,13 @@ def _real_templates() -> list[dict]:
 
 @pytest.mark.parametrize("entry", _real_templates(), ids=lambda e: e["id"])
 def test_every_current_template_body_is_clean(entry):
-    assert lint_template_body(entry["body"], tuple(entry["blocked_on"])) == []
+    """Every body is clean, except for rules waived by that SAME entry's own
+    ``lint_waivers`` (D107/D109) — and every such waiver must be needed: a waiver
+    for a rule that does not fire would only be a silent hole for a later edit."""
+    fired = {name for name, _ in lint_template_body(entry["body"], tuple(entry["blocked_on"]))}
+    waived = {w["rule"] for w in entry.get("lint_waivers", [])}
+    assert fired - waived == set(), f"{entry['id']}: unwaived violations {sorted(fired - waived)}"
+    assert waived - fired == set(), f"{entry['id']}: waivers for rules that do not fire {sorted(waived - fired)}"
 
 
 # --- one test per rule category -----------------------------------------------------
