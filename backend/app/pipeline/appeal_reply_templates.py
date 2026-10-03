@@ -43,7 +43,9 @@ block as ``ApprovedTemplate.lint_waivers`` so the composer can honor them on the
 finished email.
 
 Refusals are logged with the entry id and the failing rule names ONLY — never
-the body text. Bad content never raises: an unreadable or malformed file is
+the body text. Retired entries log nothing; a draft entry logs at most once per
+process; an approved entry that fails a rule (or a malformed one) logs every
+time (``_log_refusal``). Bad content never raises: an unreadable or malformed file is
 logged and yields ``[]``.
 """
 
@@ -210,6 +212,30 @@ def _failing_rules(entry: dict, cycle: str) -> list[str]:
     return rules
 
 
+# (file, id, rules) of draft entries already logged in this process.
+_LOGGED_DRAFT_REFUSALS: set[tuple[str, str, str]] = set()
+
+
+def _log_refusal(path, entry, entry_id, rules: list[str]) -> None:
+    """Log a refusal by entry id and rule names only — never the body.
+
+    Retired entries are intentional and log nothing. A draft entry (blocked or
+    not) logs at most once per process for the same file, id and rules: it is
+    refused on every load by design, so repeating it only buries real problems.
+    Everything else — an approved entry that fails a rule, a malformed or
+    duplicated entry — logs every time, as before.
+    """
+    status = entry.get("status") if isinstance(entry, dict) else None
+    if status == "retired" and "duplicate_id" not in rules:
+        return
+    if status == "draft" and "duplicate_id" not in rules:
+        key = (str(path), str(entry_id), ",".join(rules))
+        if key in _LOGGED_DRAFT_REFUSALS:
+            return
+        _LOGGED_DRAFT_REFUSALS.add(key)
+    logger.warning("Appeal reply template %r refused: %s", entry_id, ", ".join(rules))
+
+
 def load_approved_templates(
     path: Path | str = DEFAULT_PATH, *, cycle: str | None = None
 ) -> list[ApprovedTemplate]:
@@ -240,8 +266,7 @@ def load_approved_templates(
         if entry_id in duplicates:
             rules.append("duplicate_id")
         if rules:
-            # Id + rule names only — never the body.
-            logger.warning("Appeal reply template %r refused: %s", entry_id, ", ".join(rules))
+            _log_refusal(path, entry, entry_id, rules)
             continue
         approved.append(ApprovedTemplate(
             id=entry["id"], title=entry["title"], kind=entry["kind"], order=entry["order"],
