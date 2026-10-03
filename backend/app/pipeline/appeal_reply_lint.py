@@ -15,6 +15,11 @@ TO ADD A RULE: add one pattern line to ``RULES``. All patterns are compiled
 case-INSENSITIVE; wrap a pattern in ``(?-i:...)`` to make it case-sensitive
 (as the SPC / AC tokens are).
 
+EXCEPTIONS: the rules are never relaxed. A template entry may instead carry a
+reviewed ``lint_waivers`` list that tolerates named rules for that entry's exact
+text only (D107/D109). The loader and the composer apply it; this module stays a
+plain check with no knowledge of waivers.
+
 DELIBERATE NON-FLAGS (test-pinned): "senior members of the program committee"
 (an open question for Marc, not a rule yet), and the two approved sentences
 "We will investigate and follow up with you." and "We will consider your input
@@ -52,6 +57,7 @@ RULES: dict[str, list[str]] = {
     "internal_roles_or_process": [
         r"(?-i:\bSPCs?\b)",                                                # token, case-sensitive
         r"\bsenior program committee\b",
+        r"\bsenior program chairs?\b",                                     # D109
         r"\barea chairs?\b",
         r"(?-i:\bACs?\b)",                                                 # token, case-sensitive
         r"\bcollusion\b",

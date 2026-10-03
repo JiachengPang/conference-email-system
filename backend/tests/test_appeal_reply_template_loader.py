@@ -31,6 +31,13 @@ BODY = "We understand that this outcome may be disappointing.\n\n(1) First point
 # Marc has approved nothing yet. Never re-baseline it without an approval record.
 APPROVED_PINS: frozenset[tuple[str, str]] = frozenset()
 
+# ⚠️ Every lint waiver must edit this constant too (D107/D109). It lists, for each
+# entry in the REAL file that carries a non-empty `lint_waivers`, the triple
+# (id, sha256 of its body as stored, sorted waived rule names) — whatever the
+# entry's status, so even a waiver on a draft cannot be added unnoticed. Empty:
+# no block has a waiver yet. Never re-baseline it without a reviewed exception.
+WAIVER_PINS: frozenset[tuple[str, str, tuple[str, ...]]] = frozenset()
+
 
 def entry(**overrides) -> dict:
     """An entry that passes every rule unless overridden."""
@@ -291,10 +298,24 @@ def test_the_real_file_serves_nothing_today():
 
 
 def test_the_approved_set_in_the_real_file_equals_the_pin():
-    """PIN (D93): any approval in the real file must also edit APPROVED_PINS."""
+    """PIN (D93): any approval in the real file must also edit APPROVED_PINS.
+
+    Extended for lint waivers (D107/D109): any waiver in the real file must also
+    edit WAIVER_PINS, bound to the exact body text it was reviewed for.
+    """
     data = json.loads(art.DEFAULT_PATH.read_text(encoding="utf-8"))
     approved = {(t["id"], t["approved_sha256"]) for t in data["templates"] if t.get("status") == "approved"}
     assert approved == APPROVED_PINS
+
+    waived = set()
+    for t in data["templates"]:
+        if "lint_waivers" not in t:
+            continue
+        assert isinstance(t["lint_waivers"], list), f"{t['id']}: lint_waivers is not a list"
+        if t["lint_waivers"]:
+            rules = tuple(sorted(w["rule"] for w in t["lint_waivers"]))
+            waived.add((t["id"], compute_body_sha256(t["body"]), rules))
+    assert waived == WAIVER_PINS
 
 
 # --- source scan (D81) ----------------------------------------------------------

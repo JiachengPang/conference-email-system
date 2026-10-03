@@ -29,7 +29,12 @@ Rules, applied in this order (reasons are registry names plus
     (``missing_approved_block:<id>``) — except an OPTIONAL point, which is
     simply omitted.
   * The composed body is finally linted; any violation refuses it
-    (``lint:<rule_name>``, never the matched text).
+    (``lint:<rule_name>``, never the matched text). The only rules tolerated are
+    those waived by the blocks this reply actually USED (the union of their
+    ``lint_waivers``, D107/D109). Waivers come from the loader's approved blocks,
+    which validated them; a block whose waiver is missing or invalid is either
+    not served at all or fails here, so the reply is refused as before. Waivers
+    on blocks the reply did not use are ignored.
 
 Chair notes are plain text for the chair and NEVER part of the body. Never
 raises for any input; the same set of reasons in any order gives identical
@@ -143,7 +148,7 @@ def _compose(reasons, forwards_score: bool, path) -> ComposeResult:
     if RECIPROCAL in present:
         body = need(FULL_RECIPROCAL)
         return _finish(body, "reciprocal", (FULL_RECIPROCAL,),
-                       _note([r for r in ordered if r != RECIPROCAL]))
+                       _note([r for r in ordered if r != RECIPROCAL]), blocks=blocks)
 
     # R6 — holding.
     wrong_paper = WRONG_PAPER in present
@@ -153,7 +158,7 @@ def _compose(reasons, forwards_score: bool, path) -> ComposeResult:
             HOLDING_WRONG_PAPER if wrong_paper else HOLDING_SCORE)
         answered = {WRONG_PAPER} | ({SCORE} if score_forwarded else set())
         return _finish(need(hold_id), "holding", (hold_id,),
-                       _note([r for r in ordered if r not in answered]))
+                       _note([r for r in ordered if r not in answered]), blocks=blocks)
 
     s = list(ordered)
     # R4 — general dissatisfaction only on its own.
@@ -164,10 +169,10 @@ def _compose(reasons, forwards_score: bool, path) -> ComposeResult:
         raise _Refused("too_many_reasons")
 
     if s == [OTHER]:
-        return _finish(need(CHAIR_LINE), "chair_writes", (CHAIR_LINE,), ())
+        return _finish(need(CHAIR_LINE), "chair_writes", (CHAIR_LINE,), (), blocks=blocks)
     if s == [GENERAL]:
         body = SEP.join([need(OPENING), need(RECONSIDER), need(CLOSING)])
-        return _finish(body, "standalone", (OPENING, RECONSIDER, CLOSING), ())
+        return _finish(body, "standalone", (OPENING, RECONSIDER, CLOSING), (), blocks=blocks)
 
     # MERGED. Points are gathered per reason, then deduplicated (R3) and put in
     # the one global order — so a point shared by two reasons appears once and
@@ -204,17 +209,25 @@ def _compose(reasons, forwards_score: bool, path) -> ComposeResult:
         used.append(CHAIR_LINE)
     parts.append(need(CLOSING))
     used.append(CLOSING)
-    return _finish(SEP.join(parts), "merged", tuple(used), ())
+    return _finish(SEP.join(parts), "merged", tuple(used), (), blocks=blocks)
 
 
-def _finish(body: str, mode: str, used: tuple[str, ...], notes: tuple[str, ...]) -> ComposeResult:
+def _finish(
+    body: str, mode: str, used: tuple[str, ...], notes: tuple[str, ...], *, blocks: dict
+) -> ComposeResult:
     """Final lint of the composed body, then the result.
 
     Approved blocks can never carry a ``blocked_on`` (the loader refuses them),
     so the union of the used blocks' ``blocked_on`` is empty by construction.
+
+    The only rules tolerated are those waived by a block in ``used`` (D107/D109).
+    ``blocks`` holds the loader's approved blocks only, whose waivers the loader
+    already validated; every id in ``used`` is one of them, because a block is
+    added to ``used`` only after ``need`` / the point loop found it there.
     """
     body = "\n".join(line.rstrip() for line in body.split("\n")).rstrip()
-    violations = lint_template_body(body, ())
+    waived = frozenset(w.rule for block_id in used for w in blocks[block_id].lint_waivers)
+    violations = [v for v in lint_template_body(body, ()) if v[0] not in waived]
     if violations:
         raise _Refused("lint:" + ",".join(sorted({name for name, _ in violations})))
     return ComposeResult(body=body, mode=mode, used_ids=used, chair_notes=notes)

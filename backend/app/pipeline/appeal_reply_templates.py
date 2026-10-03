@@ -26,7 +26,21 @@ An entry is returned only if it passes EVERY rule (``_failing_rules``):
   * the body holds no square-bracket placeholder except ``[CHAIR: ...]``, which
     the approve endpoint already blocks until the chair fills it (D87);
   * the body passes the wording check ``appeal_reply_lint.lint_template_body``
-    with the entry's own ``blocked_on`` (D94).
+    with the entry's own ``blocked_on`` (D94) — except for rules the entry's
+    own ``lint_waivers`` names (D107/D109, below).
+
+Lint waivers (optional ``lint_waivers``, a list of ``{rule, approved_by, note}``)
+tolerate a wording-check rule for that entry's exact text, instead of weakening
+the rule for everyone. A waiver counts ONLY when the entry passes every other
+rule above — approved, hash-matching, right cycle and scope, unblocked — so a
+waiver on a draft entry, or on a body edited after approval, has no effect. It
+names exactly one rule and waives that rule only; ``approved_by`` and ``note``
+must be non-empty strings; the three keys are the only keys; a rule appears at
+most once. A malformed list refuses the entry (``bad_lint_waivers``), and a rule
+name that is not in ``RULES`` refuses the whole entry
+(``waiver_unknown_rule:<name>``). Valid waivers are carried on the returned
+block as ``ApprovedTemplate.lint_waivers`` so the composer can honor them on the
+finished email.
 
 Refusals are logged with the entry id and the failing rule names ONLY — never
 the body text. Bad content never raises: an unreadable or malformed file is
@@ -43,7 +57,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.config import settings
-from app.pipeline.appeal_reply_lint import lint_template_body
+from app.pipeline.appeal_reply_lint import RULES, lint_template_body
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +84,19 @@ _REQUIRED_FIELDS = (
 # placeholder that passes here is always one the approve endpoint 409s on.
 _BRACKET_RE = re.compile(r"\[[^\[\]\n]*\]")
 _CHAIR_RE = re.compile(r"\[CHAIR:\s*[^\]]*\]")
+# The exact keys of one lint waiver (D107/D109). Nothing more, nothing less.
+_WAIVER_KEYS = frozenset({"rule", "approved_by", "note"})
+# An unknown waiver rule name is logged; cap it so a junk value stays a short tag.
+_WAIVER_NAME_MAX = 64
+
+
+@dataclass(frozen=True)
+class LintWaiver:
+    """One reviewed exception to one wording-check rule, for one entry's text."""
+
+    rule: str
+    approved_by: str
+    note: str
 
 
 @dataclass(frozen=True)
@@ -90,6 +117,9 @@ class ApprovedTemplate:
     cycle: str
     scope: str
     basis: tuple[str, ...]
+    # The entry's valid waivers. Empty for an entry with none; only ever set on a
+    # block that passed every rule, so it is safe for the composer to honor.
+    lint_waivers: tuple[LintWaiver, ...] = ()
 
 
 def compute_body_sha256(body: str) -> str:
@@ -98,6 +128,39 @@ def compute_body_sha256(body: str) -> str:
     The approval step will record this value in ``approved_sha256``.
     """
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _parse_waivers(entry: dict) -> tuple[tuple[LintWaiver, ...], list[str]]:
+    """The entry's lint waivers, or the rule names that refuse them.
+
+    Returns ``(waivers, [])`` when the list is valid (an absent key is an empty
+    list), else ``((), failing_rules)``. Never raises. The caller decides whether
+    a valid waiver may apply; this only checks its shape.
+    """
+    if "lint_waivers" not in entry:
+        return (), []
+    value = entry["lint_waivers"]
+    if not isinstance(value, list):
+        return (), ["bad_lint_waivers"]
+    waivers: list[LintWaiver] = []
+    seen: set[str] = set()
+    unknown: list[str] = []
+    for item in value:
+        if not isinstance(item, dict) or set(item) != _WAIVER_KEYS:
+            return (), ["bad_lint_waivers"]
+        rule, approved_by, note = item["rule"], item["approved_by"], item["note"]
+        if not all(isinstance(v, str) and v.strip() for v in (rule, approved_by, note)):
+            return (), ["bad_lint_waivers"]
+        if rule in seen:
+            return (), ["bad_lint_waivers"]
+        seen.add(rule)
+        if rule not in RULES:
+            unknown.append(rule[:_WAIVER_NAME_MAX])
+            continue
+        waivers.append(LintWaiver(rule=rule, approved_by=approved_by, note=note))
+    if unknown:
+        return (), [f"waiver_unknown_rule:{name}" for name in unknown]
+    return tuple(waivers), []
 
 
 def _failing_rules(entry: dict, cycle: str) -> list[str]:
@@ -134,10 +197,16 @@ def _failing_rules(entry: dict, cycle: str) -> list[str]:
         rules.append("blocked")
     if any(not _CHAIR_RE.fullmatch(m) for m in _BRACKET_RE.findall(body)):
         rules.append("unknown_placeholder")
+    waivers, waiver_rules = _parse_waivers(entry)
+    rules.extend(waiver_rules)
     # Wording check (D94). Rule NAMES only — the matched text is never kept here,
     # so it can never reach the refusal log.
     lint_rules = sorted({name for name, _ in lint_template_body(body, tuple(entry["blocked_on"]))})
-    rules.extend(f"lint:{name}" for name in lint_rules)
+    # A waiver applies ONLY to an entry that passes every other rule (D107/D109):
+    # approved, hash-matching, right cycle and scope, unblocked, well-formed
+    # waivers. Otherwise it has no effect and the lint names stay in the refusal.
+    waived = {w.rule for w in waivers} if not rules else set()
+    rules.extend(f"lint:{name}" for name in lint_rules if name not in waived)
     return rules
 
 
@@ -181,6 +250,7 @@ def load_approved_templates(
             approved_by=entry["approved_by"], approved_at=entry["approved_at"],
             approved_sha256=entry["approved_sha256"], cycle=entry["cycle"],
             scope=entry["scope"], basis=tuple(entry["basis"]),
+            lint_waivers=_parse_waivers(entry)[0],
         ))
     return approved
 
