@@ -34,6 +34,17 @@ EXPECTED_IDS = {
     "standalone_general_stage1", "standalone_ai_review",
 }
 
+# Who approved each block (Step 3c, all on 2026-10-02). The exact hashes are pinned
+# in test_appeal_reply_template_loader.py (APPROVED_PINS).
+_MARC, _YAN, _SAHIL = "Marc Pujol-Gonzalez", "Prof. Yan", "Sahil Satasiya"
+APPROVERS = {
+    "opening_warm": _MARC, "lead_in_concerns": _MARC, "point_scores": _MARC,
+    "point_all_assessments": _MARC, "point_rebuttal": _MARC, "point_consider_input": _MARC,
+    "closing_reviewed": _MARC, "full_reciprocal": _MARC,
+    "standalone_general_stage1": _YAN,
+    "line_chair_writes": _SAHIL,
+}
+
 # Kept in the file but no longer used (D97/D98/D101/D104).
 RETIRED_IDS = {
     "point_ai_review", "point_report_form",
@@ -138,13 +149,20 @@ def test_every_entry_has_the_cycle_and_scope(templates):
         assert (t["cycle"], t["scope"]) == ("AAAI-27", "phase1_reject"), t["id"]
 
 
-def test_nothing_is_approved_and_exactly_the_expected_entries_are_retired(templates):
-    """Nothing is approved yet: every entry is draft except the six retired ones
-    (D97/D98/D101/D104), and no entry carries an approval record."""
-    assert {t["id"] for t in templates if t["status"] == "retired"} == RETIRED_IDS
-    assert {t["id"] for t in templates if t["status"] == "draft"} == EXPECTED_IDS - RETIRED_IDS
+def test_exactly_the_expected_entries_are_approved_retired_and_draft(templates):
+    """Step 3c: the ten blocks Marc, Yan and Sahil approved are approved, each with
+    its approver and date; the six retired ones stay retired; only Yan B (blocked)
+    is still draft. Unapproved entries carry no approval record."""
+    status = {t["id"]: t["status"] for t in templates}
+    assert {i for i, s in status.items() if s == "approved"} == set(APPROVERS)
+    assert {i for i, s in status.items() if s == "retired"} == RETIRED_IDS
+    assert {i for i, s in status.items() if s == "draft"} == {"standalone_ai_review"}
     for t in templates:
-        assert (t["approved_by"], t["approved_at"], t["approved_sha256"]) == (None, None, None), t["id"]
+        if t["status"] == "approved":
+            assert (t["approved_by"], t["approved_at"]) == (APPROVERS[t["id"]], "2026-10-02"), t["id"]
+            assert isinstance(t["approved_sha256"], str) and len(t["approved_sha256"]) == 64, t["id"]
+        else:
+            assert (t["approved_by"], t["approved_at"], t["approved_sha256"]) == (None, None, None), t["id"]
 
 
 def test_the_new_standalone_blocks_are_complete_middles_for_one_reason(templates):

@@ -1,10 +1,10 @@
 """Tests for the appeal reply composer (reject-appeal Phase 3, D96; rules per D97-D111).
 
 Golden outputs are written out as LITERAL strings — never built by calling the
-composer or reading the file. The blocks come from a temp copy of the real
-template file in which every non-retired entry is approved with a correct hash
-(``approved_copy``); the real file itself (all draft or retired) must produce no
-reply for any input.
+composer or reading the file. Most tests use a temp copy of the real template
+file in which every non-retired entry is approved with a correct hash
+(``approved_copy``). The tests in the "REAL file" section run on the real file
+exactly as approved in Step 3c, against the same literal goldens.
 """
 
 from __future__ import annotations
@@ -46,6 +46,9 @@ def approved_copy(tmp_path: Path, *, overrides: dict | None = None, draft: set |
         if e["id"] in unblock:
             e["blocked_on"] = []
         if e["id"] in (draft or set()):
+            # The real file is approved since Step 3c, so leaving a block
+            # unapproved must actively reset it, not just skip stamping it.
+            e.update(status="draft", approved_by=None, approved_at=None, approved_sha256=None)
             continue
         if e["status"] == "retired" and not approve_retired:
             continue
@@ -411,20 +414,74 @@ def test_a_missing_file_is_refused_not_raised(tmp_path):
     assert r.mode == "refused" and r.body is None
 
 
-# --- the REAL file (all draft or retired) ------------------------------------------------------------
-REAL_FILE_CASES = [c[0] for c in GOLDEN_CASES] + [[GENERAL, SCORE], [WRONG], [RECIP]]
-
-
-@pytest.mark.parametrize("reasons", REAL_FILE_CASES, ids=["+".join(r) for r in REAL_FILE_CASES])
-def test_the_real_file_produces_no_reply_today(reasons):
+# --- the REAL file (approved in Step 3c) ---------------------------------------------------------------
+# No temp copies here: these run on data/reply_templates/appeal_reply_templates.json
+# exactly as approved, against the hand-written literal goldens above.
+@pytest.mark.parametrize("reasons, expected, used", [
+    ([SCORE], G_T1,
+     ("opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed")),
+    ([REVIEWER], G_T2,
+     ("opening_warm", "lead_in_concerns", "point_all_assessments", "point_rebuttal",
+      "point_consider_input", "closing_reviewed")),
+    ([SCORE, REVIEWER], G_T1_T2,
+     ("opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments", "point_rebuttal",
+      "point_consider_input", "closing_reviewed")),
+    ([GENERAL], G_YAN_A, ("standalone_general_stage1",)),
+], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a-general"])
+def test_the_real_file_composes_the_approved_replies(reasons, expected, used):
     r = compose_reply(reasons)
-    assert r.body is None
-    if WRONG in reasons:
-        assert r.mode == "no_draft"
-    elif RECIP in reasons:
-        assert r.mode == "reciprocal_review"
-    else:
-        assert r.mode == "refused" and r.refusal.startswith("missing_approved_block:")
+    assert r.refusal is None, r.refusal
+    assert (r.body, r.used_ids, r.chair_notes) == (expected, used, ())
+    assert r.mode == ("standalone" if reasons == [GENERAL] else "merged")
+
+
+def test_the_real_file_composes_t1_t2_with_the_rebuttal_point_once():
+    body = compose_reply([SCORE, REVIEWER]).body
+    assert body.count("forgoes rebuttal") == 1
+    assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3", "4"]
+
+
+def test_the_real_file_refuses_the_ai_review_reply_while_yan_b_is_blocked():
+    r = compose_reply([LLM])
+    assert (r.mode, r.body, r.refusal) == ("refused", None, "missing_approved_block:standalone_ai_review")
+
+
+def test_the_real_file_gives_no_draft_for_a_wrong_paper_review():
+    assert compose_reply([WRONG]) == ComposeResult(
+        body=None, mode="no_draft", used_ids=(), chair_notes=(NOTE_NO_DRAFT,), refusal=None)
+    assert compose_reply([WRONG, SCORE]).chair_notes == (NOTE_NO_DRAFT, "Also raised: score_outcome_mismatch.")
+
+
+def test_the_real_file_gives_reciprocal_review_and_never_serves_full_reciprocal():
+    assert "full_reciprocal" in {t.id for t in art.load_approved_templates()}, "approved, D111"
+    for reasons in ([RECIP], [RECIP, SCORE], [RECIP, GENERAL]):
+        r = compose_reply(reasons)
+        assert (r.mode, r.body, r.refusal, r.used_ids) == ("reciprocal_review", None, None, ())
+        assert r.chair_notes[0] == NOTE_RECIP
+
+
+def test_the_real_file_gives_the_chair_writes_line_for_other():
+    r = compose_reply([OTHER])
+    assert (r.mode, r.body, r.used_ids, r.chair_notes, r.refusal) == (
+        "chair_writes", CHAIR_LINE, ("line_chair_writes",), (), None)
+
+
+def test_the_real_file_puts_the_chair_line_inside_a_merged_reply_for_other():
+    assert compose_reply([SCORE, OTHER]).body == G_T1_OTHER
+
+
+@pytest.mark.parametrize("reasons, note", [
+    ([GENERAL, SCORE], "Chair writes: no approved reply covers these reasons together: "
+                       "score_outcome_mismatch, general_dissatisfaction."),
+    ([LLM, SCORE], "Chair writes: no approved reply covers these reasons together: "
+                   "score_outcome_mismatch, llm_generated_review."),
+    ([GENERAL, LLM], "Chair writes: no approved reply covers these reasons together: "
+                     "llm_generated_review, general_dissatisfaction."),
+], ids=["yan-a+score", "yan-b+score", "yan-a+yan-b"])
+def test_the_real_file_sends_a_yan_reply_mixed_with_another_reason_to_the_chair(reasons, note):
+    r = compose_reply(reasons)
+    assert (r.mode, r.body, r.used_ids, r.chair_notes, r.refusal) == (
+        "chair_writes", CHAIR_LINE, ("line_chair_writes",), (note,), None)
 
 
 # --- expected_points_for_reasons (loader helper) --------------------------------------------------

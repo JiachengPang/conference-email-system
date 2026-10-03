@@ -27,9 +27,24 @@ CYCLE = "AAAI-27"
 BODY = "We understand that this outcome may be disappointing.\n\n(1) First point.\n(2) The decision is final."
 
 # ⚠️ Every approval must edit this constant (D93). It lists the (id, sha256)
-# pairs of the entries marked "approved" in the REAL file; it is empty because
-# Marc has approved nothing yet. Never re-baseline it without an approval record.
-APPROVED_PINS: frozenset[tuple[str, str]] = frozenset()
+# pairs of the entries marked "approved" in the REAL file. Never re-baseline it
+# without an approval record. Recorded 2026-10-02 by
+# scripts/approve_appeal_reply_blocks.py (Step 3c): eight blocks approved by
+# Marc Pujol-Gonzalez (his review sheet), Yan's general reply by Prof. Yan, and
+# the chair-writes line by Sahil Satasiya. Yan B (standalone_ai_review) is NOT
+# approved: it is blocked on yan_confirm_authors_responses.
+APPROVED_PINS: frozenset[tuple[str, str]] = frozenset({
+    ("opening_warm", "539d321e8a99d158a9e950413b2830fa0ff9af588ac02e7a28f29baad104ff48"),
+    ("lead_in_concerns", "ca08da45a100b7feb534760966895a417a7b5d5114212f3db31a49abefd3ed07"),
+    ("point_scores", "4b6ffa2312cf31af2409e06375d369baabcdb04b5fb939e31b3ca0361ce59b13"),
+    ("point_all_assessments", "41b7264c504aa20d7c87aa52370bc3f8dbd75f62d79774e5d75c3f8e0357ae6e"),
+    ("point_rebuttal", "159ab3ae36db276415a316fb6f8466d74dacf06530164d398213d42e67790f12"),
+    ("point_consider_input", "813fed14ff628e1f41a468ef10d3803858a99720b38edd64aa2e9b13cb464e62"),
+    ("closing_reviewed", "dce3c0f6ac3b01db0baf8374583f12cfee62be95848621bb08d15ab7ff296460"),
+    ("full_reciprocal", "ec881ab040b76d457efdbbcbfe9a62765f172072ba1f9dfeb8b2675f488d1788"),
+    ("standalone_general_stage1", "8af14fdc4f77f24c96f6ac5808e539ae9c25af1aff630f2eb630998ea2178824"),
+    ("line_chair_writes", "b13e731e4f37105818e9b7c888bc3ccb2c97e1b3a3fd95dbdc88516dc403c698"),
+})
 
 # ⚠️ Every lint waiver must edit this constant too (D107/D109). It lists, for each
 # entry in the REAL file that carries a non-empty `lint_waivers`, the triple
@@ -306,10 +321,37 @@ def test_returned_templates_are_frozen(tmp_path):
 
 
 # --- the REAL file -----------------------------------------------------------------
-def test_the_real_file_serves_nothing_today():
-    """Nothing is approved (every entry is draft or retired), so nothing may be served."""
+def test_the_real_file_serves_exactly_the_approved_blocks():
+    """The real file serves exactly the ten approved blocks (Step 3c), each with its
+    recorded approver and date — and nothing else: not Yan B (blocked), not any
+    retired block."""
     assert art.DEFAULT_PATH.exists(), art.DEFAULT_PATH
-    assert load_approved_templates() == []
+    served = {t.id: (t.approved_by, t.approved_at, t.approved_sha256) for t in load_approved_templates()}
+    assert {(i, sha) for i, (_, _, sha) in served.items()} == APPROVED_PINS
+    marc = {"opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments",
+            "point_rebuttal", "point_consider_input", "closing_reviewed", "full_reciprocal"}
+    assert {i for i, (by, _, _) in served.items() if by == "Marc Pujol-Gonzalez"} == marc
+    assert {i for i, (by, _, _) in served.items() if by == "Prof. Yan"} == {"standalone_general_stage1"}
+    assert {i for i, (by, _, _) in served.items() if by == "Sahil Satasiya"} == {"line_chair_writes"}
+    assert {at for _, at, _ in served.values()} == {"2026-10-02"}
+    assert "standalone_ai_review" not in served
+
+
+def test_one_changed_character_in_an_approved_body_makes_the_loader_refuse_it(tmp_path, caplog):
+    """The approval is bound to the exact text: edit one character of an approved
+    body and the block is no longer served (body_hash_mismatch)."""
+    data = json.loads(art.DEFAULT_PATH.read_text(encoding="utf-8"))
+    for e in data["templates"]:
+        if e["id"] == "point_rebuttal":
+            assert e["status"] == "approved"
+            e["body"] = e["body"].replace("quicker", "quickest", 1)
+    p = tmp_path / "templates.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    with caplog.at_level(logging.WARNING):
+        served = {t.id for t in load_approved_templates(p)}
+    assert "point_rebuttal" not in served
+    assert "'point_rebuttal' refused: body_hash_mismatch" in caplog.text
+    assert {i for i, _ in APPROVED_PINS} - served == {"point_rebuttal"}
 
 
 def test_the_approved_set_in_the_real_file_equals_the_pin():
