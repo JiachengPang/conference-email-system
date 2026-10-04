@@ -30,21 +30,19 @@ ROLES = "internal_roles_or_process"
 
 
 def approved_copy(tmp_path: Path, *, overrides: dict | None = None, draft: set | None = None,
-                  unblock: frozenset = frozenset({"standalone_ai_review"}),
                   approve_retired: bool = False) -> Path:
     """A temp copy of the real file with every non-retired entry approved and
     correctly hashed.
 
     ``overrides`` maps id -> fields to change BEFORE hashing; ``draft`` lists ids
-    to leave unapproved; ``unblock`` lists ids whose blocked_on is cleared (Yan B
-    by default — it waits on Yan in the real file); ``approve_retired`` approves
-    the retired entries too, to prove the composer never uses them.
+    to leave unapproved; ``approve_retired`` approves the retired entries too, to
+    prove the composer never uses them. No live block is blocked in the real file
+    any more (Yan's AI-review reply was approved on 2026-10-05), so nothing needs
+    unblocking; a test that wants a blocker sets one through ``overrides``.
     """
     data = json.loads(art.DEFAULT_PATH.read_text(encoding="utf-8"))
     for e in data["templates"]:
         e.update((overrides or {}).get(e["id"], {}))
-        if e["id"] in unblock:
-            e["blocked_on"] = []
         if e["id"] in (draft or set()):
             # The real file is approved since Step 3c, so leaving a block
             # unapproved must actively reset it, not just skip stamping it.
@@ -121,24 +119,27 @@ G_YAN_A = (
     "appreciate your engagement with the process and your effort in bringing these concerns to our "
     "attention."
 )
-G_YAN_B = (
+# Yan's AI-review reply, approved 2026-10-05 exactly as written — its four
+# paragraphs as literals ("the authors' responses" wording accepted as is).
+YAN_B_PARAGRAPHS = (
     "Thank you for providing the detailed information regarding your concerns about the reviews of "
     "your submission. We take concerns about the integrity and quality of the review process seriously "
-    "and have carefully considered the issues you raised.\n\n"
+    "and have carefully considered the issues you raised.",
     "We recognize that some characteristics of a review may raise concerns about the possible use of "
     "AI tools. But rest assured that the decision on your submission does not rely on any single "
     "review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the "
     "reviews and the authors' responses, and formed their own assessment of the submission. The final "
     "decision is made based on this broader evaluation rather than on the assessment or "
-    "recommendation of any individual reviewer.\n\n"
+    "recommendation of any individual reviewer.",
     "In addition, we ask Senior Program Chairs to assess the quality of the reviews and provide "
     "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
     "with AI-generated content. Your feedback is also very valuable to us. We will document these "
     "concerns and share the relevant information with future AAAI Program Chairs to help further "
-    "improve the quality and integrity of the review process.\n\n"
+    "improve the quality and integrity of the review process.",
     "Thank you again for raising your concerns and for providing the supporting details. We "
-    "appreciate your engagement with the review process."
+    "appreciate your engagement with the review process.",
 )
+G_YAN_B = "\n\n".join(YAN_B_PARAGRAPHS)
 
 NOTE_NO_DRAFT = (
     "Investigate first: the author says a review is about a different paper. "
@@ -228,10 +229,12 @@ def test_a_standalone_reply_has_no_opening_list_or_closing(blocks, reason, block
     assert not re.search(r"(?m)^\(\d\)", r.body)
 
 
-def test_yan_b_is_refused_while_its_blocker_stands(tmp_path):
-    """In the real file Yan B is blocked on Yan's confirmation; approved but still
-    blocked, the loader refuses it and so does the composer."""
-    p = approved_copy(tmp_path, unblock=frozenset())
+def test_an_approved_block_that_is_still_blocked_is_refused(tmp_path):
+    """The blocker rule still holds even though the real file no longer blocks any
+    live block: approved but carrying a blocker, the loader refuses the block and
+    the composer refuses the reply. (Rewritten 2026-10-05: this used the real Yan B
+    blocker, which is gone since its approval.)"""
+    p = approved_copy(tmp_path, overrides={"standalone_ai_review": {"blocked_on": ["waiting"]}})
     r = compose_reply([LLM], path=p)
     assert (r.mode, r.body, r.refusal) == ("refused", None, "missing_approved_block:standalone_ai_review")
 
@@ -414,7 +417,7 @@ def test_a_missing_file_is_refused_not_raised(tmp_path):
     assert r.mode == "refused" and r.body is None
 
 
-# --- the REAL file (approved in Step 3c) ---------------------------------------------------------------
+# --- the REAL file (approved in Step 3c; Yan's AI-review reply on 2026-10-05) -----------------------------
 # No temp copies here: these run on data/reply_templates/appeal_reply_templates.json
 # exactly as approved, against the hand-written literal goldens above.
 @pytest.mark.parametrize("reasons, expected, used", [
@@ -427,12 +430,13 @@ def test_a_missing_file_is_refused_not_raised(tmp_path):
      ("opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments", "point_rebuttal",
       "point_consider_input", "closing_reviewed")),
     ([GENERAL], G_YAN_A, ("standalone_general_stage1",)),
-], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a-general"])
+    ([LLM], G_YAN_B, ("standalone_ai_review",)),
+], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a-general", "yan-b-ai-review"])
 def test_the_real_file_composes_the_approved_replies(reasons, expected, used):
     r = compose_reply(reasons)
     assert r.refusal is None, r.refusal
     assert (r.body, r.used_ids, r.chair_notes) == (expected, used, ())
-    assert r.mode == ("standalone" if reasons == [GENERAL] else "merged")
+    assert r.mode == ("standalone" if reasons in ([GENERAL], [LLM]) else "merged")
 
 
 def test_the_real_file_composes_t1_t2_with_the_rebuttal_point_once():
@@ -441,9 +445,45 @@ def test_the_real_file_composes_t1_t2_with_the_rebuttal_point_once():
     assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3", "4"]
 
 
-def test_the_real_file_refuses_the_ai_review_reply_while_yan_b_is_blocked():
+def test_the_real_file_composes_yans_ai_review_reply_alone_as_exactly_her_four_paragraphs():
+    """Approved 2026-10-05 exactly as written. (Rewritten: until then the real file
+    refused this reply while Yan B was blocked.)"""
     r = compose_reply([LLM])
-    assert (r.mode, r.body, r.refusal) == ("refused", None, "missing_approved_block:standalone_ai_review")
+    assert r == ComposeResult(body=G_YAN_B, mode="standalone", used_ids=("standalone_ai_review",),
+                              chair_notes=(), refusal=None)
+    assert tuple(r.body.split("\n\n")) == YAN_B_PARAGRAPHS
+    assert "the authors' responses" in r.body, "accepted as written, not edited"
+    assert OPENING not in r.body and CLOSING not in r.body, "a standalone reply has no wrapper"
+
+
+@pytest.mark.parametrize("reasons, note", [
+    ([LLM, SCORE], "Chair writes: no approved reply covers these reasons together: "
+                   "score_outcome_mismatch, llm_generated_review."),
+    ([LLM, REVIEWER], "Chair writes: no approved reply covers these reasons together: "
+                      "reviewer_misunderstanding, llm_generated_review."),
+    ([LLM, GENERAL], "Chair writes: no approved reply covers these reasons together: "
+                     "llm_generated_review, general_dissatisfaction."),
+    ([LLM, OTHER], "Chair writes: no approved reply covers these reasons together: "
+                   "llm_generated_review, other."),
+    ([LLM, SCORE, REVIEWER], "Chair writes: no approved reply covers these reasons together: "
+                             "score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review."),
+], ids=["+score", "+reviewer", "+general", "+other", "+score+reviewer"])
+def test_the_real_file_still_sends_the_ai_review_reason_mixed_with_another_to_the_chair(reasons, note):
+    """The mixing rule (D105) is unchanged by the approval: mixed with any reason
+    that would otherwise be composed, the AI-review reason gives chair_writes."""
+    r = compose_reply(reasons)
+    assert r == ComposeResult(body=CHAIR_LINE, mode="chair_writes", used_ids=("line_chair_writes",),
+                              chair_notes=(note,), refusal=None)
+
+
+def test_the_real_file_lets_wrong_paper_and_reciprocal_beat_the_ai_review_reason():
+    """The two earlier rules still win over the AI-review reason: never Yan's text."""
+    assert compose_reply([LLM, WRONG]) == ComposeResult(
+        body=None, mode="no_draft", used_ids=(),
+        chair_notes=(NOTE_NO_DRAFT, "Also raised: llm_generated_review."), refusal=None)
+    assert compose_reply([LLM, RECIP]) == ComposeResult(
+        body=None, mode="reciprocal_review", used_ids=(),
+        chair_notes=(NOTE_RECIP, "Also raised: llm_generated_review."), refusal=None)
 
 
 def test_the_real_file_gives_no_draft_for_a_wrong_paper_review():

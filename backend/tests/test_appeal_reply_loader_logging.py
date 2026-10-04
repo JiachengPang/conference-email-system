@@ -116,4 +116,6 @@ def test_the_real_file_logs_nothing_for_its_retired_blocks(caplog):
     for retired in ("point_ai_review", "point_report_form", "holding_wrong_paper",
                     "holding_score_mismatch", "holding_both", "body_reconsider"):
         assert refusals(caplog, retired) == 0, retired
-    assert refusals(caplog, "standalone_ai_review") <= 1, "draft (blocked): at most once per process"
+    # Approved 2026-10-05 (it used to be draft and blocked, logged at most once): an
+    # approved block that passes every rule is never logged at all.
+    assert refusals(caplog, "standalone_ai_review") == 0, "approved: never logged"

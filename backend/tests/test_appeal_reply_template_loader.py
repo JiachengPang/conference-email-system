@@ -31,8 +31,9 @@ BODY = "We understand that this outcome may be disappointing.\n\n(1) First point
 # without an approval record. Recorded 2026-10-02 by
 # scripts/approve_appeal_reply_blocks.py (Step 3c): eight blocks approved by
 # Marc Pujol-Gonzalez (his review sheet), Yan's general reply by Prof. Yan, and
-# the chair-writes line by Sahil Satasiya. Yan B (standalone_ai_review) is NOT
-# approved: it is blocked on yan_confirm_authors_responses.
+# the chair-writes line by Sahil Satasiya. Recorded 2026-10-05 by the same script:
+# Yan's AI-review reply (standalone_ai_review) by Prof. Yan, approved exactly as
+# written, its "the authors' responses" wording accepted (Sahil's decision).
 APPROVED_PINS: frozenset[tuple[str, str]] = frozenset({
     ("opening_warm", "539d321e8a99d158a9e950413b2830fa0ff9af588ac02e7a28f29baad104ff48"),
     ("lead_in_concerns", "ca08da45a100b7feb534760966895a417a7b5d5114212f3db31a49abefd3ed07"),
@@ -44,6 +45,7 @@ APPROVED_PINS: frozenset[tuple[str, str]] = frozenset({
     ("full_reciprocal", "ec881ab040b76d457efdbbcbfe9a62765f172072ba1f9dfeb8b2675f488d1788"),
     ("standalone_general_stage1", "8af14fdc4f77f24c96f6ac5808e539ae9c25af1aff630f2eb630998ea2178824"),
     ("line_chair_writes", "b13e731e4f37105818e9b7c888bc3ccb2c97e1b3a3fd95dbdc88516dc403c698"),
+    ("standalone_ai_review", "1901e5357729e1acb4ab5cc681bbc93e8ea77b3d65158934fe85657c0eaf6f04"),
 })
 
 # ⚠️ Every lint waiver must edit this constant too (D107/D109). It lists, for each
@@ -51,7 +53,7 @@ APPROVED_PINS: frozenset[tuple[str, str]] = frozenset({
 # (id, sha256 of its body as stored, sorted waived rule names) — whatever the
 # entry's status, so even a waiver on a draft cannot be added unnoticed. Never
 # re-baseline it without a reviewed exception. Today: Marc's score point and
-# Yan's two replies (D109), all still draft, so none of these waivers is in effect.
+# Yan's two replies (D109), all three approved, so all three waivers are in effect.
 WAIVER_PINS: frozenset[tuple[str, str, tuple[str, ...]]] = frozenset({
     ("point_scores",
      "4b6ffa2312cf31af2409e06375d369baabcdb04b5fb939e31b3ca0361ce59b13",
@@ -322,19 +324,21 @@ def test_returned_templates_are_frozen(tmp_path):
 
 # --- the REAL file -----------------------------------------------------------------
 def test_the_real_file_serves_exactly_the_approved_blocks():
-    """The real file serves exactly the ten approved blocks (Step 3c), each with its
-    recorded approver and date — and nothing else: not Yan B (blocked), not any
-    retired block."""
+    """The real file serves exactly the eleven approved blocks — ten from Step 3c
+    (2026-10-02) and Yan's AI-review reply (2026-10-05) — each with its recorded
+    approver and date, and nothing else: no retired block."""
     assert art.DEFAULT_PATH.exists(), art.DEFAULT_PATH
     served = {t.id: (t.approved_by, t.approved_at, t.approved_sha256) for t in load_approved_templates()}
+    assert len(served) == 11
     assert {(i, sha) for i, (_, _, sha) in served.items()} == APPROVED_PINS
     marc = {"opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments",
             "point_rebuttal", "point_consider_input", "closing_reviewed", "full_reciprocal"}
     assert {i for i, (by, _, _) in served.items() if by == "Marc Pujol-Gonzalez"} == marc
-    assert {i for i, (by, _, _) in served.items() if by == "Prof. Yan"} == {"standalone_general_stage1"}
+    assert {i for i, (by, _, _) in served.items() if by == "Prof. Yan"} == {
+        "standalone_general_stage1", "standalone_ai_review"}
     assert {i for i, (by, _, _) in served.items() if by == "Sahil Satasiya"} == {"line_chair_writes"}
-    assert {at for _, at, _ in served.values()} == {"2026-10-02"}
-    assert "standalone_ai_review" not in served
+    assert {i for i, (_, at, _) in served.items() if at == "2026-10-05"} == {"standalone_ai_review"}
+    assert {at for _, at, _ in served.values()} == {"2026-10-02", "2026-10-05"}
 
 
 def test_one_changed_character_in_an_approved_body_makes_the_loader_refuse_it(tmp_path, caplog):

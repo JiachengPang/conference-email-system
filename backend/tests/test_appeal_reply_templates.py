@@ -34,15 +34,19 @@ EXPECTED_IDS = {
     "standalone_general_stage1", "standalone_ai_review",
 }
 
-# Who approved each block (Step 3c, all on 2026-10-02). The exact hashes are pinned
-# in test_appeal_reply_template_loader.py (APPROVED_PINS).
+# Who approved each block. Step 3c approved ten on 2026-10-02; Yan's AI-review reply
+# was approved on 2026-10-05, exactly as written. The exact hashes are pinned in
+# test_appeal_reply_template_loader.py (APPROVED_PINS).
 _MARC, _YAN, _SAHIL = "Marc Pujol-Gonzalez", "Prof. Yan", "Sahil Satasiya"
 APPROVERS = {
     "opening_warm": _MARC, "lead_in_concerns": _MARC, "point_scores": _MARC,
     "point_all_assessments": _MARC, "point_rebuttal": _MARC, "point_consider_input": _MARC,
     "closing_reviewed": _MARC, "full_reciprocal": _MARC,
-    "standalone_general_stage1": _YAN,
+    "standalone_general_stage1": _YAN, "standalone_ai_review": _YAN,
     "line_chair_writes": _SAHIL,
+}
+APPROVAL_DATES = {block_id: "2026-10-02" for block_id in APPROVERS} | {
+    "standalone_ai_review": "2026-10-05",
 }
 
 # Kept in the file but no longer used (D97/D98/D101/D104).
@@ -150,16 +154,17 @@ def test_every_entry_has_the_cycle_and_scope(templates):
 
 
 def test_exactly_the_expected_entries_are_approved_retired_and_draft(templates):
-    """Step 3c: the ten blocks Marc, Yan and Sahil approved are approved, each with
-    its approver and date; the six retired ones stay retired; only Yan B (blocked)
-    is still draft. Unapproved entries carry no approval record."""
+    """The eleven blocks Marc, Yan and Sahil approved are approved, each with its
+    approver and date (Yan's AI-review reply on 2026-10-05, the rest on
+    2026-10-02); the six retired ones stay retired; no block is draft any more.
+    Unapproved entries carry no approval record."""
     status = {t["id"]: t["status"] for t in templates}
     assert {i for i, s in status.items() if s == "approved"} == set(APPROVERS)
     assert {i for i, s in status.items() if s == "retired"} == RETIRED_IDS
-    assert {i for i, s in status.items() if s == "draft"} == {"standalone_ai_review"}
+    assert {i for i, s in status.items() if s == "draft"} == set()
     for t in templates:
         if t["status"] == "approved":
-            assert (t["approved_by"], t["approved_at"]) == (APPROVERS[t["id"]], "2026-10-02"), t["id"]
+            assert (t["approved_by"], t["approved_at"]) == (APPROVERS[t["id"]], APPROVAL_DATES[t["id"]]), t["id"]
             assert isinstance(t["approved_sha256"], str) and len(t["approved_sha256"]) == 64, t["id"]
         else:
             assert (t["approved_by"], t["approved_at"], t["approved_sha256"]) == (None, None, None), t["id"]
@@ -191,8 +196,11 @@ def test_the_live_points_have_the_decided_reasons_and_order(templates):
 
 def test_the_blockers_are_as_decided(templates):
     """Marc answered question (d), so the reciprocal reply is unblocked (it is still
-    never served, D111); Yan B waits on Yan's confirmation of "the authors' responses"."""
+    never served, D111). Yan's AI-review reply is unblocked too: Sahil accepted its
+    "the authors' responses" wording as written (2026-10-05), so the blocker that
+    waited on Yan's confirmation is gone from the file entirely."""
     by_id = {t["id"]: t for t in templates}
     assert by_id["full_reciprocal"]["blocked_on"] == []
-    assert by_id["standalone_ai_review"]["blocked_on"] == ["yan_confirm_authors_responses"]
+    assert by_id["standalone_ai_review"]["blocked_on"] == []
     assert by_id["standalone_general_stage1"]["blocked_on"] == []
+    assert not any("yan_confirm_authors_responses" in t["blocked_on"] for t in templates)

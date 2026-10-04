@@ -232,11 +232,14 @@ def real_copy(tmp_path) -> Path:
 
 
 @pytest.mark.parametrize("block_id, reason", [
-    ("standalone_ai_review", "standalone_ai_review: blocked"),
+    # Approved 2026-10-05, so re-approving it is now refused as already approved
+    # (it used to be refused as blocked; the blocked rule is covered on synthetic
+    # entries above, since no live block in the real file is blocked any more).
+    ("standalone_ai_review", "standalone_ai_review: status_is_approved"),
     ("holding_wrong_paper", "holding_wrong_paper: status_is_retired"),
     ("point_scores", "point_scores: status_is_approved"),
 ])
-def test_the_real_file_refuses_yan_b_retired_and_already_approved_blocks(real_copy, block_id, reason):
+def test_the_real_file_refuses_retired_and_already_approved_blocks(real_copy, block_id, reason):
     before = real_copy.read_bytes()
     with pytest.raises(Refused, match=reason):
         approve(real_copy, [block_id], "Prof. Yan", DATE, apply=True)

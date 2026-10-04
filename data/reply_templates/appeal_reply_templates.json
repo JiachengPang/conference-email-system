@@ -304,14 +304,14 @@
       "reasons": ["llm_generated_review"],
       "when_used": "The author claims a review was written by an LLM or other AI tool; used only when no other reason is raised.",
       "body": "Thank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the reviews and the authors' responses, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask Senior Program Chairs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.",
-      "status": "draft",
-      "approved_by": null,
-      "approved_at": null,
-      "approved_sha256": null,
+      "status": "approved",
+      "approved_by": "Prof. Yan",
+      "approved_at": "2026-10-05",
+      "approved_sha256": "1901e5357729e1acb4ab5cc681bbc93e8ea77b3d65158934fe85657c0eaf6f04",
       "cycle": "AAAI-27",
       "scope": "phase1_reject",
       "basis": [],
-      "blocked_on": ["yan_confirm_authors_responses"],
+      "blocked_on": [],
       "lint_waivers": [
         {"rule": "internal_roles_or_process", "approved_by": "Prof. Yan", "note": "Yan's final wording names the SPC and Area Chair roles"}
       ]

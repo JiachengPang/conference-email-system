@@ -8,6 +8,7 @@ No network, no model call.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -93,6 +94,46 @@ DRAFT_YAN_A = (
     "attention.\n\n"
     f"{SIGN}"
 )
+# Yan's AI-review reply (approved 2026-10-05 exactly as written): greeting, her four
+# paragraphs, then the common sign-off.
+YAN_B_PARAGRAPHS = (
+    "Thank you for providing the detailed information regarding your concerns about the reviews of "
+    "your submission. We take concerns about the integrity and quality of the review process seriously "
+    "and have carefully considered the issues you raised.",
+    "We recognize that some characteristics of a review may raise concerns about the possible use of "
+    "AI tools. But rest assured that the decision on your submission does not rely on any single "
+    "review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the "
+    "reviews and the authors' responses, and formed their own assessment of the submission. The final "
+    "decision is made based on this broader evaluation rather than on the assessment or "
+    "recommendation of any individual reviewer.",
+    "In addition, we ask Senior Program Chairs to assess the quality of the reviews and provide "
+    "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
+    "with AI-generated content. Your feedback is also very valuable to us. We will document these "
+    "concerns and share the relevant information with future AAAI Program Chairs to help further "
+    "improve the quality and integrity of the review process.",
+    "Thank you again for raising your concerns and for providing the supporting details. We "
+    "appreciate your engagement with the review process.",
+)
+DRAFT_YAN_B = (
+    "Dear Ana Silva,\n\n"
+    "Thank you for providing the detailed information regarding your concerns about the reviews of "
+    "your submission. We take concerns about the integrity and quality of the review process seriously "
+    "and have carefully considered the issues you raised.\n\n"
+    "We recognize that some characteristics of a review may raise concerns about the possible use of "
+    "AI tools. But rest assured that the decision on your submission does not rely on any single "
+    "review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the "
+    "reviews and the authors' responses, and formed their own assessment of the submission. The final "
+    "decision is made based on this broader evaluation rather than on the assessment or "
+    "recommendation of any individual reviewer.\n\n"
+    "In addition, we ask Senior Program Chairs to assess the quality of the reviews and provide "
+    "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
+    "with AI-generated content. Your feedback is also very valuable to us. We will document these "
+    "concerns and share the relevant information with future AAAI Program Chairs to help further "
+    "improve the quality and integrity of the review process.\n\n"
+    "Thank you again for raising your concerns and for providing the supporting details. We "
+    "appreciate your engagement with the review process.\n\n"
+    "Best Regards,\nAAAI 2027 PC Team"
+)
 
 NOTE_NO_DRAFT = ("Investigate first: the author says a review is about a different paper. "
                  "Do not reply to or close the ticket yet.")
@@ -127,7 +168,9 @@ def prepare(intent, reasons, *, reciprocal=None, created=INSIDE, name=None, wind
                     "point_rebuttal", "point_consider_input", "closing_reviewed"]}),
     ([GENERAL], "Wei Zhang", DRAFT_YAN_A,
      {"mode": "standalone", "reasons": [GENERAL], "block_ids": ["standalone_general_stage1"]}),
-], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a"])
+    ([LLM], "Ana Silva", DRAFT_YAN_B,
+     {"mode": "standalone", "reasons": [LLM], "block_ids": ["standalone_ai_review"]}),
+], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a", "yan-b"])
 def test_composed_drafts_through_the_real_approved_file(reasons, name, expected, record):
     draft, rec = prepare(REVIEW, reasons, name=name)
     assert draft.draft_text == expected
@@ -178,9 +221,12 @@ PLACEHOLDER_CASES = [
     ("desk-reject", DESK, [OTHER], False, INSIDE, None, "[CHAIR: write reply]", NOTE_DESK, "desk_reject"),
     ("desk-reject-reciprocal-unknown", DESK, [SCORE], None, INSIDE, None,
      "[CHAIR: write reply]", NOTE_DESK, "desk_reject"),
-    ("yan-b-unapproved", REVIEW, [LLM], None, INSIDE, None, "[CHAIR: write reply]",
-     "Chair writes: no approved reply could be composed (missing_approved_block:standalone_ai_review).",
-     "refused"),
+    # Yan's AI-review reply is approved (2026-10-05), so an AI-review reason alone is
+    # composed (see the composed drafts above); mixed with another reason the chair
+    # still writes (D105, unchanged).
+    ("yan-b+reviewer", REVIEW, [LLM, REVIEWER], None, INSIDE, None, "[CHAIR: write reply]",
+     "Chair writes: no approved reply covers these reasons together: "
+     "reviewer_misunderstanding, llm_generated_review.", "chair_writes"),
     ("yan-a+score", REVIEW, [GENERAL, SCORE], None, INSIDE, None, "[CHAIR: write reply]",
      "Chair writes: no approved reply covers these reasons together: "
      "score_outcome_mismatch, general_dissatisfaction.", "chair_writes"),
@@ -189,6 +235,8 @@ PLACEHOLDER_CASES = [
     ("unknown-created-with-window", REVIEW, [SCORE], None, None, WINDOW_END,
      "[CHAIR: write reply]", NOTE_WINDOW, "window"),
     ("yan-a-outside-window", REVIEW, [GENERAL], None, "2026-12-01T10:00:00Z", WINDOW_END,
+     "[CHAIR: write reply]", NOTE_WINDOW, "window"),
+    ("yan-b-outside-window", REVIEW, [LLM], None, "2026-12-01T10:00:00Z", WINDOW_END,
      "[CHAIR: write reply]", NOTE_WINDOW, "window"),
     # The window replaces ONLY composed text; these keep their own notes.
     ("wrong-paper-outside-window", REVIEW, [WRONG], None, "2026-12-01T10:00:00Z", WINDOW_END,
@@ -282,6 +330,32 @@ def test_ticket_created_at_reads_only_email_data(data, expected):
 def test_build_appeal_draft_never_uses_the_middle_of_a_non_composed_mode():
     d = hook.AppealReplyDecision("chair_writes", ("other",), ("line_chair_writes",), "IGNORED", ())
     assert build_appeal_draft(d, "Jane").draft_text == "[CHAIR: write reply]"
+
+
+# --- Yan's AI-review reply, end to end (approved 2026-10-05) ---------------------------------------
+def test_the_ai_review_draft_is_greeting_then_yans_four_paragraphs_then_the_sign_off():
+    draft, rec = prepare(REVIEW, [LLM], name="Ana Silva")
+    parts = draft.draft_text.split("\n\n")
+    assert parts == ["Dear Ana Silva,", *YAN_B_PARAGRAPHS, "Best Regards,\nAAAI 2027 PC Team"]
+    assert draft.draft_text.endswith("\n\nBest Regards,\nAAAI 2027 PC Team")
+    assert (draft.placeholders, draft.notes_for_chair, draft.citations, draft.model_used) == ([], None, [], "none")
+    assert rec == {"mode": "standalone", "reasons": [LLM], "block_ids": ["standalone_ai_review"]}
+
+
+def test_a_refused_composition_still_gives_the_chair_writes_placeholder_with_its_reason(tmp_path):
+    """The hook's "refused" branch, which only Yan B's blocker used to reach in the
+    real file: a copy whose AI-review block is back to draft."""
+    data = json.loads(hook.DEFAULT_PATH.read_text(encoding="utf-8"))
+    for e in data["templates"]:
+        if e["id"] == "standalone_ai_review":
+            e.update(status="draft", approved_by=None, approved_at=None, approved_sha256=None)
+    path = tmp_path / "templates.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    draft, rec = prepare_appeal_draft(REVIEW, [LLM], None, {"timestamp": INSIDE}, path=path)
+    assert draft.draft_text == "[CHAIR: write reply]"
+    assert draft.notes_for_chair == (
+        "Chair writes: no approved reply could be composed (missing_approved_block:standalone_ai_review).")
+    assert rec == {"mode": "refused", "reasons": [LLM], "block_ids": []}
 
 
 # --- approve returns 409 on every placeholder draft ---------------------------------------------
