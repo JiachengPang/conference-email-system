@@ -16,7 +16,7 @@ Detect desk-reject appeal emails for AAAI-27, especially reciprocal-review duty 
 | 1 | Detection: reject-appeal intent + `is_reciprocal_dispute` flag | **Live (detector ON, D54; 9c hold D55)** — only Step 10 deploy pending |
 | 2 | Reason classification (`appeal_reason[]`, full names, validated) | **Complete 2026-09-28** — labels 124/124 (D74); classifier built + prompt pinned (D75), wired (D76), evaluated (D77), e fallback-only (D78), ON locally only (D79); D62 hold in place; decisions D57–D79. ⚠️ Pending before production deploy: Marc/Ida notification (9c + D62) |
 | 3 | Reply templates per reason. `r` gets a policy-stance reply; only `a`/`b` may escalate. Needs Marc's sign-off | **In progress** — Step 1 investigation done 2026-09-28 (F1–F10, D80–D90); Step 2a template file (D91, D92); Step 2b loader (D93); Step 2c wording check (D94); Step 2d-i building blocks (D95); Step 2d-ii composer (D96); Marc's feedback logged 2026-10-02 (D97–D102) plus Yan's replies replacing T3 and T6 (D103–D107); not implemented; T1 blocked by the wording check (D100); open questions (a), (b), (g) remain |
-| 4 | Drafter integration | **Hook built, default OFF (2026-10-02, D112–D116)** — not deployed; needs `APPEAL_REPLY_COMPOSER_ENABLED` + `APPEAL_REASON_CLASSIFIER_ENABLED`; no UI change yet |
+| 4 | Drafter integration | **Hook built, default OFF (2026-10-02, D112–D116)** — not deployed; needs `APPEAL_REPLY_COMPOSER_ENABLED` + `APPEAL_REASON_CLASSIFIER_ENABLED`; no UI change yet. **Chair notes in Zendesk (Z2, D117–D134):** design approved; Z2a pieces built 2026-10-03 (settings, table + migration `8d2f6c1a9b3e`, claim repository, forum-id resolver, note builder, eligibility), all inert — no hook, no Zendesk call. D131 (note author) open with Marc and Ida |
 | 5 | Bulk-reply queue for reciprocal disputes (dedicated DB column, deterministic `event_tag`, UI surface) | Pending |
 
 ## Phase 0 results
@@ -757,6 +757,62 @@ Built, default OFF, nothing deployed. Mapping: D106 sign-off corrected → **D11
 - ⚠️ **A follow-up can drift off the appeal intent.** On `reprocess_email_with_thread`, intent comes from the latest requester message (D9), so an "Any update?" follow-up classifies as e.g. `cms_support` and gets a model draft even on an appeal ticket. That is the "appeal intents only" rule working as specified, but it is a gap worth deciding on (e.g. treat a stored `appeal_reason` as the gate on follow-ups).
 - A ticket with no source timestamp has an unknown creation time at ingest (the window applies), but on reprocess its stored `received_at` (the insert time) is used. Zendesk tickets always carry `zendesk_created_at`; this affects `/ingest` rows without a timestamp only.
 
+### Phase 4 — Step Z2 (2026-10-03): chair notes in Zendesk (D117–D134)
+
+Goal: a chair who works in Zendesk finds ConfMail's appeal draft on the ticket as an INTERNAL note (`public: false`) and copies it into their own reply. Design approved 2026-10-03 with every recommended answer; **D9 (which account shows as author) is OPEN with Marc and Ida**, so no `author_id` is set. Chair identification is forum-id only until the number check (Z1c) is done. Step Z2a built the pieces only — settings, table, claim repository, resolver, note builder, eligibility, test guard. **Nothing is hooked up and nothing calls Zendesk.**
+
+Mapping: design conflicts C1–C6 → **D117–D122** · design decisions D1–D11 → **D123–D133** (D9 → **D131, open**) · live-test plan → **D134**.
+
+**D117 (C1). Hooks go in the CALLERS, never in the orchestrator.** On first ingest the row receives `zendesk_ticket_id` only after `process_email` returns (`adapter._process_ticket` → `apply_zendesk_fields`), and a Zendesk call from `_compute` would put transport inside the pipeline. The later hooks sit in `adapter._process_ticket` (new-ticket branch, after `apply_zendesk_fields` + `add_thread_messages`), `adapter._reprocess_on_followup` and `api/v1/emails._redraft_email_bg`.
+
+**D118 (C2). The model and its empty table exist while the flag is off.** `ZendeskChairNote` lives in `app/db/models.py` (always imported) and the migration creates the table whatever the flag says. Everything else — `app/integrations/zendesk/chair_note.py`, `app/pipeline/paper_apc_resolver.py`, `app/repositories/chair_note_repository.py` — is imported by nothing at startup; a subprocess test pins that `import main` loads none of them but does load the model.
+
+**D119 (C3). Four states, not two: `pending` → `posting` → `posted` | `failed`.** The row is CLAIMED before the Zendesk call so two overlapping reprocesses cannot both post. Every transition is one conditional statement (INSERT … ON CONFLICT DO NOTHING; UPDATE … WHERE status …), atomic on SQLite and Postgres without row locks. The attempt is counted at the claim, so a crash mid-post uses one up.
+
+**D120 (C4). "First draft only" means one note per email, ever.** The UNIQUE `email_id` enforces it. A retry after a failure posts the email's CURRENT draft (D124), not the first one.
+
+**D121 (C5). No new `SyncResult` fields.** `SyncResult` is the response of `POST /api/v1/zendesk/sync` and is logged with `model_dump()`; a new field would change both even with the flag off. Chair-note counts are logged separately, only when the flag is on.
+
+**D122 (C6). `get_by_forum_ids` returns one row per forum id.** Different forum ids list every APC; duplicates of ONE forum id in the sheet collapse to one APC (lowest paper number, string order). Kept for v1 (D128).
+
+**D123 (D1). Which paths create a note:** first ingest and manual redraft may create the row; a follow-up reprocess only re-claims a `failed` row. A first requester reply after the flag goes on therefore never posts notes on old appeal tickets.
+
+**D124 (D2). A retry posts the current draft, re-rendered**, with a new `body_sha256`. The original note body is not stored.
+
+**D125 (D3). A stale `posting` row is never claimed again automatically.** Zendesk may already have accepted that note, and a duplicate is worse than a missing one. `ChairNoteRepository.find_stale_posting` lists such rows for a manual check; `claim` excludes `posting` outright.
+
+**D126 (D4). Only Zendesk statuses new, open, pending and hold get a note.** Solved and closed are refused (a closed ticket cannot be written; the effect on a solved one is unverified until D134).
+
+**D127 (D5). `CHAIR_NOTE_TICKET_IDS` (empty = all) and `CHAIR_NOTE_MAX_PER_CYCLE` (20) exist.** Both fail closed on a typo: an allow-list value with no valid id allows NO ticket. `CHAIR_NOTE_INTENTS` likewise yields NO intent when nothing valid survives — unlike `ZENDESK_SYNC_STATUSES`, which falls back to all.
+
+**D128 (D6). The resolver uses `get_by_forum_ids` as is for v1.** A list-all method is added only if Z1b query 3d shows duplicated forum ids in the sheet.
+
+**D129 (D7). Accepted: the model and empty table exist with the flag off** (D118).
+
+**D130 (D8). Posting happens after the sync cycle** (an outbox drain in `run_sync_cycle`, after `release_lock`, capped by `CHAIR_NOTE_MAX_PER_CYCLE`), and inline only in the redraft background task. A crash between enqueue and drain leaves a `pending` row the next cycle picks up.
+
+**D131 (D9) — OPEN with Marc and Ida. Which account shows as the note's author.** Until decided, no `comment.author_id` is set, so Zendesk shows the authenticated API identity (the token user, or the OAuth client's user). `ZENDESK_API.md` recommends a dedicated bot agent.
+
+**D132 (D10). Copy-block format: plain paragraphs between two rule lines** (`COPY BELOW`, `<hr>`, the stored draft, `<hr>`, `END`), not `<pre>`, which does not wrap in Agent Workspace. Notes and warnings always come after `END`.
+
+**D133 (D11). `CHAIR_NOTE_ENABLED` and `APPEAL_REPLY_COMPOSER_ENABLED` go on together, after Marc and Ida are notified.** A note needs `draft["appeal_reply"]`, which only the hook writes, so the chair-note flag alone posts nothing.
+
+**D134. Live-test plan (later; nothing in Z2a calls Zendesk).**
+1. Sahil picks one ticket T: an appeal intent, `draft.appeal_reply` present, status new / open / pending. Record its status, assignee, group and tags.
+2. Rebuild the backend image (no source mount). The restart's `alembic upgrade head` adds `zendesk_chair_notes` (additive).
+3. Set `CHAIR_NOTE_ENABLED=True`, `CHAIR_NOTE_TICKET_IDS=<T>`, `APPEAL_REPLY_COMPOSER_ENABLED=True`, then `docker compose … up -d backend`.
+4. Trigger a manual redraft on T.
+5. Check: exactly ONE internal note with the marker line "ConfMail draft (not sent to the author)"; status, assignee, group and tags unchanged; the `zendesk_chair_notes` row `posted`, `attempts` 1; the next sync writes no `reprocessed_on_followup`; a second redraft posts no second note.
+6. Turn off: `CHAIR_NOTE_ENABLED=False`, `up -d backend` (an env change recreates the container; no rebuild). Redraft T again: no new call, no new row. The table stays.
+
+**What Z2a built (pieces only, all inert):**
+- `config.py` + `.env.example`: `CHAIR_NOTE_ENABLED=False`, `CHAIR_NOTE_INTENTS`, `CHAIR_NOTE_TICKET_IDS`, `CHAIR_NOTE_MAX_PER_CYCLE=20`, with `parse_chair_note_intents` / `parse_chair_note_ticket_ids`.
+- `ZendeskChairNote` + migration `8d2f6c1a9b3e` (on `4faaa7e50e0a`, single head): UNIQUE `email_id` (FK CASCADE), CHECK on `status` and `attempts` (0–3), indexes on ticket id and status.
+- `ChairNoteRepository`: `enqueue`, `claim`, `mark_posted`, `mark_failed`, `find_stale_posting`, `get_by_email_id`.
+- `paper_apc_resolver.resolve_paper_apcs` (= `resolve_apcs_by_forum_id`): shape check (10 alphanumerics), then `get_by_forum_ids`; paper numbers never read.
+- `chair_note.check_eligibility` and `chair_note.build_chair_note_html` (marker first line, chair line, numbers "as written (unverified)", OpenReview links, banner by mode, notes after the copy block, footer; every outside value escaped). A composed mode whose text is empty or still holds a `[CHAIR: …]` placeholder falls back to "Do not send".
+- `tests/conftest.py` `_hermetic_chair_notes`: forces the flag off and makes `ZendeskSender.add_comment` raise. Tests that exercise the real transport against a fake HTTP client opt out with the `zendesk_transport` marker (`test_zendesk_sender.py`), registered in conftest because editing `pyproject.toml` would rebuild every dependency in the image.
+
 ## Known risks
 
 - Reciprocal complaints now classify as `desk_reject_appeal`. 9a assessed the template: the opening line fits, but the body is **verbatim policy text**, which for a requester *disputing the facts* ("my reviewers did submit") restates the rule that rejected them rather than answering — non-responsive, and readable as dismissive. Mitigated by D13.
@@ -817,6 +873,7 @@ Built, default OFF, nothing deployed. Mapping: D106 sign-off corrected → **D11
 - 2026-09-23: this log created.
 - 2026-09-25: Step 9a read-only report (no code, no model calls). Added D13–D17; recorded the template assessment, the `SENSITIVE_INTENTS` hold mechanism, and three blockers found for 9b (dead intent gold, `run_eval.py` has no distiller, `data/eval_real/` absent here). Baseline commit for before/after = **8c6eb49** (last commit before `8c52d2f`).
 - 2026-09-25: backend startup crash fixed — `sqlalchemy` → **`sqlalchemy[asyncio]>=2.0,<2.1`** in `pyproject.toml` (greenlet stopped arriving transitively when SQLAlchemy floated 2.0.52 → 2.1.1). Rebuilt: resolves to **2.0.54 + greenlet 3.5.6**, alembic + uvicorn start clean, 21 passed / 4 skipped (the 4 are `@needs_git`, unrunnable in a git-less container by design — see D20). D18 resolved as a side effect (image now at HEAD: 5,371-char prompt, `asks flag: True`). Two backlog items added: the server fix, and the no-lockfile exposure.
+- 2026-10-03: **Phase 4 Step Z2a — chair notes in Zendesk: the pieces (D117–D134), all inert.** Design approved with every recommended answer; D131 (note author) open with Marc and Ida, so no `author_id`. Built: four `CHAIR_NOTE_*` settings (flag OFF; intent list and ticket allow-list both fail closed on a typo), `ZendeskChairNote` + migration `8d2f6c1a9b3e` (single head on `4faaa7e50e0a`; upgrade → downgrade → re-upgrade verified on a throwaway SQLite file), `ChairNoteRepository` (enqueue / claim / mark posted / mark failed / find stale posting; conditional statements, no row locks), `paper_apc_resolver` (forum ids only; paper numbers never read), `chair_note` (eligibility + note HTML), and a conftest guard that makes `ZendeskSender.add_comment` raise in every test (opt-out marker `zendesk_transport` on `test_zendesk_sender.py`). Nothing is hooked up and nothing calls Zendesk. **+116 tests** (repository/migration 23, resolver 15, note/settings/eligibility/isolation 78). Full non-ml suite, run in the container on a byte-exact CRLF copy of the tree with `DATABASE_URL` on a throwaway SQLite file: **32 failed / 2324 passed / 119 skipped → 32 failed / 2440 passed / 119 skipped, failure set identical** (the 32 are pre-existing: tests that read `policy_documents` through the default engine find an empty database). Also identical at the two intermediate commit states. **37/37 mutations caught**, after one survivor (M15: a non-composed mode with clean text was never tested as uncopyable, because every do-not-send test used placeholder text) got its own test.
 - 2026-10-02: **Phase 4 Step 4 — the drafter hook (D112–D116), default OFF.** New `app/pipeline/appeal_reply_hook.py` wired into `orchestrator._compute` behind `APPEAL_REPLY_COMPOSER_ENABLED` (+ `APPEAL_REPLY_WINDOW_END`); composed replies get `Dear {name},` and the common sign-off (D112); placeholders for every other outcome; `draft.appeal_reply` only when the hook ran; the window replaces composed text only (D114); never the model drafter for an appeal, failures become a placeholder, and the KB sweep skips appeal tickets when on (`skipped_appeal`, D115); loader logging quieted (D116). drafter/distiller/classifier/router/RL router/prompts untouched (empty diff). Proof: 45 emails × 4 entry points identical to HEAD with the flag off; with it on only appeal drafts changed. Full suite **12 failed / 2295 passed → 12 failed / 2377 passed** (119 skipped both; identical failure set); 18/18 mutations caught.
 - 2026-10-02: **Step 3a addendum 2 — corrections and scope (D108–D111), read-only.** D98 scope corrected to `wrong_paper_review` only (D108). Per-block, per-rule, text-bound exceptions cover P-scores and both Yan replies, so T1 is unblocked; "Senior Program Chair(s)" added to `internal_roles_or_process` (D109, amends D100/D107). Composed replies for `review_decision_appeal` only; a non-reciprocal desk-reject gets a chair-writes placeholder (D110). T8 stored approved, never auto-served (D111). Open: Yan asked to confirm "the authors' responses" in B2. Deploy note: needs `APPEAL_REASON_CLASSIFIER_ENABLED`; notify Marc and Ida (added to the pre-deploy checklist).
 - 2026-10-02: **Step 3a addendum — Yan's replies (D103–D107), read-only.** Yan B replaces T3; Marc's counter-proposal dropped (D103, supersedes D101). Yan A replaces T6; T6 retired, approval record now T1, T2, T8 (D104, amends D100). Both standalone; mixing either with another reason → chair writes (D105, supersedes R4). Standard greeting/sign-off (D106). Per-block, hash-tied lint waiver instead of a weaker rule (D107). Finding: the file can hold a waiver key, but the loader drops unknown keys and neither the lint nor the composer reads one, so it would be ignored (fail-closed) until code changes. Flag: Yan B2 mentions "the authors' responses", which contradicts P-rebuttal for Phase 1 rejects.
