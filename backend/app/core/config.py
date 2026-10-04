@@ -134,9 +134,20 @@ class Settings(BaseSettings):
     # drafter — composed text, or a [CHAIR: ...] placeholder with a chair note,
     # NEVER a model-written draft. Every other intent is untouched. OFF by default:
     # off means the hook is skipped entirely and the drafter is called exactly as
-    # before. Needs APPEAL_REASON_CLASSIFIER_ENABLED too, or every appeal gets the
-    # "reason not determined" placeholder.
+    # before. It needs a source of appeal reasons (APPEAL_REPLY_REASON_SOURCE):
+    # with the default "phase1" that is PHASE1_APPEAL_ENABLED, or every
+    # review-decision appeal gets the "reason not determined" placeholder.
     APPEAL_REPLY_COMPOSER_ENABLED: bool = False
+    # Where the appeal reply hook takes the appeal reasons from (P3):
+    # - "phase1" (default): the phase-1 rejection appeal classifier's outcome from
+    #   the same pipeline run (needs PHASE1_APPEAL_ENABLED), translated by
+    #   app.pipeline.phase1_reply_mapping. Our appeal-reason classifier is dormant.
+    # - "appeal_reason": the rollback — our own appeal-reason classifier's
+    #   extraction.appeal_reason, exactly as before P3 (needs
+    #   APPEAL_REASON_CLASSIFIER_ENABLED).
+    # Read only when APPEAL_REPLY_COMPOSER_ENABLED is True; with the composer off
+    # this setting changes nothing.
+    APPEAL_REPLY_REASON_SOURCE: Literal["phase1", "appeal_reason"] = "phase1"
     # Phase 1 window (ISO-8601; a value without an offset is read as UTC). When
     # set, composed reply TEXT is only used for tickets created on or before it;
     # a later ticket, or one whose creation time is unknown, gets the chair-writes
