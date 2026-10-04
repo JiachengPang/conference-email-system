@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -18,6 +19,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
     false,
     func,
 )
@@ -618,4 +620,71 @@ class Phase1Appeal(Base):
     model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     classified_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ZendeskChairNote(Base):
+    """The one Zendesk internal note ConfMail posts for an email (chair notes, Z2).
+
+    At most ONE row per email (UNIQUE ``email_id``), which is what guarantees at
+    most one note per ticket. ``status`` moves pending → posting → posted or
+    failed, through ``ChairNoteRepository``'s conditional updates only:
+
+    - ``pending``: queued, not yet attempted.
+    - ``posting``: claimed by one caller, Zendesk call in flight. A row left here
+      (a crash after Zendesk may have accepted the note) is NEVER claimed again
+      automatically; it is listed for a manual check, because a duplicate note
+      is worse than a missing one.
+    - ``posted``: done; never claimed again.
+    - ``failed``: may be claimed again while ``attempts`` < 3.
+
+    ``mode`` and ``body_sha256`` describe the note actually rendered (set when
+    it is posted or fails). ``last_error`` holds an exception type and HTTP
+    status only, never the note body. Rows die with their email.
+    """
+
+    __tablename__ = "zendesk_chair_notes"
+    __table_args__ = (
+        UniqueConstraint("email_id", name="uq_zendesk_chair_notes_email_id"),
+        CheckConstraint(
+            "status IN ('pending', 'posting', 'posted', 'failed')",
+            name="ck_zendesk_chair_notes_status",
+        ),
+        CheckConstraint(
+            "attempts >= 0 AND attempts <= 3",
+            name="ck_zendesk_chair_notes_attempts",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email_id: Mapped[int] = mapped_column(
+        ForeignKey("emails.id", ondelete="CASCADE"), nullable=False
+    )
+    zendesk_ticket_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, index=True
+    )
+    mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    body_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", server_default="pending", index=True
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    zendesk_audit_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    posted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
