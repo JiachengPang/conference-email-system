@@ -40,6 +40,7 @@ from app.pipeline.phase1_appeal_classifier import classify_phase1_appeal
 from app.pipeline import phase1_appeal_outcome
 from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
 from app.pipeline.appeal_reply_hook import prepare_appeal_draft
+from app.pipeline.phase1_reply_mapping import map_phase1
 from app.pipeline.retriever import (
     RetrievedChunk,
     get_retriever,
@@ -749,18 +750,30 @@ class EmailPipeline:
         # it. prepare_appeal_draft never raises (a failure is the chair-writes
         # placeholder). With the flag OFF, or for any other intent, the drafter is
         # called exactly as before.
+        #
+        # Reasons (P3): with APPEAL_REPLY_REASON_SOURCE="phase1" the hook gets the
+        # phase-1 outcome computed ABOVE in this same run (``phase1_outcome``,
+        # None when PHASE1_APPEAL_ENABLED is off), translated by map_phase1 — never
+        # the stored phase1_appeals rows. With "appeal_reason" it gets ``mapped``
+        # None and reads extraction.appeal_reason exactly as before.
         appeal_reply = None
         with tracer.stage("drafter", {}) as st:
             if (
                 settings.APPEAL_REPLY_COMPOSER_ENABLED
                 and classification.intent in REJECT_APPEAL_INTENTS
             ):
+                mapped = (
+                    map_phase1(phase1_outcome)
+                    if settings.APPEAL_REPLY_REASON_SOURCE == "phase1"
+                    else None
+                )
                 draft, appeal_reply = prepare_appeal_draft(
                     classification.intent,
                     extraction.appeal_reason,
                     dispute_flag,
                     email_data,
                     window_end=settings.APPEAL_REPLY_WINDOW_END,
+                    mapped=mapped,
                 )
             else:
                 draft = await self.drafter.draft(
