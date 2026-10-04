@@ -15,13 +15,33 @@ from datetime import datetime
 
 from typing import Literal
 
-from sqlalchemy import String, and_, cast, func, not_, or_, select, update
+from sqlalchemy import String, and_, cast, exists, func, not_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
-from app.db.models import Email, EmailProcessingResult, EmailThreadMessage
+from app.db.models import (
+    Email,
+    EmailProcessingResult,
+    EmailThreadMessage,
+    ZendeskChairNote,
+)
+from app.models.appeal_queue import (
+    COMPOSED_MODES,
+    INVESTIGATE_MODES,
+    MODE_GROUP_CHAIR_WRITES,
+    MODE_GROUP_COMPOSED,
+    MODE_GROUP_INVESTIGATE,
+    MODE_GROUP_NOT_DRAFTED,
+    MODE_GROUP_RECIPROCAL,
+    MODE_GROUPS,
+    NOTE_STATE_NONE,
+    NOTE_STATES,
+    RECIPROCAL_MODES,
+    mode_group,
+)
 from app.models.enums import EmailSource, EmailStatus
+from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
 
 # Solved/closed are ONE bucket for queue filtering: a Zendesk ticket
 # auto-transitions solved -> closed over time with no further chair action, so
@@ -216,6 +236,102 @@ def _queue_conditions(
         conditions.append(not_(_unresolved_openreview_candidate()))
     elif openreview_candidates == "only":
         conditions.append(_unresolved_openreview_candidate())
+    return conditions
+
+
+# --- Reject Appeals queue (Z3a) --------------------------------------------
+# A VIEW: these conditions only ever narrow a read. Nothing here touches the
+# main queue's conditions, so its membership is unchanged.
+_REJECT_APPEAL_INTENTS: tuple[str, ...] = tuple(sorted(REJECT_APPEAL_INTENTS))
+
+
+def _appeal_mode_expr():
+    """``draft.appeal_reply.mode`` as text (NULL when absent), on both dialects.
+
+    The tuple index renders JSON_EXTRACT(draft, '$."appeal_reply"."mode"') on
+    SQLite and ``draft #>> '{appeal_reply,mode}'`` on Postgres.
+    """
+    return Email.draft[("appeal_reply", "mode")].as_string()
+
+
+def _has_chair_note(note_status: str | None = None):
+    """EXISTS a chair-note row for the outer email (optionally in one state).
+
+    Uses its OWN alias of the note table: a query that also joins
+    ``zendesk_chair_notes`` (the counts query does) would otherwise auto-correlate
+    the subquery's table away and leave it with no FROM clause.
+    """
+    note = aliased(ZendeskChairNote)
+    conditions = [note.email_id == Email.id]
+    if note_status is not None:
+        conditions.append(note.status == note_status)
+    return exists(select(note.id).where(*conditions))
+
+
+def _reject_appeal_member():
+    """Membership: an appeal intent, OR an email that already has a chair note.
+
+    The second arm keeps an email in the view after a follow-up re-classifies
+    it away from the appeal intent, once a note exists for it.
+    """
+    return or_(
+        Email.classification["intent"].as_string().in_(_REJECT_APPEAL_INTENTS),
+        _has_chair_note(),
+    )
+
+
+def _mode_group_condition(group: str):
+    """SQL for one mode group; mirrors ``app.models.appeal_queue.mode_group``."""
+    mode = _appeal_mode_expr()
+    if group == MODE_GROUP_COMPOSED:
+        return mode.in_(COMPOSED_MODES)
+    if group == MODE_GROUP_INVESTIGATE:
+        return mode.in_(INVESTIGATE_MODES)
+    if group == MODE_GROUP_RECIPROCAL:
+        return mode.in_(RECIPROCAL_MODES)
+    if group == MODE_GROUP_NOT_DRAFTED:
+        return mode.is_(None)
+    if group == MODE_GROUP_CHAIR_WRITES:
+        return and_(
+            mode.is_not(None),
+            mode.not_in(COMPOSED_MODES + INVESTIGATE_MODES + RECIPROCAL_MODES),
+        )
+    raise ValueError(f"unknown mode group {group!r}")
+
+
+def _reject_appeal_conditions(
+    status: str | None = None,
+    zendesk_status: str | None = None,
+    received_after: datetime | None = None,
+    received_before: datetime | None = None,
+    search: str | None = None,
+    mode_group: str | None = None,
+    reciprocal: bool | None = None,
+    note_status: str | None = None,
+) -> list:
+    """The WHERE conditions shared by the appeals list AND its total.
+
+    Email status, Zendesk status, the received range and search are the main
+    queue's own conditions (:func:`_queue_conditions`), reused as they are.
+    ``reciprocal`` uses an IS comparison so a row without the flag counts as
+    not reciprocal rather than dropping out under NOT. ``note_status`` "none"
+    means no ``zendesk_chair_notes`` row.
+    """
+    conditions = _queue_conditions(
+        None, None, status, search, False, None, zendesk_status,
+        received_after, received_before,
+    )
+    conditions.append(_reject_appeal_member())
+    if mode_group is not None:
+        conditions.append(_mode_group_condition(mode_group))
+    if reciprocal is not None:
+        flag = Email.extraction["is_reciprocal_dispute"].as_boolean().is_(True)
+        conditions.append(flag if reciprocal else not_(flag))
+    if note_status is not None:
+        if note_status == NOTE_STATE_NONE:
+            conditions.append(not_(_has_chair_note()))
+        else:
+            conditions.append(_has_chair_note(note_status))
     return conditions
 
 
@@ -788,6 +904,96 @@ class EmailRepository:
         stmt = select(func.count()).select_from(Email).where(*conditions)
         result = await db.execute(stmt)
         return int(result.scalar_one())
+
+    # --- Reject Appeals queue (Z3a) ---------------------------------------
+    async def get_reject_appeal_queue(
+        self,
+        db: AsyncSession,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        **filters,
+    ) -> list[Email]:
+        """One page of the Reject Appeals view, newest first.
+
+        ``filters`` are those of :func:`_reject_appeal_conditions`, the SAME
+        conditions :meth:`count_reject_appeal_queue` uses, so the page and its
+        total can never disagree.
+        """
+        stmt = (
+            select(Email)
+            .where(*_reject_appeal_conditions(**filters))
+            .order_by(Email.received_at.desc(), Email.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_reject_appeal_queue(self, db: AsyncSession, **filters) -> int:
+        """The total number of Reject Appeals view rows matching ``filters``."""
+        stmt = (
+            select(func.count())
+            .select_from(Email)
+            .where(*_reject_appeal_conditions(**filters))
+        )
+        return int((await db.execute(stmt)).scalar_one())
+
+    async def reject_appeal_counts(self, db: AsyncSession) -> dict:
+        """Whole-view counts for the nav badge and the filter chips. Unfiltered.
+
+        One grouped query over every view member (never a tally over a page):
+        ``total``; ``by_mode_group`` (every group present, zeros included);
+        ``by_note_status`` ("none" plus every note state); ``without_approved_draft``
+        (the ``not_drafted`` group); and ``needs_note``: drafted by the approved
+        rules, on a Zendesk ticket that is not solved or closed, with no note
+        posted yet.
+        """
+        mode = _appeal_mode_expr().label("mode")
+        stmt = (
+            select(
+                mode,
+                ZendeskChairNote.status,
+                Email.zendesk_status,
+                Email.zendesk_ticket_id.is_not(None),
+                func.count(Email.id),
+            )
+            .select_from(Email)
+            .outerjoin(ZendeskChairNote, ZendeskChairNote.email_id == Email.id)
+            .where(_reject_appeal_member())
+            # Grouped by the LABEL, not a second copy of the JSON expression:
+            # the JSON path is a bound parameter, so two copies render as two
+            # different parameters and Postgres would not see them as one.
+            .group_by(
+                mode,
+                ZendeskChairNote.status,
+                Email.zendesk_status,
+                Email.zendesk_ticket_id.is_not(None),
+            )
+        )
+        by_mode = {group: 0 for group in MODE_GROUPS}
+        by_note = {state: 0 for state in NOTE_STATES}
+        total = needs_note = 0
+        for mode_value, note_status, zstatus, has_ticket, count in (await db.execute(stmt)).all():
+            total += count
+            group = mode_group(mode_value)
+            by_mode[group] += count
+            note_key = note_status if note_status in by_note else NOTE_STATE_NONE
+            by_note[note_key] += count
+            if (
+                group != MODE_GROUP_NOT_DRAFTED
+                and has_ticket
+                and (zstatus or "").lower() not in _RESOLVED_ZENDESK_STATUSES
+                and note_status != "posted"
+            ):
+                needs_note += count
+        return {
+            "needs_note": needs_note,
+            "total": total,
+            "by_mode_group": by_mode,
+            "by_note_status": by_note,
+            "without_approved_draft": by_mode[MODE_GROUP_NOT_DRAFTED],
+        }
 
     async def count_queue_facets(
         self,

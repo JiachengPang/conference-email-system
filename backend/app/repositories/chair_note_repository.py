@@ -226,6 +226,18 @@ class ChairNoteRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_email_ids(
+        self, db: AsyncSession, email_ids: list[int]
+    ) -> dict[int, ZendeskChairNote]:
+        """Each found email's row, keyed by email id. One query for a whole page."""
+        wanted = list(dict.fromkeys(email_ids))
+        if not wanted:
+            return {}
+        result = await db.execute(
+            select(ZendeskChairNote).where(ZendeskChairNote.email_id.in_(wanted))
+        )
+        return {row.email_id: row for row in result.scalars().all()}
+
     async def _update_one(self, db: AsyncSession, stmt) -> bool:
         try:
             result = await db.execute(stmt)

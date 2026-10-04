@@ -163,6 +163,13 @@ class Settings(BaseSettings):
     # Zendesk. Read by the (not yet built) post-cycle drain.
     CHAIR_NOTE_MAX_PER_CYCLE: int = 20
 
+    # Reject Appeals queue (Z3). A read-only VIEW of the reject-appeal emails
+    # (they stay in the main queue too) with the suggested chair for each paper.
+    # OFF by default: the /appeals/queue, /appeals/queue/counts and /appeals/apcs
+    # endpoints answer 404 and the page is hidden. GET /appeals/config always
+    # answers, so the frontend can tell. Nothing here posts to Zendesk.
+    REJECT_APPEALS_QUEUE_ENABLED: bool = False
+
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the
     # calibrated confidence instead of the raw classifier score. Off by default
