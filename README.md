@@ -248,7 +248,8 @@ All backend behavior is env-driven (`backend/.env`, see `backend/.env.example`).
 |---|---|---|---|
 | `RECIPROCAL_DETECTOR_ENABLED` | bool | Separate reciprocal-review detector call | `True` |
 | `APPEAL_REASON_CLASSIFIER_ENABLED` | bool | Appeal-reason classifier | `False` |
-| `APPEAL_REPLY_COMPOSER_ENABLED` | bool | Draft appeals from approved blocks instead of the model (needs the reason classifier) | `False` |
+| `APPEAL_REPLY_COMPOSER_ENABLED` | bool | Draft appeals from approved blocks instead of the model (needs a reason source, see the next row) | `False` |
+| `APPEAL_REPLY_REASON_SOURCE` | `phase1` \| `appeal_reason` | Where the composer's appeal reasons come from: the phase-1 classifier (needs `PHASE1_APPEAL_ENABLED`) or, as a rollback, the appeal-reason classifier | `phase1` |
 | `APPEAL_REPLY_WINDOW_END` | datetime? | Limit composed wording to Phase 1 rejections | `None` |
 | `APPEAL_REPLY_CYCLE` | str | Conference cycle the approved blocks must belong to | `AAAI-27` |
 | `PHASE1_APPEAL_ENABLED` / `_START` / `_INTENT` | bool / datetime? / str | Record Phase 1 appeals per paper | `False` / `None` / `review_decision_appeal` |
