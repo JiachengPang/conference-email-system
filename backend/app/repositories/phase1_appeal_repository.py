@@ -9,7 +9,7 @@ transaction.
 
 from collections.abc import Iterable, Iterator
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import PaperAssignment, Phase1Appeal
@@ -83,6 +83,42 @@ class PaperAssignmentRepository:
     ) -> dict[str, PaperAssignment]:
         """Map each found submission number to its assignment row."""
         return await self._load(db, _distinct_nonblank(numbers))
+
+    async def get_by_normalized_numbers(
+        self, db: AsyncSession, numbers: list[str]
+    ) -> dict[str, list[PaperAssignment]]:
+        """Map each normalised number to the sheet rows whose number normalises to it.
+
+        ``numbers`` must already be normalised (trimmed, no leading ``#`` or
+        zeros: ``paper_apc_resolver.normalize_paper_number``). The sheet side is
+        normalised the same way in SQL, so ``0123`` or ``#123`` stored in the
+        sheet still match ``123``. One query per chunk of 500 numbers, so a whole
+        queue page is one query. Rows are ordered by paper number.
+        """
+        norm = func.ltrim(
+            func.ltrim(func.ltrim(func.trim(PaperAssignment.paper_number), "#"), " "), "0"
+        )
+        found: dict[str, list[PaperAssignment]] = {}
+        for chunk in _chunks(_distinct_nonblank(numbers)):
+            result = await db.execute(
+                select(PaperAssignment, norm.label("norm"))
+                .where(norm.in_(chunk))
+                .order_by(PaperAssignment.paper_number)
+            )
+            for row, key in result.all():
+                found.setdefault(key, []).append(row)
+        return found
+
+    async def list_distinct_apc_names(self, db: AsyncSession) -> list[str]:
+        """Every distinct, trimmed, non-blank APC name, sorted case-insensitively.
+
+        Sorted in Python, not SQL, so the order is the same on every database.
+        The names are personal data: callers must not log them.
+        """
+        name = func.trim(PaperAssignment.apc_name)
+        result = await db.execute(select(name).where(name != "").distinct())
+        names = {value for (value,) in result.all() if value}
+        return sorted(names, key=lambda n: (n.casefold(), n))
 
     async def get_by_forum_ids(
         self, db: AsyncSession, forum_ids: list[str]
