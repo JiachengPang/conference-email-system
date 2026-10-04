@@ -145,6 +145,24 @@ class Settings(BaseSettings):
     # their own notes. None = no window.
     APPEAL_REPLY_WINDOW_END: datetime | None = None
 
+    # Chair notes in Zendesk (Z2). When True, an eligible reject-appeal email's
+    # draft is posted to its Zendesk ticket as an INTERNAL note (public: false)
+    # so a chair working in Zendesk can copy it. Only drafts made by the appeal
+    # reply hook (draft["appeal_reply"] present) qualify, so a model-written
+    # appeal draft is never posted. OFF by default: off means nothing new runs.
+    # ⚠️ Inert today: nothing calls app.integrations.zendesk.chair_note yet.
+    CHAIR_NOTE_ENABLED: bool = False
+    # Intents in scope, comma-separated (parsed by `chair_note_intents`).
+    # Unknown intents are dropped; if none survive, NO intent is in scope.
+    CHAIR_NOTE_INTENTS: str = "review_decision_appeal,desk_reject_appeal"
+    # Zendesk ticket ids allowed a note, comma-separated (parsed by
+    # `chair_note_ticket_ids`). Empty = every ticket. Meant for a scoped live
+    # test: a non-empty value that yields no valid id allows NO ticket.
+    CHAIR_NOTE_TICKET_IDS: str = ""
+    # Most notes posted per Zendesk sync cycle, so one large sync cannot flood
+    # Zendesk. Read by the (not yet built) post-cycle drain.
+    CHAIR_NOTE_MAX_PER_CYCLE: int = 20
+
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the
     # calibrated confidence instead of the raw classifier score. Off by default
@@ -352,6 +370,16 @@ class Settings(BaseSettings):
         """The parsed ZENDESK_SYNC_STATUSES allow-list (see parse_zendesk_statuses)."""
         return parse_zendesk_statuses(self.ZENDESK_SYNC_STATUSES)
 
+    @property
+    def chair_note_intents(self) -> list[str]:
+        """The parsed CHAIR_NOTE_INTENTS (see parse_chair_note_intents)."""
+        return parse_chair_note_intents(self.CHAIR_NOTE_INTENTS)
+
+    @property
+    def chair_note_ticket_ids(self) -> frozenset[int] | None:
+        """The parsed CHAIR_NOTE_TICKET_IDS (see parse_chair_note_ticket_ids)."""
+        return parse_chair_note_ticket_ids(self.CHAIR_NOTE_TICKET_IDS)
+
 
 def parse_zendesk_statuses(raw: str | None) -> list[str]:
     """Parse a comma-separated Zendesk status string into a clean allow-list.
@@ -371,6 +399,47 @@ def parse_zendesk_statuses(raw: str | None) -> list[str]:
         if token and token in Settings.ZENDESK_VALID_STATUSES and token not in seen:
             seen.append(token)
     return seen or sorted(Settings.ZENDESK_VALID_STATUSES)
+
+
+def parse_chair_note_intents(raw: str | None) -> list[str]:
+    """Parse CHAIR_NOTE_INTENTS into a clean list of known intents.
+
+    Same rules as :func:`parse_zendesk_statuses` (split on commas, trim,
+    lowercase, drop empties, de-duplicate in first-seen order, keep only known
+    values), with ONE deliberate difference: when nothing survives, the result
+    is EMPTY, not every intent. This list decides where a note is posted, so a
+    typo must narrow the scope to nothing rather than widen it to all.
+    """
+    # Imported here so loading the settings never imports the pipeline package.
+    from app.pipeline.taxonomy import VALID_INTENTS
+
+    seen: list[str] = []
+    for token_raw in (raw or "").split(","):
+        token = token_raw.strip().lower()
+        if token and token in VALID_INTENTS and token not in seen:
+            seen.append(token)
+    return seen
+
+
+def parse_chair_note_ticket_ids(raw: str | None) -> frozenset[int] | None:
+    """Parse CHAIR_NOTE_TICKET_IDS into an allow-list of ticket ids.
+
+    Blank (or only whitespace) means no allow-list: ``None``, every ticket is
+    allowed. Otherwise each comma-separated token that is a positive integer is
+    kept and anything else is dropped; when a non-blank value yields no valid
+    id the result is an EMPTY set, which allows NO ticket. A typo therefore
+    fails closed instead of opening the feature to every ticket.
+    """
+    if not (raw or "").strip():
+        return None
+    ids: set[int] = set()
+    for token_raw in raw.split(","):
+        token = token_raw.strip()
+        # isascii() too: str.isdigit() accepts characters such as "²" that
+        # int() then rejects.
+        if token.isascii() and token.isdigit() and int(token) > 0:
+            ids.add(int(token))
+    return frozenset(ids)
 
 
 @lru_cache

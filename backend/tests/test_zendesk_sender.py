@@ -15,6 +15,10 @@ from app.integrations.zendesk.sender import (
     ZendeskSendError,
 )
 
+# These tests exercise the REAL ZendeskSender.add_comment against a fake HTTP
+# client, so they opt out of conftest's guard that makes add_comment raise.
+pytestmark = pytest.mark.zendesk_transport
+
 
 class FakeProvider:
     base_url = "https://aaai.zendesk.com/api/v2"

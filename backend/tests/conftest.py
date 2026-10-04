@@ -33,6 +33,38 @@ def _hermetic_model_settings(monkeypatch):
     monkeypatch.setattr(settings, "RETRIEVAL_BACKEND", "bm25")
 
 
+def pytest_configure(config):
+    # Registered here rather than in pyproject.toml: pyproject is the manifest
+    # the backend image installs from, and editing it rebuilds every dependency.
+    config.addinivalue_line(
+        "markers",
+        "zendesk_transport: exercises the real ZendeskSender.add_comment against "
+        "a fake HTTP client (opts out of the _hermetic_chair_notes guard)",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_chair_notes(request, monkeypatch):
+    """Chair notes (Z2) stay off in every test, and no test can post a Zendesk
+    comment by accident: ``ZendeskSender.add_comment`` is replaced by a stub that
+    raises, whatever the developer's backend/.env says. Tests that exercise the
+    real transport against a fake HTTP client opt out with the
+    ``zendesk_transport`` marker; chair-note tests turn the flag on explicitly.
+    """
+    monkeypatch.setattr(settings, "CHAIR_NOTE_ENABLED", False)
+    if request.node.get_closest_marker("zendesk_transport"):
+        return
+    from app.integrations.zendesk.sender import ZendeskSender
+
+    async def _refuse_add_comment(self, *args, **kwargs):
+        raise AssertionError(
+            "ZendeskSender.add_comment was called in a test. Stub the transport, "
+            "or mark a transport test with @pytest.mark.zendesk_transport."
+        )
+
+    monkeypatch.setattr(ZendeskSender, "add_comment", _refuse_add_comment)
+
+
 @pytest.fixture
 def mock_db_session() -> AsyncMock:
     """An AsyncMock standing in for an async SQLAlchemy session."""
