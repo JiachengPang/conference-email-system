@@ -164,10 +164,48 @@ def test_blank_chair_names_are_not_suggested():
 @pytest.mark.parametrize(
     "raw, expected",
     [("12345", "12345"), (" 12345 ", "12345"), ("#12345", "12345"), ("# 012345", "12345"),
-     ("00777", "777"), ("0", None), ("#", None), ("", None), (None, None)],
+     ("00777", "777"), ("0", None), ("#", None), ("", None), (None, None),
+     # P4: every kind of edge whitespace, the same set the SQL side strips.
+     ("\t12345\n", "12345"), ("\xa012345\xa0", "12345"), ("\r\n#\t012345\xa0", "12345"),
+     ("#\xa0 0777", "777"), ("\x0b12345\x0c", "12345"), (" \t\n\xa0", None),
+     # Whitespace INSIDE a number is kept: never invent a number nobody wrote.
+     ("12 345", "12 345"), ("12\t345", "12\t345")],
 )
 def test_normalize_paper_number(raw, expected):
     assert normalize_paper_number(raw) == expected
+
+
+# --- classifier_papers_differ (P4): a warning only ----------------------------------
+
+
+def test_classifier_papers_equal_to_the_matched_papers_raise_nothing():
+    base = ApcResolution(apc_names=("APC North",), source="number", paper_numbers=("012345",))
+    assert r.with_classifier_papers(base, ["#12345", " 12345 "]) == base
+
+
+def test_classifier_papers_that_differ_add_the_warning_and_change_nothing_else():
+    base = ApcResolution(apc_names=("APC North",), source="number", paper_numbers=("12345",),
+                         warnings=("short_number", "several_papers"))
+    assert r.with_classifier_papers(base, ["12345", "67890"]) == ApcResolution(
+        apc_names=("APC North",), source="number", paper_numbers=("12345",),
+        warnings=("short_number", "several_papers", "classifier_papers_differ"),
+    )
+
+
+def test_classifier_papers_with_nothing_matched_through_the_extraction_differ():
+    assert r.with_classifier_papers(ApcResolution(), ["12345"]) == ApcResolution(
+        warnings=("classifier_papers_differ",)
+    )
+
+
+@pytest.mark.parametrize("papers", [[], None, ["", "#", " 0 "]])
+def test_no_classifier_papers_means_no_comparison(papers):
+    base = ApcResolution(apc_names=("APC North",), source="number", paper_numbers=("12345",))
+    assert r.with_classifier_papers(base, papers) == base
+
+
+def test_the_new_warning_is_reported_last():
+    assert r.WARNINGS[-1] == "classifier_papers_differ"
 
 
 def test_email_numbers_read_the_list_shape_and_normalise():
@@ -276,6 +314,43 @@ async def test_number_route_matches_with_normalisation_on_both_sides(session):
     assert result == ApcResolution(
         apc_names=("APC North", "APC South"), source="number",
         paper_numbers=("12345", "0777"), warnings=("several_papers",),
+    )
+
+
+WHITESPACE_SHEET = [
+    # paper_number as stored (tab, newline, CR, NBSP, VT/FF, '#'), apc name
+    ("\t11111\n", "APC Tab"),
+    ("\xa0#\xa0022222\xa0", "APC Nbsp"),
+    (" 33333\r", "APC Cr"),
+    ("\x0b#44444\x0c", "APC Vt"),
+]
+
+
+async def test_whitespace_normalisation_is_identical_in_python_and_sql(session):
+    """Every raw sheet value, normalised in SQL, matches exactly the number the
+    Python normaliser makes of the same raw value — tab, newline, CR, NBSP, VT and
+    FF included — so the two sides cannot disagree (runs on SQLite and Postgres)."""
+    await PaperAssignmentRepository().upsert_many(session, [
+        {"paper_number": n, "apc_name": a, "openreview_url": "u"} for n, a in WHITESPACE_SHEET
+    ])
+    expected = {"11111": ["\t11111\n"], "22222": ["\xa0#\xa0022222\xa0"],
+                "33333": [" 33333\r"], "44444": ["\x0b#44444\x0c"]}
+    assert {raw: normalize_paper_number(raw) for raw, _ in WHITESPACE_SHEET} == {
+        raw: key for key, (raw,) in expected.items()}
+    found = await PaperAssignmentRepository().get_by_normalized_numbers(session, list(expected))
+    assert {k: [row.paper_number for row in rows] for k, rows in found.items()} == expected
+
+
+async def test_an_email_number_with_tabs_and_nbsp_resolves_against_a_messy_sheet(session):
+    await PaperAssignmentRepository().upsert_many(session, [
+        {"paper_number": n, "apc_name": a, "openreview_url": "u"} for n, a in WHITESPACE_SHEET
+    ])
+    result = await resolve_paper_apcs(
+        session, {"submission_numbers": ["\xa011111\t", "#\t22222"]}, intent="review_decision_appeal"
+    )
+    assert result == ApcResolution(
+        apc_names=("APC Tab", "APC Nbsp"), source="number",
+        paper_numbers=("\t11111\n", "\xa0#\xa0022222\xa0"), warnings=("several_papers",),
     )
 
 

@@ -40,7 +40,9 @@ from app.models.appeal_queue import (
     MODE_GROUPS,
     NOTE_STATES,
     appeal_mode,
+    composer_reasons,
     mode_group,
+    phase1_block,
     submission_numbers,
 )
 from app.pipeline.drafter import find_placeholders
@@ -80,7 +82,8 @@ async def appeals_config() -> dict:
     return {"enabled": settings.REJECT_APPEALS_QUEUE_ENABLED}
 
 
-def _appeal_block(email) -> dict:
+def _appeal_block(email, phase1_rows) -> dict:
+    """The row's ``appeal`` block. ``phase1_rows`` are the email's phase1_appeals rows."""
     classification = email.classification if isinstance(email.classification, dict) else {}
     extraction = email.extraction if isinstance(email.extraction, dict) else {}
     draft = email.draft if isinstance(email.draft, dict) else {}
@@ -88,15 +91,19 @@ def _appeal_block(email) -> dict:
     text = draft.get("draft_text") if isinstance(draft.get("draft_text"), str) else ""
     return {
         "intent": classification.get("intent"),
-        # None when the reason classifier never ran on this email (no key),
-        # which is NOT the same as [] ("asked, no reason applies").
-        "reasons": extraction.get("appeal_reason") if "appeal_reason" in extraction else None,
+        # The composer input the appeal reply hook actually used
+        # (draft.appeal_reply.reasons); None when the hook did not run or held
+        # the reply. Never read from extraction.appeal_reason (dormant since P3).
+        "reasons": composer_reasons(draft),
         "is_reciprocal_dispute": extraction.get("is_reciprocal_dispute"),
         "mode": mode,
         "mode_group": mode_group(mode),
         "has_placeholders": bool(find_placeholders(text)),
         "is_edited": bool(draft.get("is_edited")),
         "submission_numbers": submission_numbers(extraction),
+        # Jiacheng's phase-1 reasons: his stored rows (with quotes) first, else the
+        # hook's names-only snapshot, else None.
+        "phase1": phase1_block(draft, phase1_rows),
     }
 
 
@@ -129,18 +136,27 @@ async def get_reject_appeals_queue(
     Members: emails whose intent is a reject-appeal intent, plus any email that
     already has a chair note. Each row is the usual email payload plus:
 
-    - ``appeal``: intent, reasons (null when never classified), the reciprocal
-      flag, the reply mode and its group, whether placeholders remain, whether
-      a chair edited the draft, and the paper numbers (either stored shape).
+    - ``appeal``: intent, reasons (the composer input the hook used, null when
+      none), the reciprocal flag, the reply mode and its group, whether
+      placeholders remain, whether a chair edited the draft, the paper numbers
+      (either stored shape), and ``phase1``: the phase-1 classifier's relation,
+      must_verify, papers and reasons — from its stored rows (quotes cut to 240
+      characters, source "rows"), else the draft's names-only snapshot (source
+      "snapshot", no quotes), else null.
     - ``suggested_apcs`` / ``chair_source`` / ``chair_numbers`` /
-      ``chair_warnings``: the chair lookup (``paper_apc_resolver``).
+      ``chair_warnings``: the chair lookup (``paper_apc_resolver``), plus
+      ``classifier_papers_differ`` when the phase-1 papers differ from the papers
+      matched through the extraction (a warning only; it never picks a chair).
     - ``chair_note``: the note's state, or null.
     - ``eligibility``: whether a note may be posted, and why not.
+
+    Quotes are author text: served to the page, never logged.
     """
     _require_queue_enabled()
     from app.integrations.zendesk.chair_note import check_eligibility
-    from app.pipeline.paper_apc_resolver import resolve_paper_apcs_many
+    from app.pipeline.paper_apc_resolver import resolve_paper_apcs_many, with_classifier_papers
     from app.repositories.chair_note_repository import ChairNoteRepository
+    from app.repositories.phase1_appeal_repository import Phase1AppealRepository
 
     after, before = _received_range(received_after, received_before)
     filters = dict(
@@ -167,15 +183,18 @@ async def get_reject_appeals_queue(
         },
     )
     notes = await ChairNoteRepository().get_by_email_ids(db, [e.id for e in emails])
+    phase1_rows = await Phase1AppealRepository().get_by_email_ids(db, [e.id for e in emails])
 
     rows = []
     for e in emails:
-        resolution = resolutions[e.id]
+        appeal = _appeal_block(e, phase1_rows.get(e.id, []))
+        papers = appeal["phase1"]["papers"] if appeal["phase1"] else []
+        resolution = with_classifier_papers(resolutions[e.id], papers)
         eligibility = check_eligibility(e)
         rows.append(
             {
                 **_email_to_dict(e),
-                "appeal": _appeal_block(e),
+                "appeal": appeal,
                 "suggested_apcs": list(resolution.apc_names),
                 "chair_source": resolution.source,
                 "chair_numbers": list(resolution.paper_numbers),

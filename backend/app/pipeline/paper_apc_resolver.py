@@ -27,7 +27,16 @@ Warnings: ``conflict``, ``desk_reject_not_in_sheet``, ``short_number`` (a
 matched number with fewer than 3 digits) and ``several_papers`` (more than one
 distinct sheet paper behind the result). With only a handful of APCs, two
 routes can name the same chair for different papers; ``several_papers``
-surfaces that case.
+surfaces that case. ``classifier_papers_differ`` (P4) is added afterwards by
+:func:`with_classifier_papers` when the phase-1 classifier's papers differ from
+the sheet papers matched through the extraction; those papers only ever raise
+this warning and never choose a chair.
+
+Number normalisation (both sides, identical in Python and SQL): strip the
+whitespace in ``appeal_queue.PAPER_NUMBER_WHITESPACE`` (spaces, tabs, newlines,
+non-breaking spaces...) from both ends, then a leading ``#`` and any whitespace
+after it, then leading zeros. Whitespace inside a number is kept, so "12 345"
+never becomes a number nobody wrote.
 
 Both stored extraction shapes are read (see ``app.models.appeal_queue``): the
 lists ``submission_numbers`` / ``openreview_forum_ids`` and the older single
@@ -37,12 +46,12 @@ Chair names are personal data from the sheet: nothing here logs them.
 """
 
 import re
-from collections.abc import Hashable
-from dataclasses import dataclass
+from collections.abc import Hashable, Iterable
+from dataclasses import dataclass, replace
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.appeal_queue import forum_ids, submission_numbers
+from app.models.appeal_queue import PAPER_NUMBER_WHITESPACE, forum_ids, submission_numbers
 from app.repositories.phase1_appeal_repository import PaperAssignmentRepository
 
 # The shape the regex extractor accepts for a forum id. The model path passes
@@ -62,12 +71,14 @@ WARN_CONFLICT = "conflict"
 WARN_DESK_REJECT = "desk_reject_not_in_sheet"
 WARN_SHORT_NUMBER = "short_number"
 WARN_SEVERAL_PAPERS = "several_papers"
+WARN_CLASSIFIER_PAPERS = "classifier_papers_differ"
 # The order warnings are reported in.
 WARNINGS: tuple[str, ...] = (
     WARN_CONFLICT,
     WARN_DESK_REJECT,
     WARN_SHORT_NUMBER,
     WARN_SEVERAL_PAPERS,
+    WARN_CLASSIFIER_PAPERS,
 )
 
 # A matched number shorter than this is flagged: short numbers are more often
@@ -104,15 +115,37 @@ class ApcResolution:
 
 
 def normalize_paper_number(value: str | None) -> str | None:
-    """Trim, drop a leading ``#`` and the spaces after it, then leading zeros.
+    """Strip edge whitespace, a leading ``#`` and the whitespace after it, then
+    leading zeros. Whitespace = ``PAPER_NUMBER_WHITESPACE`` (incl. tab, newline and
+    the non-breaking space).
 
-    Mirrors the SQL applied to ``paper_number`` in
+    Mirrors, step for step, the SQL applied to ``paper_number`` in
     ``PaperAssignmentRepository.get_by_normalized_numbers``. Empty → None.
     """
     if not isinstance(value, str):
         return None
-    text = value.strip().lstrip("#").lstrip(" ").lstrip("0")
+    ws = PAPER_NUMBER_WHITESPACE
+    text = value.strip(ws).lstrip("#").lstrip(ws).lstrip("0")
     return text or None
+
+
+def with_classifier_papers(resolution: ApcResolution, papers: Iterable[str]) -> ApcResolution:
+    """Add ``classifier_papers_differ`` when the phase-1 classifier's papers differ
+    from the sheet papers behind ``resolution`` (both normalised). Pure.
+
+    Never changes the suggested chairs, the source or the papers: the classifier's
+    papers only raise this warning. No classifier papers → no comparison, no
+    warning; classifier papers but nothing matched through the extraction → a
+    difference.
+    """
+    theirs = {n for n in (normalize_paper_number(p) for p in papers or ()) if n is not None}
+    if not theirs:
+        return resolution
+    matched = {n for n in (normalize_paper_number(p) for p in resolution.paper_numbers) if n is not None}
+    if theirs == matched:
+        return resolution
+    warnings = set(resolution.warnings) | {WARN_CLASSIFIER_PAPERS}
+    return replace(resolution, warnings=tuple(w for w in WARNINGS if w in warnings))
 
 
 def email_numbers(extraction) -> list[str]:

@@ -7,6 +7,12 @@ up ("APC North", "APC South").
 
 Seeded view members, newest first: e8, e7, e5, e4, e3, e2, e1.
 e6 (not an appeal, no note) and e9 (toy) are NOT members.
+
+Phase-1 reasons (P4): e1 has stored phase1_appeals rows AND a draft snapshot that
+disagree (the rows must win); e4 has only a snapshot (the fallback); e8 has rows
+for two papers that the extraction never names (the classifier_papers_differ
+warning); every other member has neither (phase1 is null). e1's extraction still
+carries an old appeal_reason that must never be read.
 """
 
 import logging
@@ -24,11 +30,21 @@ from sqlalchemy.pool import StaticPool
 import main
 from app.core.config import settings
 from app.db.database import Base, get_db
-from app.db.models import Email, PaperAssignment, ZendeskChairNote
+from app.db.models import Email, PaperAssignment, Phase1Appeal, ZendeskChairNote
 from app.models import appeal_queue
 
 T0 = datetime(2026, 9, 10, 12, 0, tzinfo=timezone.utc)
 NAMES = ("APC North", "APC South", "apc lowercase")
+# A synthetic author quote longer than the 240-character cap (264 characters).
+LONG_QUOTE = "synthetic quote words " * 12
+assert len(LONG_QUOTE) == 264
+# Its first 240 characters, written out: ten full repeats (220) + 20 more.
+TRUNCATED_QUOTE = "synthetic quote words " * 10 + "synthetic quote word"
+
+
+def _snapshot(relation, reasons, papers, must_verify=False, state="classified"):
+    return {"state": state, "relation": relation, "reasons": reasons,
+            "must_verify": must_verify, "papers": papers}
 
 _PG = os.environ.get("TEST_DATABASE_URL", "")
 _PG = _PG if _PG.startswith("postgresql") else None
@@ -54,18 +70,24 @@ def _email(n: int, **kw) -> Email:
     return Email(**base)
 
 
-def _draft(mode, text="Dear Author,\n\nReply.\n\nBest Regards,\nAAAI 2027 PC Team", **extra):
+def _draft(mode, text="Dear Author,\n\nReply.\n\nBest Regards,\nAAAI 2027 PC Team", reply=None,
+           **extra):
     draft = {"draft_text": text, "notes_for_chair": None, **extra}
     if mode is not None:
-        draft["appeal_reply"] = {"mode": mode, "reasons": [], "block_ids": []}
+        draft["appeal_reply"] = {"mode": mode, "reasons": [], "block_ids": [], **(reply or {})}
     return draft
 
 
 def seed() -> list:
     rows = [
         _email(1, subject="appeal one", classification={"intent": "review_decision_appeal"},
-               draft=_draft("merged"),
+               draft=_draft("merged", reply={
+                   "reasons": ["score_outcome_mismatch"], "source": "phase1",
+                   # Deliberately NOT what the stored rows say: the rows must win.
+                   "phase1": _snapshot("appeal", ["reviewer_misjudgment"], ["99999"]),
+               }),
                extraction={"submission_numbers": ["12345"], "openreview_forum_ids": ["Ab3xY9kLm2"],
+                           # An old answer of the dormant classifier: never read any more.
                            "appeal_reason": ["wrong_paper_review"], "is_reciprocal_dispute": False},
                source="zendesk", zendesk_ticket_id=9001, zendesk_status="open"),
         _email(2, subject="desk two", classification={"intent": "desk_reject_appeal"},
@@ -77,7 +99,11 @@ def seed() -> list:
                extraction={"submission_numbers": ["777"], "is_reciprocal_dispute": True},
                source="zendesk", zendesk_ticket_id=9003, zendesk_status="pending"),
         _email(4, subject="chair writes four", classification={"intent": "review_decision_appeal"},
-               draft=_draft("chair_writes", "[CHAIR: write reply]"),
+               draft=_draft("chair_writes", "[CHAIR: write reply]", reply={
+                   "reasons": None, "source": "phase1",
+                   # Only a snapshot (no stored rows): the fallback.
+                   "phase1": _snapshot("feedback_only", ["reviewer_misjudgment"], ["99999"]),
+               }),
                extraction={"submission_numbers": ["67890"], "appeal_reason": []},
                source="zendesk", zendesk_ticket_id=9004, zendesk_status="solved"),
         _email(5, subject="cms five", classification={"intent": "cms_support"},
@@ -136,6 +162,19 @@ async def _make_ctx(kind: str):
                              attempts=1, posted_at=_at(20), mode="chair_writes"),
             ZendeskChairNote(email_id=ids["five"], zendesk_ticket_id=9005, status="failed",
                              attempts=2),
+        ])
+        session.add_all([
+            # e1: one row, a long quote (cut to 240 characters in the response).
+            Phase1Appeal(email_id=ids["one"], zendesk_ticket_id=9001, submission_number="12345",
+                         relation="appeal", must_verify=False, prompt_sha256="0" * 64,
+                         reasons=[{"reason": "decision_vs_reviews", "quote": LONG_QUOTE}]),
+            # e8: two papers, inserted out of order; the extraction names neither.
+            Phase1Appeal(email_id=ids["eight"], submission_number="24680", relation="appeal",
+                         must_verify=True, prompt_sha256="0" * 64,
+                         reasons=[{"reason": "record_error", "quote": "short quote"}]),
+            Phase1Appeal(email_id=ids["eight"], submission_number="12345", relation="appeal",
+                         must_verify=True, prompt_sha256="0" * 64,
+                         reasons=[{"reason": "record_error", "quote": "short quote"}]),
         ])
         await session.commit()
 
@@ -284,13 +323,22 @@ async def test_row_keeps_the_email_payload_and_adds_the_appeal_fields(ctx):
     )} == {
         "appeal": {
             "intent": "review_decision_appeal",
-            "reasons": ["wrong_paper_review"],
+            # From draft.appeal_reply.reasons — NOT extraction.appeal_reason.
+            "reasons": ["score_outcome_mismatch"],
             "is_reciprocal_dispute": False,
             "mode": "merged",
             "mode_group": "composed",
             "has_placeholders": False,
             "is_edited": False,
             "submission_numbers": ["12345"],
+            # From the stored rows — NOT the (different) draft snapshot.
+            "phase1": {
+                "source": "rows",
+                "relation": "appeal",
+                "must_verify": False,
+                "papers": ["12345"],
+                "reasons": [{"reason": "decision_vs_reviews", "quote": TRUNCATED_QUOTE}],
+            },
         },
         "suggested_apcs": ["APC North"],
         "chair_source": "both",
@@ -312,6 +360,7 @@ async def test_old_shape_desk_reject_row_is_refused_by_the_guard(ctx):
         "has_placeholders": False,
         "is_edited": False,
         "submission_numbers": ["24680"],
+        "phase1": None,
     }
     assert (row["suggested_apcs"], row["chair_source"], row["chair_numbers"], row["chair_warnings"]) == (
         [], "none", [], ["desk_reject_not_in_sheet"],
@@ -323,8 +372,9 @@ async def test_posted_note_and_short_number_rows(ctx):
     assert four["chair_note"]["status"] == "posted"
     assert four["chair_note"]["attempts"] == 1
     assert four["chair_note"]["posted_at"].startswith("2026-09-11T08:00:00")
+    # A hold records no composer input: reasons None (read from the draft).
     assert (four["appeal"]["reasons"], four["chair_source"], four["suggested_apcs"]) == (
-        [], "number", ["APC South"],
+        None, "number", ["APC South"],
     )
     seven = await _row(ctx, "seven")
     assert (seven["appeal"]["has_placeholders"], seven["appeal"]["is_edited"]) == (True, True)
@@ -338,6 +388,119 @@ async def test_note_only_member_has_no_appeal_mode(ctx):
     assert five["appeal"]["intent"] == "cms_support"
     assert five["appeal"]["mode_group"] == "not_drafted"
     assert five["chair_note"] == {"status": "failed", "attempts": 2, "posted_at": None}
+
+
+# --- phase-1 reasons (P4) ---------------------------------------------------------------------
+
+
+async def test_stored_rows_win_over_the_draft_snapshot(ctx):
+    phase1 = (await _row(ctx, "one"))["appeal"]["phase1"]
+    assert phase1["source"] == "rows"
+    assert [r["reason"] for r in phase1["reasons"]] == ["decision_vs_reviews"]
+    assert phase1["papers"] == ["12345"], "not the snapshot's 99999"
+
+
+async def test_without_rows_the_names_only_snapshot_is_used(ctx):
+    four = await _row(ctx, "four")
+    assert four["appeal"]["phase1"] == {
+        "source": "snapshot",
+        "relation": "feedback_only",
+        "must_verify": False,
+        "papers": ["99999"],
+        "reasons": [{"reason": "reviewer_misjudgment", "quote": None}],
+    }
+
+
+@pytest.mark.parametrize("name", ["two", "three", "five", "seven"])
+async def test_without_rows_or_snapshot_phase1_is_null(ctx, name):
+    assert (await _row(ctx, name))["appeal"]["phase1"] is None
+
+
+async def test_rows_for_several_papers_are_ordered_and_keep_must_verify(ctx):
+    eight = await _row(ctx, "eight")
+    assert eight["appeal"]["phase1"] == {
+        "source": "rows",
+        "relation": "appeal",
+        "must_verify": True,
+        "papers": ["12345", "24680"],
+        "reasons": [{"reason": "record_error", "quote": "short quote"}],
+    }
+
+
+async def test_quotes_are_cut_to_240_characters(ctx):
+    quote = (await _row(ctx, "one"))["appeal"]["phase1"]["reasons"][0]["quote"]
+    assert len(quote) == 240
+    assert quote == TRUNCATED_QUOTE
+
+
+async def test_appeal_reasons_come_from_the_draft_never_from_the_extraction(ctx):
+    one = await _row(ctx, "one")
+    assert one["appeal"]["reasons"] == ["score_outcome_mismatch"]
+    assert one["extraction"]["appeal_reason"] == ["wrong_paper_review"], "still stored, ignored"
+    assert (await _row(ctx, "two"))["appeal"]["reasons"] is None, "no appeal_reply at all"
+    assert (await _row(ctx, "seven"))["appeal"]["reasons"] == [], "an empty composer input"
+
+
+async def test_the_phase1_rows_of_a_whole_page_are_one_query(ctx):
+    from sqlalchemy import event
+
+    statements = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        if "phase1_appeals" in statement.lower():
+            statements.append(statement)
+
+    event.listen(ctx.engine.sync_engine, "before_cursor_execute", record)
+    try:
+        resp = await ctx.client.get("/api/v1/appeals/queue?limit=200")
+    finally:
+        event.remove(ctx.engine.sync_engine, "before_cursor_execute", record)
+    assert resp.status_code == 200
+    assert len(statements) == 1, statements
+
+
+async def test_classifier_papers_differ_is_a_warning_only(ctx):
+    # e4: snapshot papers 99999, the extraction matched 67890 -> warning, chair unchanged.
+    four = await _row(ctx, "four")
+    assert (four["suggested_apcs"], four["chair_source"], four["chair_numbers"], four["chair_warnings"]) == (
+        ["APC South"], "number", ["67890"], ["classifier_papers_differ"],
+    )
+    # e8: rows name 12345/24680, the extraction names nothing -> warning, still no chair.
+    eight = await _row(ctx, "eight")
+    assert (eight["suggested_apcs"], eight["chair_source"], eight["chair_numbers"], eight["chair_warnings"]) == (
+        [], "none", [], ["classifier_papers_differ"],
+    )
+    # e1: rows name 12345, the extraction matched 12345 -> no warning.
+    assert (await _row(ctx, "one"))["chair_warnings"] == []
+    # e7: no phase-1 papers at all -> nothing to compare, the existing warning only.
+    assert (await _row(ctx, "seven"))["chair_warnings"] == ["short_number"]
+
+
+async def test_quotes_never_reach_the_logs(ctx, caplog):
+    caplog.set_level(logging.DEBUG)
+    assert (await ctx.client.get("/api/v1/appeals/queue?limit=200")).status_code == 200
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "synthetic quote" not in logged and "short quote" not in logged
+
+
+def test_phase1_block_rules_without_a_database():
+    """The pure builder: rows first, then the snapshot, else None; junk-safe."""
+    row = SimpleNamespace(relation="appeal", must_verify=0, submission_number="7",
+                          reasons=[{"reason": "other", "quote": 5}, "junk", {"quote": "no name"}])
+    snap_draft = {"appeal_reply": {"source": "phase1",
+                                   "phase1": _snapshot("not_appeal", None, None, None)}}
+    assert appeal_queue.phase1_block(snap_draft, [row]) == {
+        "source": "rows", "relation": "appeal", "must_verify": False, "papers": ["7"],
+        "reasons": [{"reason": "other", "quote": None}],
+    }
+    assert appeal_queue.phase1_block(snap_draft, []) == {
+        "source": "snapshot", "relation": "not_appeal", "must_verify": None, "papers": [],
+        "reasons": [],
+    }
+    for draft in (None, {}, {"appeal_reply": {"mode": "merged"}},
+                  {"appeal_reply": {"source": "appeal_reason", "phase1": {}}},
+                  {"appeal_reply": {"source": "phase1", "phase1": "junk"}}):
+        assert appeal_queue.phase1_block(draft, []) is None, draft
 
 
 async def test_eligibility_uses_the_z2a_check(ctx, monkeypatch):
@@ -385,17 +548,26 @@ async def test_needs_note_excludes_posted_resolved_and_ticketless(ctx):
             _email(33, subject="open pending", classification={"intent": "review_decision_appeal"},
                    draft=_draft("merged"), source="zendesk", zendesk_ticket_id=9033,
                    zendesk_status="open"),
+            _email(34, subject="open posting", classification={"intent": "review_decision_appeal"},
+                   draft=_draft("merged"), source="zendesk", zendesk_ticket_id=9034,
+                   zendesk_status="open"),
+            _email(35, subject="open failed", classification={"intent": "review_decision_appeal"},
+                   draft=_draft("merged"), source="zendesk", zendesk_ticket_id=9035,
+                   zendesk_status="open"),
         ]
         session.add_all(extra)
         await session.commit()
         session.add_all([
             ZendeskChairNote(email_id=extra[0].id, zendesk_ticket_id=9030, status="posted", attempts=1),
             ZendeskChairNote(email_id=extra[3].id, zendesk_ticket_id=9033, status="pending"),
+            ZendeskChairNote(email_id=extra[4].id, zendesk_ticket_id=9034, status="posting", attempts=1),
+            ZendeskChairNote(email_id=extra[5].id, zendesk_ticket_id=9035, status="failed", attempts=1),
         ])
         await session.commit()
     counts = (await ctx.client.get("/api/v1/appeals/queue/counts")).json()
-    # The seeded 3, plus "open none" and "open pending".
-    assert (counts["needs_note"], counts["total"]) == (5, 11)
+    # The seeded 3, plus "open none", "open pending" and "open failed" (a retry).
+    # NOT "open posted", NOT "open posting" (in flight: Zendesk may have it), NOT closed.
+    assert (counts["needs_note"], counts["total"]) == (6, 13)
 
 
 # --- the chair dropdown ------------------------------------------------------------------------

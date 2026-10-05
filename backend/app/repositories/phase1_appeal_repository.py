@@ -13,6 +13,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import PaperAssignment, Phase1Appeal
+from app.models.appeal_queue import PAPER_NUMBER_WHITESPACE
 
 # Bound on the size of one ``IN (...)`` list, well under SQLite's bind-variable
 # limit, so a full assignment sheet can be looked up or upserted in one call.
@@ -89,15 +90,19 @@ class PaperAssignmentRepository:
     ) -> dict[str, list[PaperAssignment]]:
         """Map each normalised number to the sheet rows whose number normalises to it.
 
-        ``numbers`` must already be normalised (trimmed, no leading ``#`` or
-        zeros: ``paper_apc_resolver.normalize_paper_number``). The sheet side is
-        normalised the same way in SQL, so ``0123`` or ``#123`` stored in the
-        sheet still match ``123``. One query per chunk of 500 numbers, so a whole
-        queue page is one query. Rows are ordered by paper number.
+        ``numbers`` must already be normalised (``paper_apc_resolver.
+        normalize_paper_number``). The sheet side is normalised the SAME way in
+        SQL, step for step: edge whitespace (``PAPER_NUMBER_WHITESPACE``: spaces,
+        tabs, newlines, non-breaking spaces...), a leading ``#`` and the whitespace
+        after it, then leading zeros — so ``0123``, ``#123`` or ``123`` followed by
+        a tab stored in the sheet still match ``123``. ``ltrim``/``rtrim`` with a
+        character set behave the same on SQLite and Postgres. One query per chunk
+        of 500 numbers, so a whole queue page is one query. Rows are ordered by
+        paper number.
         """
-        norm = func.ltrim(
-            func.ltrim(func.ltrim(func.trim(PaperAssignment.paper_number), "#"), " "), "0"
-        )
+        ws = PAPER_NUMBER_WHITESPACE
+        stripped = func.ltrim(func.rtrim(PaperAssignment.paper_number, ws), ws)
+        norm = func.ltrim(func.ltrim(func.ltrim(stripped, "#"), ws), "0")
         found: dict[str, list[PaperAssignment]] = {}
         for chunk in _chunks(_distinct_nonblank(numbers)):
             result = await db.execute(
@@ -179,6 +184,31 @@ class Phase1AppealRepository:
             await db.rollback()
             raise
         return len(rows)
+
+    async def get_by_email_ids(
+        self, db: AsyncSession, email_ids: list[int]
+    ) -> dict[int, list[Phase1Appeal]]:
+        """Each email's appeal rows, keyed by email id; emails with none are absent.
+
+        One query for a whole queue page (chunks of 500 ids). Within an email the
+        rows are ordered by submission number (NULL last) then id, the same on
+        every dialect. Read-only (P4, the Reject Appeals queue).
+        """
+        wanted = list(dict.fromkeys(e for e in email_ids if e is not None))
+        found: dict[int, list[Phase1Appeal]] = {}
+        for chunk in _chunks(wanted):
+            result = await db.execute(
+                select(Phase1Appeal)
+                .where(Phase1Appeal.email_id.in_(chunk))
+                .order_by(
+                    Phase1Appeal.email_id,
+                    Phase1Appeal.submission_number.asc().nulls_last(),
+                    Phase1Appeal.id,
+                )
+            )
+            for row in result.scalars().all():
+                found.setdefault(row.email_id, []).append(row)
+        return found
 
     async def delete_for_email(self, db: AsyncSession, email_id: int) -> int:
         """Delete every appeal row of ``email_id``; return how many were removed."""

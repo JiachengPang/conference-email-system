@@ -243,6 +243,10 @@ def _queue_conditions(
 # A VIEW: these conditions only ever narrow a read. Nothing here touches the
 # main queue's conditions, so its membership is unchanged.
 _REJECT_APPEAL_INTENTS: tuple[str, ...] = tuple(sorted(REJECT_APPEAL_INTENTS))
+# Note states that take an email OUT of needs_note: posted, and posting (in flight,
+# or stale after a crash — Zendesk may already have the note, D125). "failed" is
+# deliberately absent: a failed note still needs one (a retry).
+_NOTE_STATES_NOT_NEEDING_A_NOTE: tuple[str, ...] = ("posting", "posted")
 
 
 def _appeal_mode_expr():
@@ -318,8 +322,15 @@ def _reject_appeal_conditions(
     means no ``zendesk_chair_notes`` row.
     """
     conditions = _queue_conditions(
-        None, None, status, search, False, None, zendesk_status,
-        received_after, received_before,
+        lane=None,
+        chair_id=None,
+        status=status,
+        search=search,
+        unassigned=False,
+        source=None,
+        zendesk_status=zendesk_status,
+        received_after=received_after,
+        received_before=received_before,
     )
     conditions.append(_reject_appeal_member())
     if mode_group is not None:
@@ -946,8 +957,9 @@ class EmailRepository:
         ``total``; ``by_mode_group`` (every group present, zeros included);
         ``by_note_status`` ("none" plus every note state); ``without_approved_draft``
         (the ``not_drafted`` group); and ``needs_note``: drafted by the approved
-        rules, on a Zendesk ticket that is not solved or closed, with no note
-        posted yet.
+        rules, on a Zendesk ticket that is not solved or closed, whose note is
+        neither posted nor in flight (``posting`` — Zendesk may already have it,
+        D125). A ``failed`` note still counts: it is waiting for a retry.
         """
         mode = _appeal_mode_expr().label("mode")
         stmt = (
@@ -984,7 +996,7 @@ class EmailRepository:
                 group != MODE_GROUP_NOT_DRAFTED
                 and has_ticket
                 and (zstatus or "").lower() not in _RESOLVED_ZENDESK_STATUSES
-                and note_status != "posted"
+                and note_status not in _NOTE_STATES_NOT_NEEDING_A_NOTE
             ):
                 needs_note += count
         return {

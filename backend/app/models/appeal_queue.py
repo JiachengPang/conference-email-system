@@ -18,9 +18,27 @@ STORED SHAPES: rows processed by older code store single values
 ``submission_number`` / ``openreview_forum_id``; current code stores the lists
 ``submission_numbers`` / ``openreview_forum_ids``. :func:`identifier_list` reads
 either.
+
+PHASE-1 REASONS (P4): :func:`phase1_block` builds a row's ``appeal.phase1`` from
+Jiacheng's stored ``phase1_appeals`` rows when the email has any (quotes cut to
+:data:`QUOTE_MAX_CHARS`), else from the names-only snapshot the appeal reply hook
+stored in ``draft["appeal_reply"]["phase1"]``, else None.
 """
 
 from __future__ import annotations
+
+# The whitespace a paper number may carry around it, stripped identically by the
+# Python normaliser (paper_apc_resolver.normalize_paper_number) and the SQL one
+# (PaperAssignmentRepository.get_by_normalized_numbers). Explicit rather than
+# str.strip()'s default, so the two sides can never disagree: space, tab, LF, CR,
+# vertical tab, form feed and the non-breaking space.
+PAPER_NUMBER_WHITESPACE = " \t\n\r\x0b\x0c\xa0"
+
+# Longest author quote served per reason in the queue (never logged).
+QUOTE_MAX_CHARS = 240
+
+PHASE1_SOURCE_ROWS = "rows"
+PHASE1_SOURCE_SNAPSHOT = "snapshot"
 
 MODE_GROUP_COMPOSED = "composed"
 MODE_GROUP_CHAIR_WRITES = "chair_writes"
@@ -112,3 +130,70 @@ def submission_numbers(extraction) -> list[str]:
 def forum_ids(extraction) -> list[str]:
     """The OpenReview forum ids an email names, from either stored shape."""
     return identifier_list(extraction, "openreview_forum_ids", "openreview_forum_id")
+
+
+def composer_reasons(draft):
+    """``appeal.reasons``: the composer input the appeal reply hook actually used,
+    read from ``draft["appeal_reply"]["reasons"]``. None when the hook never ran on
+    this draft or recorded no input (every hold records None)."""
+    reply = draft.get("appeal_reply") if isinstance(draft, dict) else None
+    if not isinstance(reply, dict):
+        return None
+    reasons = reply.get("reasons")
+    if not isinstance(reasons, list):
+        return None
+    return [r for r in reasons if isinstance(r, str)]
+
+
+def _quote(value) -> str | None:
+    return value[:QUOTE_MAX_CHARS] if isinstance(value, str) else None
+
+
+def _phase1_from_rows(rows) -> dict:
+    """One email's phase-1 block from its stored rows (one row per paper; relation,
+    reasons and must_verify are the same on every row of one run)."""
+    first = rows[0]
+    reasons = []
+    for item in first.reasons if isinstance(first.reasons, list) else []:
+        if isinstance(item, dict) and isinstance(item.get("reason"), str):
+            reasons.append({"reason": item["reason"], "quote": _quote(item.get("quote"))})
+    papers: list[str] = []
+    for row in rows:
+        number = row.submission_number
+        if isinstance(number, str) and number and number not in papers:
+            papers.append(number)
+    return {
+        "source": PHASE1_SOURCE_ROWS,
+        "relation": first.relation,
+        "must_verify": bool(first.must_verify),
+        "papers": papers,
+        "reasons": reasons,
+    }
+
+
+def _phase1_from_snapshot(draft) -> dict | None:
+    """The names-only snapshot the hook stored (source "phase1"), or None."""
+    reply = draft.get("appeal_reply") if isinstance(draft, dict) else None
+    if not isinstance(reply, dict) or reply.get("source") != "phase1":
+        return None
+    snap = reply.get("phase1")
+    if not isinstance(snap, dict):
+        return None
+    names = snap.get("reasons") if isinstance(snap.get("reasons"), list) else []
+    papers = snap.get("papers") if isinstance(snap.get("papers"), list) else []
+    must_verify = snap.get("must_verify")
+    return {
+        "source": PHASE1_SOURCE_SNAPSHOT,
+        "relation": snap.get("relation") if isinstance(snap.get("relation"), str) else None,
+        "must_verify": must_verify if isinstance(must_verify, bool) else None,
+        "papers": [p for p in papers if isinstance(p, str) and p],
+        "reasons": [{"reason": n, "quote": None} for n in names if isinstance(n, str)],
+    }
+
+
+def phase1_block(draft, rows) -> dict | None:
+    """``appeal.phase1`` for one email: his stored rows first, else the draft's
+    snapshot, else None. ``rows`` are this email's ``phase1_appeals`` rows."""
+    if rows:
+        return _phase1_from_rows(rows)
+    return _phase1_from_snapshot(draft)
