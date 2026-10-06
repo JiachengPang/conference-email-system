@@ -39,8 +39,10 @@ N_NOT_APPEAL = ("Chair writes: the phase-1 classifier judged this email not to b
                 "example, a request to see the reviews or a reply without a request).")
 N_WRONG = ("Investigate first: the author says a review is about a different paper. "
            "Do not reply to or close the ticket yet.")
-N_RECORD = ("Investigate first: the author says a rating contradicts its own review, or that a "
-            "submitted review was left out of the decision. Do not reply to or close the ticket yet.")
+# Step 2.5: verify-before-sending notes on composed outcomes.
+N_V_MISCONDUCT = ("Before sending, check for harassment or an undisclosed conflict of interest. "
+                  "If either is present, do not send; forward the ticket to the Ethics Chairs.")
+N_V_RECORD = "Before sending, check the review text against its score."
 N_FEEDBACK = ("Chair writes: the author reports a review problem but says they are not asking "
               "for a change.")
 N_NO_VERIFIED = "Chair writes: the author appeals, but no reason could be verified in the email."
@@ -84,63 +86,96 @@ CASES = [
      MappedAppeal(None, "not_appeal", (N_NOT_APPEAL,), snap("not_appeal", "not_appeal"))),
     ("not-appeal-inside-a-result", classified("not_appeal", []),
      MappedAppeal(None, "not_appeal", (N_NOT_APPEAL,), cls_snap("not_appeal", []))),
-    # --- investigate first: no draft (must_verify) -------------------------------------------
+    # --- investigate first: no draft (wrong paper only, Step 2.5) ------------------------------
     ("wrong-paper", classified("appeal", ["wrong_paper_review"]),
      MappedAppeal(None, "no_draft", (N_WRONG,),
                   cls_snap("appeal", ["wrong_paper_review"], must_verify=True))),
-    ("record-error", classified("appeal", ["record_error"]),
-     MappedAppeal(None, "no_draft", (N_RECORD,), cls_snap("appeal", ["record_error"], True))),
-    ("both-investigate", classified("appeal", ["record_error", "wrong_paper_review"]),
-     MappedAppeal(None, "no_draft", (N_WRONG, N_RECORD),
+    # Step 2.5: record_error is no longer no_draft; with wrong paper it is "also raised".
+    ("wrong-paper-beats-record-error", classified("appeal", ["record_error", "wrong_paper_review"]),
+     MappedAppeal(None, "no_draft", (N_WRONG, "Also raised: record_error."),
                   cls_snap("appeal", ["record_error", "wrong_paper_review"], True))),
-    ("record-error-with-others",
-     classified("appeal", ["record_error", "reviewer_misjudgment", "other"]),
-     MappedAppeal(None, "no_draft", (N_RECORD, "Also raised: reviewer_misjudgment, other."),
-                  cls_snap("appeal", ["record_error", "reviewer_misjudgment", "other"], True))),
+    ("wrong-paper-beats-misconduct-and-other",
+     classified("appeal", ["reviewer_misconduct", "wrong_paper_review", "other"]),
+     MappedAppeal(None, "no_draft", (N_WRONG, "Also raised: reviewer_misconduct, other."),
+                  cls_snap("appeal", ["reviewer_misconduct", "wrong_paper_review", "other"], True))),
     ("investigate-beats-feedback-only", classified("feedback_only", ["wrong_paper_review"]),
      MappedAppeal(None, "no_draft", (N_WRONG,),
                   cls_snap("feedback_only", ["wrong_paper_review"], True))),
     ("investigate-beats-several-papers",
+     classified("appeal", ["wrong_paper_review"], papers=("11111", "22222")),
+     MappedAppeal(None, "no_draft", (N_WRONG,),
+                  cls_snap("appeal", ["wrong_paper_review"], True, ("11111", "22222")))),
+    # --- record_error composes now (Step 2.5); his must_verify stays True in the snapshot ------
+    ("record-error", classified("appeal", ["record_error"]),
+     MappedAppeal(("record_error",), None, (N_V_RECORD,),
+                  cls_snap("appeal", ["record_error"], True))),
+    ("record-error-with-T1", classified("appeal", ["record_error", "decision_vs_reviews"]),
+     MappedAppeal(("record_error", SCORE), None, (N_V_RECORD,),
+                  cls_snap("appeal", ["record_error", "decision_vs_reviews"], True))),
+    ("record-error-with-other-goes-to-the-chair",
+     classified("appeal", ["record_error", "reviewer_misjudgment", "other"]),
+     MappedAppeal(None, "chair_writes",
+                  ("Chair writes: no approved reply covers other.",
+                   "Also raised: record_error, reviewer_misjudgment."),
+                  cls_snap("appeal", ["record_error", "reviewer_misjudgment", "other"], True))),
+    ("record-error-with-several-papers-goes-to-the-chair",
      classified("appeal", ["record_error"], papers=("11111", "22222")),
-     MappedAppeal(None, "no_draft", (N_RECORD,),
+     MappedAppeal(None, "chair_writes",
+                  ("Chair writes: the email is about 2 papers; the approved replies are written "
+                   "for one paper.", "Raised: record_error."),
                   cls_snap("appeal", ["record_error"], True, ("11111", "22222")))),
+    ("record-error-feedback-only-goes-to-the-chair", classified("feedback_only", ["record_error"]),
+     MappedAppeal(None, "chair_writes", (N_FEEDBACK, "Raised: record_error."),
+                  cls_snap("feedback_only", ["record_error"], True))),
     # --- feedback only ----------------------------------------------------------------------
     ("feedback-only", classified("feedback_only", ["reviewer_misjudgment"]),
      MappedAppeal(None, "chair_writes", (N_FEEDBACK, "Raised: reviewer_misjudgment."),
                   cls_snap("feedback_only", ["reviewer_misjudgment"]))),
     ("feedback-only-no-reason", classified("feedback_only", []),
      MappedAppeal(None, "chair_writes", (N_FEEDBACK,), cls_snap("feedback_only", []))),
-    # --- reasons the chair writes (even mixed with T1/T2) -------------------------------------
+    # --- misconduct and missing material compose now (Step 2.5) -------------------------------
     ("missing-material", classified("appeal", ["missing_material_claim"]),
-     MappedAppeal(None, "chair_writes",
-                  ("Chair writes: no approved reply covers missing_material_claim.",),
+     MappedAppeal(("missing_material_claim",), None, (),
                   cls_snap("appeal", ["missing_material_claim"]))),
     ("misconduct", classified("appeal", ["reviewer_misconduct"]),
-     MappedAppeal(None, "chair_writes",
-                  ("Chair writes: no approved reply covers reviewer_misconduct.",),
+     MappedAppeal(("reviewer_misconduct",), None, (N_V_MISCONDUCT,),
                   cls_snap("appeal", ["reviewer_misconduct"]))),
-    ("other", classified("appeal", ["other"]),
-     MappedAppeal(None, "chair_writes", ("Chair writes: no approved reply covers other.",),
-                  cls_snap("appeal", ["other"]))),
     ("T1-with-missing-material",
      classified("appeal", ["missing_material_claim", "decision_vs_reviews"]),
-     MappedAppeal(None, "chair_writes",
-                  ("Chair writes: no approved reply covers missing_material_claim.",
-                   "Also raised: decision_vs_reviews."),
+     MappedAppeal(("missing_material_claim", SCORE), None, (),
                   cls_snap("appeal", ["missing_material_claim", "decision_vs_reviews"]))),
     ("T1-T2-with-misconduct",
      classified("appeal", ["reviewer_misconduct", "decision_vs_reviews", "reviewer_misjudgment"]),
-     MappedAppeal(None, "chair_writes",
-                  ("Chair writes: no approved reply covers reviewer_misconduct.",
-                   "Also raised: decision_vs_reviews, reviewer_misjudgment."),
+     MappedAppeal(("reviewer_misconduct", SCORE, REVIEWER), None, (N_V_MISCONDUCT,),
                   cls_snap("appeal", ["reviewer_misconduct", "decision_vs_reviews",
                                       "reviewer_misjudgment"]))),
-    ("two-chair-write-reasons-and-yan",
+    ("both-verify-notes-most-critical-first",
+     classified("appeal", ["record_error", "reviewer_misconduct"]),
+     MappedAppeal(("record_error", "reviewer_misconduct"), None, (N_V_MISCONDUCT, N_V_RECORD),
+                  cls_snap("appeal", ["record_error", "reviewer_misconduct"], True))),
+    ("misconduct-with-yan-b-left-to-the-composer",
+     classified("appeal", ["reviewer_misconduct", "llm_generated_review"]),
+     MappedAppeal(("reviewer_misconduct", LLM), None, (N_V_MISCONDUCT,),
+                  cls_snap("appeal", ["reviewer_misconduct", "llm_generated_review"]))),
+    ("misconduct-feedback-only-goes-to-the-chair", classified("feedback_only", ["reviewer_misconduct"]),
+     MappedAppeal(None, "chair_writes", (N_FEEDBACK, "Raised: reviewer_misconduct."),
+                  cls_snap("feedback_only", ["reviewer_misconduct"]))),
+    # --- reasons the chair writes (even mixed with composable reasons) ------------------------
+    ("other", classified("appeal", ["other"]),
+     MappedAppeal(None, "chair_writes", ("Chair writes: no approved reply covers other.",),
+                  cls_snap("appeal", ["other"]))),
+    ("other-with-missing-material-and-yan",
      classified("appeal", ["missing_material_claim", "llm_generated_review", "other"]),
      MappedAppeal(None, "chair_writes",
-                  ("Chair writes: no approved reply covers missing_material_claim, other.",
-                   "Also raised: llm_generated_review."),
+                  ("Chair writes: no approved reply covers other.",
+                   "Also raised: missing_material_claim, llm_generated_review."),
                   cls_snap("appeal", ["missing_material_claim", "llm_generated_review", "other"]))),
+    ("other-with-misconduct-has-no-verify-note",
+     classified("appeal", ["reviewer_misconduct", "other"]),
+     MappedAppeal(None, "chair_writes",
+                  ("Chair writes: no approved reply covers other.",
+                   "Also raised: reviewer_misconduct."),
+                  cls_snap("appeal", ["reviewer_misconduct", "other"]))),
     ("unknown-reason-is-chair-written", classified("appeal", ["future_reason", "decision_vs_reviews"]),
      MappedAppeal(None, "chair_writes",
                   ("Chair writes: no approved reply covers future_reason.",
@@ -221,12 +256,31 @@ def test_every_one_of_his_reasons_has_exactly_one_rule():
     composable, investigate, chair = set(m.COMPOSABLE), set(m.INVESTIGATE), m.CHAIR_WRITES_REASONS
     assert composable | investigate | chair == set(PHASE1_APPEAL_REASONS)
     assert not (composable & investigate) and not (composable & chair) and not (investigate & chair)
+    assert m.INVESTIGATE == ("wrong_paper_review",)
+    assert m.CHAIR_WRITES_REASONS == frozenset({"other"})
     assert m.COMPOSABLE == {
         "decision_vs_reviews": "score_outcome_mismatch",
         "reviewer_misjudgment": "reviewer_misunderstanding",
         "llm_generated_review": "llm_generated_review",
         "reconsideration_only": "general_dissatisfaction",
+        "reviewer_misconduct": "reviewer_misconduct",
+        "missing_material_claim": "missing_material_claim",
+        "record_error": "record_error",
     }
+
+
+def test_the_verify_notes_are_one_constant_most_critical_first():
+    """The one source for these texts (draft note now, CSV later), Step 2.5."""
+    assert list(m.VERIFY_BEFORE_SENDING.items()) == [
+        ("reviewer_misconduct", N_V_MISCONDUCT),
+        ("record_error", N_V_RECORD),
+    ]
+
+
+def test_every_composable_name_is_one_the_composer_accepts():
+    from app.pipeline.appeal_reply_composer import ALLOWED_REASONS
+
+    assert set(m.COMPOSABLE.values()) <= ALLOWED_REASONS
 
 
 @pytest.mark.parametrize("junk", [object(), "classified", 42, Phase1Outcome("some_new_state")])

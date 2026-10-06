@@ -33,7 +33,9 @@ Decision order with ``mapped`` (phase-1 source; ``_decide_from_phase1``):
      never has its reasons; it is decided before them.
   3. ``review_decision_appeal``: the mapping's hold (``no_draft``,
      ``chair_writes``, ``not_appeal`` or ``reason_unknown``), else
-     ``compose_reply(mapped.reasons)``.
+     ``compose_reply(mapped.reasons)``, with the mapping's verify-before-sending
+     notes (record_error, reviewer_misconduct; Step 2.5) kept after the
+     composer's own notes.
   4. The Phase 1 window, as below.
 
 Decision order without ``mapped`` (appeal_reason source; unchanged since Step 4):
@@ -213,6 +215,10 @@ def _decide_from_phase1(
         decision = _from_compose(compose_reply(composer_reasons, path=path), composer_reasons)
         if _outside_window(decision, created_at, window_end):
             decision = AppealReplyDecision("window", tuple(composer_reasons), (), None, (NOTE_WINDOW,))
+        # Step 2.5: a composable outcome's only mapping notes are the
+        # verify-before-sending checks (record_error, reviewer_misconduct). They
+        # follow whatever the composer decided, after its own notes.
+        decision = replace(decision, notes=decision.notes + mapped.notes)
     return replace(decision, source=PHASE1_SOURCE, phase1=dict(mapped.snapshot))
 
 

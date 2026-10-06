@@ -149,22 +149,24 @@ HOLD_CASES = [
      "Investigate first: the author says a review is about a different paper. Do not reply to or "
      "close the ticket yet.\nAlso raised: decision_vs_reviews.", "no_draft", [],
      cls("appeal", ["wrong_paper_review", "decision_vs_reviews"], True)),
-    ("record-error", classified("appeal", ["record_error"]),
+    # Step 2.5: record_error composes now; next to a wrong-paper review it is "also raised".
+    ("wrong-paper-with-record-error", classified("appeal", ["wrong_paper_review", "record_error"]),
      "[CHAIR: do not reply yet; see note]",
-     "Investigate first: the author says a rating contradicts its own review, or that a submitted "
-     "review was left out of the decision. Do not reply to or close the ticket yet.", "no_draft", [],
-     cls("appeal", ["record_error"], True)),
+     "Investigate first: the author says a review is about a different paper. Do not reply to or "
+     "close the ticket yet.\nAlso raised: record_error.", "no_draft", [],
+     cls("appeal", ["wrong_paper_review", "record_error"], True)),
     ("feedback-only", classified("feedback_only", ["reviewer_misjudgment"]),
      "[CHAIR: write reply]",
      "Chair writes: the author reports a review problem but says they are not asking for a "
      "change.\nRaised: reviewer_misjudgment.", "chair_writes", ["line_chair_writes"],
      cls("feedback_only", ["reviewer_misjudgment"])),
+    # Step 2.5: missing_material_claim composes now; `other` is the chair-written reason.
     ("chair-write-reason-with-T1-and-T2",
-     classified("appeal", ["decision_vs_reviews", "reviewer_misjudgment", "missing_material_claim"]),
+     classified("appeal", ["decision_vs_reviews", "reviewer_misjudgment", "other"]),
      "[CHAIR: write reply]",
-     "Chair writes: no approved reply covers missing_material_claim.\n"
+     "Chair writes: no approved reply covers other.\n"
      "Also raised: decision_vs_reviews, reviewer_misjudgment.", "chair_writes", ["line_chair_writes"],
-     cls("appeal", ["decision_vs_reviews", "reviewer_misjudgment", "missing_material_claim"])),
+     cls("appeal", ["decision_vs_reviews", "reviewer_misjudgment", "other"])),
     ("two-papers", classified("appeal", ["decision_vs_reviews"], papers=("11111", "22222")),
      "[CHAIR: write reply]",
      "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\n"
@@ -222,8 +224,14 @@ def test_the_window_replaces_composed_text_only():
     assert (draft.draft_text, draft.notes_for_chair) == (
         "[CHAIR: write reply]", "Appeal reply wording is for Phase 1 rejections only")
     assert (rec["mode"], rec["reasons"], rec["source"]) == ("window", ["score_outcome_mismatch"], "phase1")
-    assert run(REVIEW, classified("appeal", ["record_error"]), created=late,
+    assert run(REVIEW, classified("appeal", ["wrong_paper_review"]), created=late,
                window_end=WINDOW_END)[1]["mode"] == "no_draft"
+    # Step 2.5: record_error composes, so the window applies to it; its check stays.
+    draft, rec = run(REVIEW, classified("appeal", ["record_error"]), created=late,
+                     window_end=WINDOW_END)
+    assert rec["mode"] == "window"
+    assert draft.notes_for_chair == ("Appeal reply wording is for Phase 1 rejections only\n"
+                                     "Before sending, check the review text against its score.")
     assert run(REVIEW, classified("appeal", ["other"]), created=late,
                window_end=WINDOW_END)[1]["mode"] == "chair_writes"
     assert run(REVIEW, classified("appeal", ["decision_vs_reviews"]), created=None,

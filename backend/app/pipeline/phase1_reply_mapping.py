@@ -13,28 +13,34 @@ his 9 plus a quote) and the derived ``must_verify``. Any later version with the
 same contract can be dropped in; a reason name this module does not know is
 treated as one the chair must write (fail-safe).
 
-RULES, first match wins (Marc's defaults, decided 2026-10-04):
+RULES, first match wins (Marc's defaults, decided 2026-10-04; rules 5, 7 and
+10 changed in Step 2.5, 2026-10-05):
 
   1. no outcome (the phase-1 flag is off)        -> hold ``reason_unknown``
   2. gate not met (intent or date)                -> hold ``reason_unknown``
   3. the classifier failed                        -> hold ``reason_unknown``
   4. relation not_appeal                          -> hold ``not_appeal``
-  5. must_verify (wrong_paper_review or
-     record_error present)                        -> hold ``no_draft`` (investigate first)
+  5. wrong_paper_review present                   -> hold ``no_draft`` (investigate first)
+     (Step 2.5: decided by the name alone; his ``must_verify`` flag is no
+     longer read for routing and record_error no longer holds.)
   6. relation feedback_only                       -> hold ``chair_writes``
-  7. any reason the chair writes
-     (missing_material_claim, reviewer_misconduct,
-     other, or an unknown name) — even when mixed
-     with reasons that could be composed          -> hold ``chair_writes``
+  7. any reason the chair writes (other, or an
+     unknown name) — even when mixed with
+     reasons that could be composed               -> hold ``chair_writes``
   8. two or more distinct papers                  -> hold ``chair_writes``
   9. relation appeal with no verified reason      -> hold ``reason_unknown``
  10. otherwise compose, mapping each reason:
-       decision_vs_reviews   -> score_outcome_mismatch    (Marc's T1)
-       reviewer_misjudgment  -> reviewer_misunderstanding (Marc's T2)
-       llm_generated_review  -> llm_generated_review      (Yan's AI-review reply)
-       reconsideration_only  -> general_dissatisfaction   (Yan's general reply)
-     The composer then applies its own rules unchanged: T1 and T2 merge, and
-     either Yan reply mixed with any other reason goes to the chair (D105).
+       decision_vs_reviews    -> score_outcome_mismatch    (Marc's T1)
+       reviewer_misjudgment   -> reviewer_misunderstanding (Marc's T2)
+       llm_generated_review   -> llm_generated_review      (Yan's AI-review reply)
+       reconsideration_only   -> general_dissatisfaction   (Yan's general reply)
+       reviewer_misconduct    -> reviewer_misconduct       (Marc's 3 points, Step 2.5)
+       missing_material_claim -> missing_material_claim    (misconduct point 1, Step 2.5)
+       record_error           -> record_error              (the score point, Step 2.5)
+     The composer then applies its own rules unchanged: merged points in one
+     order, either Yan reply mixed with any other reason goes to the chair
+     (D105), more than three reasons go to the chair. A composed outcome
+     carries the VERIFY_BEFORE_SENDING notes of the reasons it contains.
 
 A hold ``chair_writes`` is answered by the hook with the approved chair-writes
 line; the other holds become the hook's own placeholders. Chair notes are plain
@@ -66,13 +72,26 @@ COMPOSABLE: dict[str, str] = {
     "reviewer_misjudgment": "reviewer_misunderstanding",
     "llm_generated_review": "llm_generated_review",
     "reconsideration_only": "general_dissatisfaction",
+    # Step 2.5: the composer's own names for these, passed through unchanged.
+    "reviewer_misconduct": "reviewer_misconduct",
+    "missing_material_claim": "missing_material_claim",
+    "record_error": "record_error",
 }
-# Reasons that claim a checkable factual error: no draft, the chair investigates.
-INVESTIGATE: tuple[str, ...] = ("wrong_paper_review", "record_error")
+# A review about a different paper: no draft, the chair investigates first.
+INVESTIGATE: tuple[str, ...] = ("wrong_paper_review",)
 # Reasons no approved reply covers: the chair writes the whole reply.
-CHAIR_WRITES_REASONS: frozenset[str] = frozenset(
-    {"missing_material_claim", "reviewer_misconduct", "other"}
-)
+CHAIR_WRITES_REASONS: frozenset[str] = frozenset({"other"})
+
+# What a person must check before a composed reply is sent (Step 2.5). The one
+# source for these texts: the chair note here and the CSV export. Most critical
+# first, which is the order the notes appear in.
+VERIFY_BEFORE_SENDING: dict[str, str] = {
+    "reviewer_misconduct": (
+        "Before sending, check for harassment or an undisclosed conflict of interest. "
+        "If either is present, do not send; forward the ticket to the Ethics Chairs."
+    ),
+    "record_error": "Before sending, check the review text against its score.",
+}
 
 # Snapshot states (what the phase-1 side decided), stored with the draft.
 STATE_FLAG_OFF = "flag_off"
@@ -95,16 +114,7 @@ NOTE_INVESTIGATE = {
         "Investigate first: the author says a review is about a different paper. "
         "Do not reply to or close the ticket yet."
     ),
-    "record_error": (
-        "Investigate first: the author says a rating contradicts its own review, or that "
-        "a submitted review was left out of the decision. Do not reply to or close the "
-        "ticket yet."
-    ),
 }
-NOTE_INVESTIGATE_GENERIC = (
-    "Investigate first: the author claims a factual error in the review record. "
-    "Do not reply to or close the ticket yet."
-)
 NOTE_FEEDBACK_ONLY = (
     "Chair writes: the author reports a review problem but says they are not asking for "
     "a change."
@@ -178,9 +188,9 @@ def _map(outcome) -> MappedAppeal:
 
     if result.relation == "not_appeal":  # defensive: his outcome rules drop it earlier
         return MappedAppeal(None, HOLD_NOT_APPEAL, (NOTE_NOT_APPEAL,), snapshot)
-    if result.must_verify:
-        investigate = [n for n in INVESTIGATE if n in names]
-        notes = tuple(NOTE_INVESTIGATE[n] for n in investigate) or (NOTE_INVESTIGATE_GENERIC,)
+    investigate = [n for n in INVESTIGATE if n in names]
+    if investigate:
+        notes = tuple(NOTE_INVESTIGATE[n] for n in investigate)
         others = [n for n in names if n not in investigate]
         return MappedAppeal(None, HOLD_NO_DRAFT, notes + _raised("Also raised", others), snapshot)
     if result.relation == "feedback_only":
@@ -203,4 +213,5 @@ def _map(outcome) -> MappedAppeal:
                             + _raised("Possibly raised (quote not verified)", dropped),
                             snapshot)
     composer_input = tuple(dict.fromkeys(COMPOSABLE[n] for n in names))
-    return MappedAppeal(composer_input, None, (), snapshot)
+    verify = tuple(text for name, text in VERIFY_BEFORE_SENDING.items() if name in names)
+    return MappedAppeal(composer_input, None, verify, snapshot)
