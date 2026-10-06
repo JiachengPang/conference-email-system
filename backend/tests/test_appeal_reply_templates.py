@@ -19,6 +19,9 @@ from app.pipeline.appeal_reply_templates import KINDS
 # Not an appeal reason: the reciprocal block serves the `is_reciprocal_dispute`
 # flag, which the registry deliberately excludes (D60).
 RECIPROCAL = "reciprocal_dispute"
+# Not in the registry either: phase-1 classifier names the composer accepts
+# (Step 2.5), served by Marc's misconduct points and the score point.
+COMPOSER_ONLY = {"reviewer_misconduct", "missing_material_claim", "record_error"}
 
 _TEMPLATES = (
     Path(__file__).resolve().parents[2] / "data" / "reply_templates" / "appeal_reply_templates.json"
@@ -26,6 +29,7 @@ _TEMPLATES = (
 
 EXPECTED_IDS = {
     "opening_warm", "lead_in_concerns",
+    "point_spc_evaluation", "point_reviewer_tracking", "point_ethics_form",
     "point_scores", "point_all_assessments", "point_rebuttal", "point_consider_input",
     "point_ai_review", "point_report_form",
     "closing_reviewed",
@@ -35,19 +39,21 @@ EXPECTED_IDS = {
 }
 
 # Who approved each block. Step 3c approved ten on 2026-10-02; Yan's AI-review reply
-# was approved on 2026-10-05, exactly as written. The exact hashes are pinned in
+# was approved on 2026-10-05, exactly as written, and so were Marc's three
+# reviewer-misconduct points (Step 2.5). The exact hashes are pinned in
 # test_appeal_reply_template_loader.py (APPROVED_PINS).
 _MARC, _YAN, _SAHIL = "Marc Pujol-Gonzalez", "Prof. Yan", "Sahil Satasiya"
+MISCONDUCT_POINTS = ("point_spc_evaluation", "point_reviewer_tracking", "point_ethics_form")
 APPROVERS = {
     "opening_warm": _MARC, "lead_in_concerns": _MARC, "point_scores": _MARC,
     "point_all_assessments": _MARC, "point_rebuttal": _MARC, "point_consider_input": _MARC,
     "closing_reviewed": _MARC, "full_reciprocal": _MARC,
     "standalone_general_stage1": _YAN, "standalone_ai_review": _YAN,
     "line_chair_writes": _SAHIL,
-}
+} | {block_id: _MARC for block_id in MISCONDUCT_POINTS}
 APPROVAL_DATES = {block_id: "2026-10-02" for block_id in APPROVERS} | {
     "standalone_ai_review": "2026-10-05",
-}
+} | {block_id: "2026-10-05" for block_id in MISCONDUCT_POINTS}
 
 # Kept in the file but no longer used (D97/D98/D101/D104).
 RETIRED_IDS = {
@@ -79,8 +85,8 @@ def test_the_file_is_schema_version_2(data):
 
 def test_the_file_holds_exactly_the_expected_ids(templates):
     ids = [t["id"] for t in templates]
-    assert len(ids) == 17
-    assert len(set(ids)) == 17, "template ids must be unique"
+    assert len(ids) == 20
+    assert len(set(ids)) == 20, "template ids must be unique"
     assert set(ids) == EXPECTED_IDS
 
 
@@ -137,10 +143,11 @@ def test_an_approved_entry_carries_its_approval_record(templates):
     assert ok({"status": "approved", "approved_by": "x", "approved_at": "2026-10-01", "approved_sha256": "y"})
 
 
-def test_every_reason_is_a_registry_name_or_reciprocal_dispute(templates):
-    """Full registry names only (D59/D92) — never the scoring letter codes.
-    Framing blocks (opening, lead-in, closing) serve every reason and list none."""
-    allowed = set(REASON_NAMES) | {RECIPROCAL}
+def test_every_reason_is_a_registry_name_reciprocal_or_composer_only(templates):
+    """Full registry names (D59/D92) — never the scoring letter codes — plus
+    reciprocal_dispute and the three composer-only names (Step 2.5). Framing
+    blocks (opening, lead-in, closing) serve every reason and list none."""
+    allowed = set(REASON_NAMES) | {RECIPROCAL} | COMPOSER_ONLY
     for t in templates:
         if t["kind"] not in ("opening", "lead_in", "closing"):
             assert t["reasons"], f"{t['id']}: empty reasons"
@@ -154,9 +161,10 @@ def test_every_entry_has_the_cycle_and_scope(templates):
 
 
 def test_exactly_the_expected_entries_are_approved_retired_and_draft(templates):
-    """The eleven blocks Marc, Yan and Sahil approved are approved, each with its
-    approver and date (Yan's AI-review reply on 2026-10-05, the rest on
-    2026-10-02); the six retired ones stay retired; no block is draft any more.
+    """The fourteen blocks Marc, Yan and Sahil approved are approved, each with its
+    approver and date (Yan's AI-review reply and Marc's three misconduct points
+    on 2026-10-05, the rest on 2026-10-02); the six retired ones stay retired; no
+    block is draft any more.
     Unapproved entries carry no approval record."""
     status = {t["id"]: t["status"] for t in templates}
     assert {i for i, s in status.items() if s == "approved"} == set(APPROVERS)
@@ -183,15 +191,28 @@ def test_the_new_standalone_blocks_are_complete_middles_for_one_reason(templates
 
 def test_the_live_points_have_the_decided_reasons_and_order(templates):
     """T1 = scores + rebuttal; T2 = reviewers + rebuttal + thanks (D97/D100). The
-    thanks point is no longer shared with the AI-review reason (D103)."""
+    thanks point is no longer shared with the AI-review reason (D103). Step 2.5:
+    Marc's three misconduct points come first (misconduct = all three,
+    missing material = the first only), and record_error shares the score point
+    without the rebuttal point. Existing points keep their relative order."""
     live = {t["id"]: (t["order"], t["reasons"]) for t in templates
             if t["kind"] == "point" and t["status"] != "retired"}
     assert live == {
-        "point_scores": (1, ["score_outcome_mismatch"]),
-        "point_all_assessments": (2, ["reviewer_misunderstanding"]),
-        "point_rebuttal": (3, ["score_outcome_mismatch", "reviewer_misunderstanding"]),
-        "point_consider_input": (4, ["reviewer_misunderstanding"]),
+        "point_spc_evaluation": (1, ["reviewer_misconduct", "missing_material_claim"]),
+        "point_reviewer_tracking": (2, ["reviewer_misconduct"]),
+        "point_ethics_form": (3, ["reviewer_misconduct"]),
+        "point_scores": (4, ["score_outcome_mismatch", "record_error"]),
+        "point_all_assessments": (5, ["reviewer_misunderstanding"]),
+        "point_rebuttal": (6, ["score_outcome_mismatch", "reviewer_misunderstanding"]),
+        "point_consider_input": (7, ["reviewer_misunderstanding"]),
     }
+
+
+def test_the_retired_points_sit_after_the_live_points(templates):
+    """Renumbered to 8 and 9 (Step 2.5) so no two points share an order."""
+    retired = {t["id"]: t["order"] for t in templates
+               if t["kind"] == "point" and t["status"] == "retired"}
+    assert retired == {"point_ai_review": 8, "point_report_form": 9}
 
 
 def test_the_blockers_are_as_decided(templates):
