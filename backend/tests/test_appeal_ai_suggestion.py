@@ -258,10 +258,15 @@ def test_a_year_in_an_otherwise_bank_sentence_fails_the_wording_check():
 
 
 # --- the prompt ---------------------------------------------------------------------
-# Approved by Sahil 2026-10-04 with two edits ("at most 250 words"; no cycle names).
+# Approved by Sahil 2026-10-04 with two edits ("at most 250 words"; no cycle names),
+# then revised in 2b (2026-10-06, Sahil): the POINT line now asks for the approved
+# standard points (point_ blocks; standalone sentences only for an AI-review or a
+# plain reconsideration complaint), never echoing the complaint, as few points as
+# needed, no near-duplicates; and approved sentences may carry a link or an
+# internal role, copied as they are. Was 1665 / 9c44c910…
 # Any change to the wording must be re-approved and these two values updated.
-PROMPT_LENGTH = 1665
-PROMPT_SHA256 = "9c44c910fef767847410d01c9a5b277aa7bb4649c49ad70fd23c16f227aeb131"
+PROMPT_LENGTH = 2000
+PROMPT_SHA256 = "f6c217cefd5f49254fb000b9a98d944dc1f920316f0a6a55d979e652feee211f"
 
 
 def test_the_system_prompt_is_pinned_by_length_and_hash():
@@ -284,6 +289,18 @@ def test_the_system_prompt_names_no_cycle_so_the_pin_survives_a_new_cycle():
 
 def test_the_prompt_word_limit_matches_the_code():
     assert f"Keep the reply to at most {MAX_WORDS} words." in SYSTEM_PROMPT
+
+
+def test_the_2b_prompt_lines_are_as_approved():
+    assert "one point for each concern the author raises" not in SYSTEM_PROMPT
+    assert ("- POINT: use the approved standard points (the blocks whose names start with "
+            "point_). Use sentences from the standalone reply blocks only for an "
+            "AI-generated-review complaint or a plain reconsideration request. Never restate or "
+            "echo the author's complaint. Use as few points as needed, and never use two "
+            "sentences that say nearly the same thing. The point that Phase 1 decisions are "
+            "final (the rebuttal point) appears at most once.\n") in SYSTEM_PROMPT
+    assert ("Some approved sentences already contain a link or name an internal role; copy "
+            "those exactly as they are.\n") in SYSTEM_PROMPT
 
 
 def test_the_user_message_lists_the_bank_and_fences_the_email(bank):

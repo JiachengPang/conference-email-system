@@ -39,6 +39,7 @@ from app.pipeline.appeal_reasons import is_valid_stored
 from app.pipeline.phase1_appeal_classifier import classify_phase1_appeal
 from app.pipeline import phase1_appeal_outcome
 from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
+from app.pipeline.appeal_ai_draft import apply_ai_suggestion
 from app.pipeline.appeal_reply_hook import prepare_appeal_draft
 from app.pipeline.phase1_reply_mapping import map_phase1
 from app.pipeline.retriever import (
@@ -775,6 +776,12 @@ class EmailPipeline:
                     window_end=settings.APPEAL_REPLY_WINDOW_END,
                     mapped=mapped,
                 )
+                # 2b: a flagged AI suggestion for some placeholder outcomes
+                # (appeal_ai_draft.should_suggest). Flag off: never called.
+                if settings.APPEAL_AI_SUGGESTION_ENABLED:
+                    draft, appeal_reply = await apply_ai_suggestion(
+                        classification.intent, draft, appeal_reply, email_data
+                    )
             else:
                 draft = await self.drafter.draft(
                     email_data, classification, retrieved_chunks, forced_policy_key

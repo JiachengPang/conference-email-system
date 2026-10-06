@@ -58,6 +58,7 @@ from app.integrations.zendesk.sender import (
 from app.models.enums import EmailSource, EmailStatus
 from app.pipeline.active_learning import build_flag_events
 from app.db.models import AuditLog, Email
+from app.pipeline.appeal_ai_draft import MODE_AI_SUGGESTION
 from app.pipeline.drafter import find_placeholders
 from app.pipeline.orchestrator import EmailPipeline, resolve_lineage_roots
 from app.pipeline.rl_router import get_rl_router
@@ -1187,7 +1188,11 @@ async def approve_email(
     # experience-learning stage looks for (a chair supplying knowledge the AI
     # didn't have) — schedule the best-effort background learner. A plain
     # unchanged approve, or an edit with no such gap, schedules nothing.
-    if edited and find_placeholders(original_text):
+    # 2b: never for an AI suggestion — its only gap is the AI flag line, and
+    # learning from it would turn unapproved model wording into a policy.
+    appeal_mode = (draft.get("appeal_reply") or {}).get("mode")
+    if (edited and find_placeholders(original_text)
+            and appeal_mode != MODE_AI_SUGGESTION):
         background_tasks.add_task(_learn_from_edit_bg, str(updated.id))
     return _email_to_dict(updated)
 

@@ -155,6 +155,14 @@ class Settings(BaseSettings):
     # Outcomes with no wording (no draft, reciprocal review, chair writes) keep
     # their own notes. None = no window.
     APPEAL_REPLY_WINDOW_END: datetime | None = None
+    # Flagged AI suggestion (2b). When True, a review-decision appeal that the
+    # hook could only answer with a placeholder (chair writes, refused, or reason
+    # unknown after a classifier failure / no verified reason; never for
+    # feedback-only, `other`, an unknown reason or several papers) gets ONE model
+    # call that builds a middle from approved sentences only. The draft starts
+    # with a [CHAIR: ...] flag line, so it is blocked at approve and send until a
+    # chair edits it. Read only when APPEAL_REPLY_COMPOSER_ENABLED is also True.
+    APPEAL_AI_SUGGESTION_ENABLED: bool = False
 
     # Chair notes in Zendesk (Z2). When True, an eligible reject-appeal email's
     # draft is posted to its Zendesk ticket as an INTERNAL note (public: false)
