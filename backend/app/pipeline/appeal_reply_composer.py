@@ -10,7 +10,8 @@ blocks only through the loader's approved-only functions plus its id-only
 add ``reciprocal_dispute``).
 
 Rules, applied in this order (reasons are registry names plus
-``reciprocal_dispute``):
+``reciprocal_dispute`` plus the composer-only ``reviewer_misconduct``,
+``missing_material_claim`` and ``record_error``, Step 2.5):
   1. NO DRAFT — ``wrong_paper_review`` present, alone or with others (D98/D108):
      mode ``no_draft``, body None, refusal None. The chair note says to
      investigate first and not to reply to or close the ticket yet; any other
@@ -25,10 +26,10 @@ Rules, applied in this order (reasons are registry names plus
      ``standalone``. Combined with each other or with ANY other reason, the
      chair writes (mode ``chair_writes``, the chair line, a note naming the
      reasons) — D105.
-  4. Then, with only ``score_outcome_mismatch``, ``reviewer_misunderstanding``
-     and ``other`` left:
-       more than ``MAX_REASONS`` -> the chair writes (a defensive guard: with
-       today's registry rule 3 already catches every larger set);
+  4. Then, with only ``score_outcome_mismatch``, ``reviewer_misunderstanding``,
+     ``other`` and the composer-only reasons left:
+       more than ``MAX_REASONS`` -> the chair writes (reachable since Step 2.5:
+       four or more of the merged reasons go to a person);
        {other} -> the chair line alone (mode ``chair_writes``);
        else MERGED: opening + lead-in, the needed points numbered "(n)" in the
        ONE global point order (the file's ``order``), each point once even when
@@ -70,12 +71,24 @@ WRONG_PAPER = "wrong_paper_review"
 GENERAL = "general_dissatisfaction"
 LLM = "llm_generated_review"
 OTHER = "other"
+# Composer-only reasons (Step 2.5): names from the phase-1 classifier with an
+# approved reply, passed through unchanged by phase1_reply_mapping. Deliberately
+# NOT in the appeal-reason registry, whose names are our own classifier's answer
+# contract.
+MISCONDUCT = "reviewer_misconduct"
+MISSING_MATERIAL = "missing_material_claim"
+RECORD_ERROR = "record_error"
 MAX_REASONS = 3                                 # rule 4 guard
 SEP = "\n\n"                                    # paragraph separator everywhere
 
-# Registry order + reciprocal last: the one canonical order for sets of reasons,
-# so any input ordering gives identical output.
-_ORDER = {name: i for i, name in enumerate(REASON_NAMES)} | {RECIPROCAL: len(REASON_NAMES)}
+# The one canonical order for sets of reasons, so any input ordering gives
+# identical output. Most critical first (Step 2.5): misconduct, then missing
+# material, then the registry in its own order, then record_error, with
+# reciprocal last as before. The registry names keep their relative order, so
+# every reply without a new reason is unchanged. This orders reasons (notes);
+# the POINTS keep the one global order from the template file.
+_REASON_ORDER = (MISCONDUCT, MISSING_MATERIAL, *REASON_NAMES, RECORD_ERROR, RECIPROCAL)
+_ORDER = {name: i for i, name in enumerate(_REASON_ORDER)}
 ALLOWED_REASONS = frozenset(_ORDER)
 
 OPENING, LEAD_IN, CLOSING = "opening_warm", "lead_in_concerns", "closing_reviewed"
@@ -183,7 +196,8 @@ def _compose(reasons, path) -> ComposeResult:
         block_id = STANDALONE[ordered[0]]
         return _finish(need(block_id), "standalone", (block_id,), (), blocks=blocks)
 
-    # 4. Only score_outcome_mismatch, reviewer_misunderstanding and other remain.
+    # 4. Only merged reasons remain: score_outcome_mismatch,
+    # reviewer_misunderstanding, other, and the composer-only reasons.
     if len(ordered) > MAX_REASONS:
         return chair_writes(
             f"Chair writes: more than {MAX_REASONS} issues raised: {', '.join(ordered)}."
