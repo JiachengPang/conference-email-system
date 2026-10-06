@@ -102,10 +102,17 @@ ALLOWED_DIGIT_SPANS: list[str] = [
     r"\bPhase [12]\b",
 ]
 
-# Structure, beyond RULES: URLs are refused unless listed EXACTLY here (empty for
-# now), and square-bracket placeholders are refused except "[CHAIR: ...]" and a
-# placeholder whose blocker is listed in the entry's blocked_on.
-ALLOWED_URLS: frozenset[str] = frozenset()
+# Structure, beyond RULES: URLs are refused unless listed EXACTLY here, and
+# square-bracket placeholders are refused except "[CHAIR: ...]" and a placeholder
+# whose blocker is listed in the entry's blocked_on. A URL is compared after
+# trailing ".", "," and ";" are removed, so a URL ending a sentence still matches;
+# anything else (another scheme, a changed character, extra path or query text)
+# is a different URL and is refused.
+ALLOWED_URLS: frozenset[str] = frozenset({
+    # The AAAI ethics report form, in Marc's approved misconduct point 3
+    # (Step 2.5, 2026-10-05).
+    "https://docs.google.com/forms/d/e/1FAIpQLSdIs72RunUy5wKsOv7SdBma6A6riv3jp8lifUxlLcwhcdXMxw/viewform",
+})
 TOLERATED_WHEN_BLOCKED: dict[str, str] = {"[ETHICS FORM ADDRESS]": "ethics_form_address"}
 
 _URL_RE = re.compile(r"https?://[^\s)\]>]+|\bwww\.[^\s)\]>]+", re.I)
