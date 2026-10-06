@@ -101,6 +101,20 @@ VERIFY_BEFORE_SENDING: dict[str, str] = {
 # misconduct: a chair writing that reply still has to look for harassment or a
 # conflict of interest. Never on reciprocal, not_appeal or "reason unknown".
 HOLD_VERIFY_REASONS: tuple[str, ...] = ("reviewer_misconduct",)
+# CSV only (verify_before_sending column), for a wrong-paper ticket held with no
+# draft. The chair note for that case is NOTE_INVESTIGATE, unchanged.
+VERIFY_WRONG_PAPER = "Do not reply or close the ticket until it is clear what we are doing with it."
+
+
+def verify_notes(names, *, held: bool) -> tuple[str, ...]:
+    """The verify-before-sending texts for these reason names, most critical first.
+
+    ``held`` False (a composable outcome): every reason in VERIFY_BEFORE_SENDING.
+    ``held`` True (rules 5-8): only HOLD_VERIFY_REASONS. The one rule shared by
+    the mapping's notes and the CSV helper in ``appeal_reply_hook``.
+    """
+    keys = HOLD_VERIFY_REASONS if held else tuple(VERIFY_BEFORE_SENDING)
+    return tuple(VERIFY_BEFORE_SENDING[n] for n in keys if n in names)
 
 # Snapshot states (what the phase-1 side decided), stored with the draft.
 STATE_FLAG_OFF = "flag_off"
@@ -167,7 +181,7 @@ def _raised(prefix: str, names: list[str]) -> tuple[str, ...]:
 
 def _hold_checks(names: list[str]) -> tuple[str, ...]:
     """The verify-before-sending notes a HELD email keeps (misconduct only)."""
-    return tuple(VERIFY_BEFORE_SENDING[n] for n in HOLD_VERIFY_REASONS if n in names)
+    return verify_notes(names, held=True)
 
 
 def map_phase1(outcome) -> MappedAppeal:
@@ -230,5 +244,4 @@ def _map(outcome) -> MappedAppeal:
                             + _raised("Possibly raised (quote not verified)", dropped),
                             snapshot)
     composer_input = tuple(dict.fromkeys(COMPOSABLE[n] for n in names))
-    verify = tuple(text for name, text in VERIFY_BEFORE_SENDING.items() if name in names)
-    return MappedAppeal(composer_input, None, verify, snapshot)
+    return MappedAppeal(composer_input, None, verify_notes(names, held=False), snapshot)

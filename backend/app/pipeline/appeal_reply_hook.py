@@ -67,7 +67,13 @@ from pathlib import Path
 from app.pipeline.appeal_reply_composer import OTHER, RECIPROCAL, compose_reply
 from app.pipeline.appeal_reply_templates import DEFAULT_PATH
 from app.pipeline.drafter import DraftResponse, find_placeholders
-from app.pipeline.phase1_reply_mapping import HOLD_CHAIR_WRITES, MappedAppeal
+from app.pipeline.phase1_reply_mapping import (
+    HOLD_CHAIR_WRITES,
+    HOLD_NO_DRAFT,
+    VERIFY_WRONG_PAPER,
+    MappedAppeal,
+    verify_notes,
+)
 from app.pipeline.taxonomy import REJECT_APPEAL_INTENTS
 
 logger = logging.getLogger(__name__)
@@ -259,6 +265,39 @@ def decide_appeal_reply(
         if created is None or end is None or created > end:
             return AppealReplyDecision("window", tuple(reasons), (), None, (NOTE_WINDOW,))
     return decision
+
+
+# Hook outcomes that carry no verify-before-sending text (Step 2.5).
+NO_VERIFY_MODES = frozenset({
+    "reciprocal_review", "not_appeal", "reason_unknown", "desk_reject", "failed",
+})
+VERIFY_SEPARATOR = " "
+
+
+def verify_before_sending(reasons, record) -> str:
+    """The CSV ``verify_before_sending`` text for one phase-1 email (Step 2.5).
+
+    ``reasons`` are the phase-1 classifier's reason names; ``record`` is the
+    hook's stored ``appeal_reply`` record for the same run. Mirrors the checks
+    the hook puts in the chair note, from the same constants:
+      * no text for reciprocal, not_appeal, reason unknown, desk reject, failed;
+      * a no-draft hold with a wrong-paper review: VERIFY_WRONG_PAPER first;
+      * a hold (the record's ``reasons`` is None): the misconduct check only;
+      * otherwise (the composer decided): every check of the reasons present.
+    Pure. Deliberately NOT wrapped in a catch-all: an empty cell would silently
+    hide a required check, so a broken input must fail the export loudly.
+    """
+    if not isinstance(record, dict):
+        return ""
+    mode = record.get("mode")
+    if mode is None or mode in NO_VERIFY_MODES:
+        return ""
+    names = [r for r in (reasons or []) if isinstance(r, str)]
+    items: list[str] = []
+    if mode == HOLD_NO_DRAFT and "wrong_paper_review" in names:
+        items.append(VERIFY_WRONG_PAPER)
+    items.extend(verify_notes(names, held=record.get("reasons") is None))
+    return VERIFY_SEPARATOR.join(items)
 
 
 def _greeting_name(sender_name) -> str:
