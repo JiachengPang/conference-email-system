@@ -69,11 +69,11 @@ def draft_of(*points: str) -> str:
     return f"Dear Jane Doe,\n\n{OPENING}\n\n{numbered}{CLOSING}\n\n{SIGN}"
 
 
-def classified(reasons, relation="appeal") -> Phase1Outcome:
+def classified(reasons, relation="appeal", papers=("12345",), dropped=()) -> Phase1Outcome:
     return Phase1Outcome(CLASSIFIED, Phase1AppealResult(
-        relation=relation, papers=["12345"],
+        relation=relation, papers=list(papers),
         reasons=[AppealReason(reason=r, quote=f"quote for {r}") for r in reasons],
-        dropped_unquoted=[],
+        dropped_unquoted=list(dropped),
     ))
 
 
@@ -134,9 +134,58 @@ HELD = [
     ("wrong-paper-beats-record-error", classified(["record_error", "wrong_paper_review"]),
      "[CHAIR: do not reply yet; see note]", f"{N_WRONG}\nAlso raised: record_error.",
      "no_draft", None, []),
+    # Held with misconduct: the misconduct check is kept (answer 2), and only that one.
     ("wrong-paper-beats-misconduct", classified(["wrong_paper_review", "reviewer_misconduct"]),
-     "[CHAIR: do not reply yet; see note]", f"{N_WRONG}\nAlso raised: reviewer_misconduct.",
+     "[CHAIR: do not reply yet; see note]",
+     f"{N_WRONG}\nAlso raised: reviewer_misconduct.\n{V_MISCONDUCT}",
      "no_draft", None, []),
+    ("wrong-paper-with-record-error-and-misconduct",
+     classified(["wrong_paper_review", "record_error", "reviewer_misconduct"]),
+     "[CHAIR: do not reply yet; see note]",
+     f"{N_WRONG}\nAlso raised: record_error, reviewer_misconduct.\n{V_MISCONDUCT}",
+     "no_draft", None, []),
+    ("misconduct-with-other", classified(["reviewer_misconduct", "other"]),
+     "[CHAIR: write reply]",
+     f"Chair writes: no approved reply covers other.\nAlso raised: reviewer_misconduct.\n{V_MISCONDUCT}",
+     "chair_writes", None, ["line_chair_writes"]),
+    ("misconduct-feedback-only", classified(["reviewer_misconduct"], relation="feedback_only"),
+     "[CHAIR: write reply]",
+     "Chair writes: the author reports a review problem but says they are not asking for a "
+     f"change.\nRaised: reviewer_misconduct.\n{V_MISCONDUCT}",
+     "chair_writes", None, ["line_chair_writes"]),
+    ("misconduct-with-two-papers", classified(["reviewer_misconduct"], papers=("11111", "22222")),
+     "[CHAIR: write reply]",
+     "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\n"
+     f"Raised: reviewer_misconduct.\n{V_MISCONDUCT}",
+     "chair_writes", None, ["line_chair_writes"]),
+    # record_error's check never rides on a hold.
+    ("record-error-feedback-only-has-no-check", classified(["record_error"], relation="feedback_only"),
+     "[CHAIR: write reply]",
+     "Chair writes: the author reports a review problem but says they are not asking for a "
+     "change.\nRaised: record_error.",
+     "chair_writes", None, ["line_chair_writes"]),
+    ("record-error-with-two-papers-has-no-check",
+     classified(["record_error"], papers=("11111", "22222")),
+     "[CHAIR: write reply]",
+     "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\n"
+     "Raised: record_error.",
+     "chair_writes", None, ["line_chair_writes"]),
+    ("record-error-with-other-has-no-check", classified(["record_error", "other"]),
+     "[CHAIR: write reply]",
+     "Chair writes: no approved reply covers other.\nAlso raised: record_error.",
+     "chair_writes", None, ["line_chair_writes"]),
+    # No check where the email is not answered as an appeal.
+    ("not-appeal-with-misconduct-has-no-check",
+     classified(["reviewer_misconduct"], relation="not_appeal"),
+     "[CHAIR: write reply]",
+     "Chair writes: the phase-1 classifier judged this email not to be an appeal (for example, a "
+     "request to see the reviews or a reply without a request).",
+     "not_appeal", None, []),
+    ("unverified-misconduct-has-no-check", classified([], dropped=("reviewer_misconduct",)),
+     "[CHAIR: write reply]",
+     "Chair writes: the author appeals, but no reason could be verified in the email.\n"
+     "Possibly raised (quote not verified): reviewer_misconduct.",
+     "reason_unknown", None, []),
     ("misconduct-with-yan-b-goes-to-the-chair",
      classified(["reviewer_misconduct", "llm_generated_review"]),
      "[CHAIR: write reply]",
@@ -175,11 +224,19 @@ def test_the_new_reasons_never_override_the_precedence_rules(outcome, text, note
     assert (rec["mode"], rec["reasons"], rec["block_ids"]) == (mode, rec_reasons, blocks)
 
 
-def test_a_reciprocal_complaint_still_comes_first_and_carries_no_verify_note():
-    draft, rec = run(classified(["record_error"]), reciprocal=True)
+RECIPROCAL_NOTE = "Reciprocal-review complaint: tagged for Marc to review himself. No reply is drafted."
+
+
+@pytest.mark.parametrize("outcome, also", [
+    (classified(["record_error"]), "\nAlso raised: record_error."),
+    (classified(["reviewer_misconduct"]), "\nAlso raised: reviewer_misconduct."),
+    (classified(["reviewer_misconduct", "other"]), ""),
+    (classified(["wrong_paper_review", "reviewer_misconduct"]), ""),
+], ids=["record-error", "misconduct", "misconduct+other", "wrong-paper+misconduct"])
+def test_a_reciprocal_complaint_still_comes_first_and_carries_no_verify_note(outcome, also):
+    draft, rec = run(outcome, reciprocal=True)
     assert draft.draft_text == "[CHAIR: reciprocal complaint; see note]"
-    assert draft.notes_for_chair == ("Reciprocal-review complaint: tagged for Marc to review himself. "
-                                     "No reply is drafted.\nAlso raised: record_error.")
+    assert draft.notes_for_chair == RECIPROCAL_NOTE + also
     assert rec["mode"] == "reciprocal_review"
 
 

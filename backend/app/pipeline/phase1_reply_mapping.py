@@ -42,6 +42,10 @@ RULES, first match wins (Marc's defaults, decided 2026-10-04; rules 5, 7 and
      (D105), more than three reasons go to the chair. A composed outcome
      carries the VERIFY_BEFORE_SENDING notes of the reasons it contains.
 
+A held outcome from rules 5-8 also carries the misconduct check when
+reviewer_misconduct is among the reasons (HOLD_VERIFY_REASONS; record_error's
+check is never added to a hold). Rules 1-4 and 9 never carry a check.
+
 A hold ``chair_writes`` is answered by the hook with the approved chair-writes
 line; the other holds become the hook's own placeholders. Chair notes are plain
 text for the chair, never part of the reply. The snapshot stored with the draft
@@ -92,6 +96,11 @@ VERIFY_BEFORE_SENDING: dict[str, str] = {
     ),
     "record_error": "Before sending, check the review text against its score.",
 }
+# Reasons whose check is ALSO added when the email is held for the chair (rules
+# 5-8: no draft, feedback only, a chair-written reason, several papers). Only
+# misconduct: a chair writing that reply still has to look for harassment or a
+# conflict of interest. Never on reciprocal, not_appeal or "reason unknown".
+HOLD_VERIFY_REASONS: tuple[str, ...] = ("reviewer_misconduct",)
 
 # Snapshot states (what the phase-1 side decided), stored with the draft.
 STATE_FLAG_OFF = "flag_off"
@@ -156,6 +165,11 @@ def _raised(prefix: str, names: list[str]) -> tuple[str, ...]:
     return (f"{prefix}: {', '.join(names)}.",) if names else ()
 
 
+def _hold_checks(names: list[str]) -> tuple[str, ...]:
+    """The verify-before-sending notes a HELD email keeps (misconduct only)."""
+    return tuple(VERIFY_BEFORE_SENDING[n] for n in HOLD_VERIFY_REASONS if n in names)
+
+
 def map_phase1(outcome) -> MappedAppeal:
     """Map one phase-1 outcome (``None`` when the flag is off). Never raises."""
     try:
@@ -192,20 +206,23 @@ def _map(outcome) -> MappedAppeal:
     if investigate:
         notes = tuple(NOTE_INVESTIGATE[n] for n in investigate)
         others = [n for n in names if n not in investigate]
-        return MappedAppeal(None, HOLD_NO_DRAFT, notes + _raised("Also raised", others), snapshot)
+        return MappedAppeal(None, HOLD_NO_DRAFT,
+                            notes + _raised("Also raised", others) + _hold_checks(names), snapshot)
     if result.relation == "feedback_only":
         return MappedAppeal(None, HOLD_CHAIR_WRITES,
-                            (NOTE_FEEDBACK_ONLY,) + _raised("Raised", names), snapshot)
+                            (NOTE_FEEDBACK_ONLY,) + _raised("Raised", names) + _hold_checks(names),
+                            snapshot)
     chair_written = [n for n in names if n in CHAIR_WRITES_REASONS or n not in COMPOSABLE]
     if chair_written:
         note = f"Chair writes: no approved reply covers {', '.join(chair_written)}."
         others = [n for n in names if n not in chair_written]
-        return MappedAppeal(None, HOLD_CHAIR_WRITES, (note,) + _raised("Also raised", others),
-                            snapshot)
+        return MappedAppeal(None, HOLD_CHAIR_WRITES,
+                            (note,) + _raised("Also raised", others) + _hold_checks(names), snapshot)
     if len(papers) >= 2:
         note = (f"Chair writes: the email is about {len(papers)} papers; the approved replies "
                 "are written for one paper.")
-        return MappedAppeal(None, HOLD_CHAIR_WRITES, (note,) + _raised("Raised", names), snapshot)
+        return MappedAppeal(None, HOLD_CHAIR_WRITES,
+                            (note,) + _raised("Raised", names) + _hold_checks(names), snapshot)
     if not names:
         dropped = list(dict.fromkeys(getattr(result, "dropped_unquoted", None) or []))
         return MappedAppeal(None, HOLD_REASON_UNKNOWN,
