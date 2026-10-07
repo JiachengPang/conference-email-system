@@ -235,7 +235,7 @@ def real_copy(tmp_path) -> Path:
     # Approved 2026-10-05, so re-approving it is now refused as already approved
     # (it used to be refused as blocked; the blocked rule is covered on synthetic
     # entries above, since no live block in the real file is blocked any more).
-    ("standalone_ai_review", "standalone_ai_review: status_is_approved"),
+    ("standalone_ai_review", "standalone_ai_review: status_is_retired"),
     ("holding_wrong_paper", "holding_wrong_paper: status_is_retired"),
     ("point_scores", "point_scores: status_is_approved"),
 ])

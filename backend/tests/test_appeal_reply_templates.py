@@ -28,11 +28,11 @@ _TEMPLATES = (
 )
 
 EXPECTED_IDS = {
-    "opening_warm", "lead_in_concerns",
+    "opening_warm", "opening_warm_plural", "lead_in_concerns",
     "point_review_process", "point_spc_evaluation", "point_reviewer_tracking", "point_ethics_form",
     "point_scores", "point_all_assessments", "point_rebuttal", "point_consider_input",
     "point_ai_review", "point_report_form",
-    "closing_reviewed",
+    "closing_reviewed", "closing_feedback",
     "holding_wrong_paper", "holding_score_mismatch", "holding_both",
     "body_reconsider", "line_chair_writes", "full_reciprocal",
     "standalone_general_stage1", "standalone_ai_review",
@@ -45,22 +45,27 @@ EXPECTED_IDS = {
 # The ethics-form point kept its body, so Marc's approval of it still holds.
 _MARC, _JIACHENG, _SAHIL = "Marc Pujol-Gonzalez", "Jiacheng Pang", "Sahil Satasiya"
 REWORDED = (
-    "point_review_process", "point_scores", "point_rebuttal", "point_reviewer_tracking",
-    "closing_reviewed", "standalone_ai_review", "standalone_general_stage1",
+    "point_scores", "point_rebuttal", "point_reviewer_tracking",
+    "closing_reviewed", "standalone_general_stage1",
 )
+# Approved 2026-10-07 by Jiacheng Pang: the merged AI-review point, the
+# feedback-only closing, the plural opening, and the review-process point
+# (re-approved with llm_generated_review added to its reasons).
+ADDED = ("point_review_process", "point_ai_review", "closing_feedback", "opening_warm_plural")
 APPROVERS = {
     "opening_warm": _MARC, "lead_in_concerns": _MARC, "full_reciprocal": _MARC,
     "point_ethics_form": _MARC, "line_chair_writes": _SAHIL,
-} | {block_id: _JIACHENG for block_id in REWORDED}
+} | {block_id: _JIACHENG for block_id in (*REWORDED, *ADDED)}
 APPROVAL_DATES = {
     "opening_warm": "2026-10-02", "lead_in_concerns": "2026-10-02", "full_reciprocal": "2026-10-02",
     "line_chair_writes": "2026-10-02", "point_ethics_form": "2026-10-05",
-} | {block_id: "2026-10-06" for block_id in REWORDED}
+} | {block_id: "2026-10-06" for block_id in REWORDED} | {
+    block_id: "2026-10-07" for block_id in ADDED}
 
 # Kept in the file but no longer used (D97/D98/D101/D104), plus the three points the
 # chairs' rewording replaced (folded into point_review_process).
 RETIRED_IDS = {
-    "point_ai_review", "point_report_form",
+    "standalone_ai_review", "point_report_form",
     "holding_wrong_paper", "holding_score_mismatch", "holding_both",
     "body_reconsider",
     "point_spc_evaluation", "point_all_assessments", "point_consider_input",
@@ -89,8 +94,8 @@ def test_the_file_is_schema_version_2(data):
 
 def test_the_file_holds_exactly_the_expected_ids(templates):
     ids = [t["id"] for t in templates]
-    assert len(ids) == 21
-    assert len(set(ids)) == 21, "template ids must be unique"
+    assert len(ids) == 23
+    assert len(set(ids)) == 23, "template ids must be unique"
     assert set(ids) == EXPECTED_IDS
 
 
@@ -105,9 +110,13 @@ def test_every_kind_is_an_allowed_kind(templates):
         assert t["kind"] in KINDS, f"{t['id']}: kind {t['kind']!r}"
 
 
-def test_exactly_one_opening_one_lead_in_and_one_closing(templates):
-    for kind in ("opening", "lead_in", "closing"):
-        assert sum(1 for t in templates if t["kind"] == kind) == 1, kind
+def test_the_openings_lead_in_and_closings(templates):
+    """One lead-in; an opening for one paper and one for several; a closing for
+    appeals and one for feedback-only emails."""
+    expected = {"opening": {"opening_warm", "opening_warm_plural"}, "lead_in": {"lead_in_concerns"},
+                "closing": {"closing_reviewed", "closing_feedback"}}
+    for kind, ids in expected.items():
+        assert {t["id"] for t in templates if t["kind"] == kind} == ids, kind
 
 
 def test_every_point_has_a_unique_integer_order(templates):
@@ -165,10 +174,10 @@ def test_every_entry_has_the_cycle_and_scope(templates):
 
 
 def test_exactly_the_expected_entries_are_approved_retired_and_draft(templates):
-    """Twelve blocks are approved, each with its approver and date: the seven the
-    chairs reworded (approved 2026-10-06), and five whose text did not change
-    (opening, lead-in, reciprocal reply, chair line, ethics-form point). The nine
-    retired ones stay retired; no block is draft.
+    """Fourteen blocks are approved, each with its approver and date: five the
+    chairs reworded (2026-10-06), four added or changed on 2026-10-07, and five
+    whose text did not change (opening, lead-in, reciprocal reply, chair line,
+    ethics-form point). The nine retired ones stay retired; no block is draft.
     Unapproved entries carry no approval record."""
     status = {t["id"]: t["status"] for t in templates}
     assert {i for i, s in status.items() if s == "approved"} == set(APPROVERS)
@@ -203,20 +212,21 @@ def test_the_live_points_have_the_decided_reasons_and_order(templates):
     assert live == {
         "point_review_process": (1, ["score_outcome_mismatch", "reviewer_misunderstanding",
                                      "missing_material_claim", "record_error",
-                                     "reviewer_misconduct"]),
+                                     "reviewer_misconduct", "llm_generated_review"]),
         "point_scores": (2, ["score_outcome_mismatch", "record_error"]),
         "point_rebuttal": (3, ["score_outcome_mismatch", "reviewer_misunderstanding"]),
-        "point_reviewer_tracking": (4, ["reviewer_misconduct"]),
-        "point_ethics_form": (5, ["reviewer_misconduct"]),
+        "point_ai_review": (4, ["llm_generated_review"]),
+        "point_reviewer_tracking": (5, ["reviewer_misconduct"]),
+        "point_ethics_form": (6, ["reviewer_misconduct"]),
     }
 
 
 def test_the_retired_points_sit_after_the_live_points(templates):
-    """Renumbered after the five live points so no two points share an order."""
+    """Renumbered after the six live points so no two points share an order."""
     retired = {t["id"]: t["order"] for t in templates
                if t["kind"] == "point" and t["status"] == "retired"}
-    assert retired == {"point_spc_evaluation": 6, "point_all_assessments": 7,
-                       "point_consider_input": 8, "point_ai_review": 9, "point_report_form": 10}
+    assert retired == {"point_spc_evaluation": 7, "point_all_assessments": 8,
+                       "point_consider_input": 9, "point_report_form": 10}
 
 
 def test_the_blockers_are_as_decided(templates):

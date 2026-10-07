@@ -26,6 +26,13 @@ Deliberately re-captured once AFTER a change: the program chairs' rewording
 old one: only the 8 compose cases, 5 phase-1 hook cases and 8 rollback hook
 cases that use a reworded or retired block changed, and only in body / draft
 text and block ids; every mode, chair note and refusal stayed identical.
+
+Re-captured again AFTER a change (approved 2026-10-07): the AI-review reason
+merges as a point (standalone_ai_review retired), feedback-only emails and emails
+about two or more papers are composed. Diffed before writing: 8 compose cases
+(every set with llm_generated_review), 8 rollback hook cases (the same sets) and
+82 phase-1 hook cases (an AI-review reason, relation feedback_only, or two
+papers) changed; no other case changed.
 """
 
 from __future__ import annotations

@@ -74,9 +74,10 @@ def served():
 
 # --- the blocks ---------------------------------------------------------------------
 @pytest.mark.parametrize("block_id, body, reasons, order, approver, date", [
-    ("point_review_process", P_REVIEW_PROCESS, ALL_MERGED, 1, "Jiacheng Pang", "2026-10-06"),
-    ("point_reviewer_tracking", P_TRACKING, (MISCONDUCT,), 4, "Jiacheng Pang", "2026-10-06"),
-    ("point_ethics_form", P_ETHICS, (MISCONDUCT,), 5, "Marc Pujol-Gonzalez", "2026-10-05"),
+    ("point_review_process", P_REVIEW_PROCESS, (*ALL_MERGED, "llm_generated_review"), 1,
+     "Jiacheng Pang", "2026-10-07"),
+    ("point_reviewer_tracking", P_TRACKING, (MISCONDUCT,), 5, "Jiacheng Pang", "2026-10-06"),
+    ("point_ethics_form", P_ETHICS, (MISCONDUCT,), 6, "Marc Pujol-Gonzalez", "2026-10-05"),
 ])
 def test_each_misconduct_block_is_served_exactly_as_approved(served, block_id, body, reasons, order,
                                                              approver, date):
@@ -168,13 +169,14 @@ def test_four_reasons_go_to_the_chair(reasons):
 def test_the_bank_has_the_live_blocks_and_no_retired_block(served):
     bank = build_bank(served.values())
     assert [block_id for block_id, _ in bank.blocks] == [
-        "opening_warm", "lead_in_concerns",
+        "opening_warm", "opening_warm_plural", "lead_in_concerns",
         "point_review_process", "point_reviewer_tracking", "point_ethics_form",
-        "point_scores", "point_rebuttal",
-        "closing_reviewed", "standalone_general_stage1", "standalone_ai_review",
+        "point_scores", "point_rebuttal", "point_ai_review",
+        "closing_reviewed", "closing_feedback", "standalone_general_stage1",
     ]
-    assert sum(len(s) for _, s in bank.blocks) == 36
-    assert len(bank.sources) == 36
+    # The two closings share their last sentence, so the bank has one source fewer.
+    assert sum(len(s) for _, s in bank.blocks) == 29
+    assert len(bank.sources) == 28
 
 
 def test_the_bank_holds_each_reworded_sentence_from_its_own_block(served):
@@ -189,8 +191,6 @@ def test_the_bank_holds_each_reworded_sentence_from_its_own_block(served):
             "point_reviewer_tracking",
         P_SCORES: "point_scores",
         "We understand this can be frustrating.": "point_rebuttal",
-        "Thank you for raising your concerns; we will document them and help improve the future "
-        "AAAI editions.": "closing_reviewed",
         P_ETHICS.split(". This")[0] + ".": "point_ethics_form",
         "This may impact our future relationship with this reviewer, but it will not change the "
         "outcome for this specific paper.": "point_ethics_form",

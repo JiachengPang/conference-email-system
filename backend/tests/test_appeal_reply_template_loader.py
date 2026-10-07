@@ -32,8 +32,10 @@ BODY = "We understand that this outcome may be disappointing.\n\n(1) First point
 # on 2026-10-02 the opening, lead-in and reciprocal reply (Marc Pujol-Gonzalez)
 # and the chair-writes line (Sahil Satasiya); on 2026-10-05 the ethics-form point
 # (Marc Pujol-Gonzalez); on 2026-10-06 the seven blocks the program chairs reworded
-# or added (Jiacheng Pang). The ethics-form point's text did not change, so its
-# 2026-10-05 approval still holds.
+# or added (Jiacheng Pang); on 2026-10-07 the merged AI-review point, the
+# feedback-only closing, the plural opening, and the review-process point (one
+# more reason) (Jiacheng Pang). The ethics-form point's text did not change, so
+# its 2026-10-05 approval still holds.
 APPROVED_PINS: frozenset[tuple[str, str]] = frozenset({
     ("opening_warm", "539d321e8a99d158a9e950413b2830fa0ff9af588ac02e7a28f29baad104ff48"),
     ("lead_in_concerns", "ca08da45a100b7feb534760966895a417a7b5d5114212f3db31a49abefd3ed07"),
@@ -46,8 +48,11 @@ APPROVED_PINS: frozenset[tuple[str, str]] = frozenset({
     ("point_rebuttal", "38598a26d59a6f06535f8d79b3610c8a34a3e8f214e336a9beeb595c24b7a557"),
     ("point_reviewer_tracking", "04d9b68604cba39c2911ed4c04284de647b1d7b1098be54913e7cc279ab00dce"),
     ("closing_reviewed", "3cb72e53cb6bd5fbf66c6b82fadee41efb02421530ed1fa94bd2f1838a3028f9"),
-    ("standalone_ai_review", "f08fd646f89f697805416626fc8146fb456db2390b905e94beb9dd42a4a1036f"),
     ("standalone_general_stage1", "594e67ba852f185b35af0fa535bfd867fd23f1331eb3ea1012191192b9f3c59b"),
+    # 2026-10-07.
+    ("point_ai_review", "2e5a994eec8d29340bd47c3aeebac8dc5bc34147cb872a1731c35b42ecf1884e"),
+    ("closing_feedback", "ef6da8e619477fc2f12989b35eef010a2e241a570e21f750ed4bbd50fc137725"),
+    ("opening_warm_plural", "6c19de539d8945e4dffffc6b4519f941989124470595bd81c7e2e727dbd8ab6d"),
 })
 
 # ⚠️ Every lint waiver must edit this constant too (D107/D109). It lists, for each
@@ -77,6 +82,9 @@ WAIVER_PINS: frozenset[tuple[str, str, tuple[str, ...]]] = frozenset({
      ("internal_roles_or_process",)),
     ("point_spc_evaluation",
      "258bcd58b5c310ea6968207bd01a6074294b9234cff171211e1d5673dd6a5068",
+     ("internal_roles_or_process",)),
+    ("point_ai_review",
+     "2e5a994eec8d29340bd47c3aeebac8dc5bc34147cb872a1731c35b42ecf1884e",
      ("internal_roles_or_process",)),
 })
 
@@ -338,24 +346,27 @@ def test_returned_templates_are_frozen(tmp_path):
 
 # --- the REAL file -----------------------------------------------------------------
 def test_the_real_file_serves_exactly_the_approved_blocks():
-    """The real file serves exactly the twelve approved blocks, each with its
-    recorded approver and date, and nothing else: no retired block. The seven
-    blocks the chairs reworded or added were approved by Jiacheng Pang on
-    2026-10-06; Marc and Yan have not approved the new text."""
+    """The real file serves exactly the fourteen approved blocks, each with its
+    recorded approver and date, and nothing else: no retired block. Blocks the
+    chairs reworded or added were approved by Jiacheng Pang on 2026-10-06 or
+    2026-10-07; Marc and Yan have not approved the new text."""
     assert art.DEFAULT_PATH.exists(), art.DEFAULT_PATH
     served = {t.id: (t.approved_by, t.approved_at, t.approved_sha256) for t in load_approved_templates()}
-    assert len(served) == 12
+    assert len(served) == 14
     assert {(i, sha) for i, (_, _, sha) in served.items()} == APPROVED_PINS
-    reworded = {"point_review_process", "point_scores", "point_rebuttal", "point_reviewer_tracking",
-                "closing_reviewed", "standalone_ai_review", "standalone_general_stage1"}
-    assert {i for i, (by, _, _) in served.items() if by == "Jiacheng Pang"} == reworded
+    reworded = {"point_scores", "point_rebuttal", "point_reviewer_tracking",
+                "closing_reviewed", "standalone_general_stage1"}
+    added = {"point_review_process", "point_ai_review", "closing_feedback", "opening_warm_plural"}
+    assert {i for i, (by, _, _) in served.items() if by == "Jiacheng Pang"} == reworded | added
     assert {i for i, (by, _, _) in served.items() if by == "Marc Pujol-Gonzalez"} == {
         "opening_warm", "lead_in_concerns", "full_reciprocal", "point_ethics_form"}
     assert {i for i, (by, _, _) in served.items() if by == "Prof. Yan"} == set()
     assert {i for i, (by, _, _) in served.items() if by == "Sahil Satasiya"} == {"line_chair_writes"}
     assert {i for i, (_, at, _) in served.items() if at == "2026-10-06"} == reworded
+    assert {i for i, (_, at, _) in served.items() if at == "2026-10-07"} == added
     assert {i for i, (_, at, _) in served.items() if at == "2026-10-05"} == {"point_ethics_form"}
-    assert {at for _, at, _ in served.values()} == {"2026-10-02", "2026-10-05", "2026-10-06"}
+    assert {at for _, at, _ in served.values()} == {"2026-10-02", "2026-10-05", "2026-10-06",
+                                                    "2026-10-07"}
 
 
 def test_one_changed_character_in_an_approved_body_makes_the_loader_refuse_it(tmp_path, caplog):

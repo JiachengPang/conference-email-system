@@ -119,27 +119,6 @@ G_YAN_A = (
     "appreciate your engagement with the process and your effort in bringing these concerns to our "
     "attention."
 )
-# Yan's AI-review reply as the chairs shortened it (approved 2026-10-06): "and the
-# authors' responses" removed, "Senior Program Chair(s)" shortened to "SPC(s)".
-YAN_B_PARAGRAPHS = (
-    "Thank you for providing the detailed information regarding your concerns about the reviews of "
-    "your submission. We take concerns about the integrity and quality of the review process seriously "
-    "and have carefully considered the issues you raised.",
-    "We recognize that some characteristics of a review may raise concerns about the possible use of "
-    "AI tools. But rest assured that the decision on your submission does not rely on any single "
-    "review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and "
-    "formed their own assessment of the submission. The final "
-    "decision is made based on this broader evaluation rather than on the assessment or "
-    "recommendation of any individual reviewer.",
-    "In addition, we ask SPCs to assess the quality of the reviews and provide "
-    "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
-    "with AI-generated content. Your feedback is also very valuable to us. We will document these "
-    "concerns and share the relevant information with future AAAI Program Chairs to help further "
-    "improve the quality and integrity of the review process.",
-    "Thank you again for raising your concerns and for providing the supporting details. We "
-    "appreciate your engagement with the review process.",
-)
-G_YAN_B = "\n\n".join(YAN_B_PARAGRAPHS)
 
 NOTE_NO_DRAFT = (
     "Investigate first: the author says a review is about a different paper. "
@@ -164,7 +143,6 @@ GOLDEN_CASES = [
      ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
       "line_chair_writes", "closing_reviewed"), {ROLES}),
     ([GENERAL], "standalone", G_YAN_A, ("standalone_general_stage1",), {ROLES}),
-    ([LLM], "standalone", G_YAN_B, ("standalone_ai_review",), {ROLES}),
     ([OTHER], "chair_writes", CHAIR_LINE, ("line_chair_writes",), set()),
 ]
 _IDS = ["+".join(c[0]) for c in GOLDEN_CASES]
@@ -221,8 +199,7 @@ def test_duplicate_reasons_count_once(blocks):
 
 
 # --- Yan's standalone replies -------------------------------------------------------------------
-@pytest.mark.parametrize("reason, block_id", [(GENERAL, "standalone_general_stage1"),
-                                              (LLM, "standalone_ai_review")])
+@pytest.mark.parametrize("reason, block_id", [(GENERAL, "standalone_general_stage1")])
 def test_a_standalone_reply_has_no_opening_list_or_closing(blocks, reason, block_id):
     r = compose_reply([reason], path=blocks)
     assert (r.mode, r.used_ids) == ("standalone", (block_id,))
@@ -235,27 +212,22 @@ def test_an_approved_block_that_is_still_blocked_is_refused(tmp_path):
     live block: approved but carrying a blocker, the loader refuses the block and
     the composer refuses the reply. (Rewritten 2026-10-05: this used the real Yan B
     blocker, which is gone since its approval.)"""
-    p = approved_copy(tmp_path, overrides={"standalone_ai_review": {"blocked_on": ["waiting"]}})
+    p = approved_copy(tmp_path, overrides={"point_ai_review": {"blocked_on": ["waiting"]}})
     r = compose_reply([LLM], path=p)
-    assert (r.mode, r.body, r.refusal) == ("refused", None, "missing_approved_block:standalone_ai_review")
+    assert (r.mode, r.body, r.refusal) == ("refused", None, "missing_approved_block:point_ai_review")
 
 
 @pytest.mark.parametrize("reasons, note", [
     ([GENERAL, SCORE],
      "Chair writes: no approved reply covers these reasons together: "
      "score_outcome_mismatch, general_dissatisfaction."),
-    ([LLM, SCORE],
-     "Chair writes: no approved reply covers these reasons together: "
-     "score_outcome_mismatch, llm_generated_review."),
     ([GENERAL, LLM],
      "Chair writes: no approved reply covers these reasons together: "
      "llm_generated_review, general_dissatisfaction."),
-    ([LLM, OTHER],
-     "Chair writes: no approved reply covers these reasons together: llm_generated_review, other."),
     ([GENERAL, REVIEWER, OTHER],
      "Chair writes: no approved reply covers these reasons together: "
      "reviewer_misunderstanding, general_dissatisfaction, other."),
-], ids=["general+score", "llm+score", "general+llm", "llm+other", "general+reviewer+other"])
+], ids=["general+score", "general+llm", "general+reviewer+other"])
 def test_a_standalone_reason_mixed_with_any_other_reason_goes_to_the_chair(blocks, reasons, note):
     r = compose_reply(reasons, path=blocks)
     assert r.refusal is None
@@ -266,7 +238,7 @@ def test_a_standalone_reason_mixed_with_any_other_reason_goes_to_the_chair(block
 def test_more_than_three_issues_go_to_the_chair(blocks):
     r = compose_reply([SCORE, REVIEWER, LLM, OTHER], path=blocks)
     assert (r.mode, r.body, r.refusal) == ("chair_writes", CHAIR_LINE, None)
-    assert r.chair_notes == ("Chair writes: no approved reply covers these reasons together: "
+    assert r.chair_notes == ("Chair writes: more than 3 issues raised: "
                              "score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, other.",)
 
 
@@ -346,7 +318,7 @@ def test_retired_blocks_are_never_used_even_if_approved(tmp_path):
     what keeps them out is their retired status alone (they stay retired here; an
     approved copy of them would be a live point again, by design)."""
     p = approved_copy(tmp_path, approve_retired=True, keep_retired=REPLACED_POINTS)
-    retired = {"point_ai_review", "point_report_form", "holding_wrong_paper",
+    retired = {"standalone_ai_review", "point_report_form", "holding_wrong_paper",
                "holding_score_mismatch", "holding_both", "body_reconsider"} | REPLACED_POINTS
     # point_report_form still holds its [ETHICS FORM ADDRESS] placeholder, which the
     # loader refuses once unblocked, so it is the one retired block not served here.
@@ -358,7 +330,7 @@ def test_retired_blocks_are_never_used_even_if_approved(tmp_path):
         assert not retired & set(compose_reply(reasons, path=p).used_ids), reasons
     assert compose_reply([SCORE], path=p).body == G_T1
     assert compose_reply([WRONG], path=p).mode == "no_draft"
-    assert compose_reply([LLM], path=p).body == G_YAN_B
+    assert "standalone_ai_review" not in compose_reply([LLM], path=p).used_ids
 
 
 def test_the_forward_choice_is_gone():
@@ -379,7 +351,7 @@ def test_the_forward_choice_is_gone():
     ("point_reviewer_tracking", [MISCONDUCT]),
     ("point_ethics_form", [MISCONDUCT]),
     ("standalone_general_stage1", [GENERAL]),
-    ("standalone_ai_review", [LLM]),
+    ("point_ai_review", [LLM]),
     ("line_chair_writes", [OTHER]),
     ("line_chair_writes", [SCORE, OTHER]),
     ("line_chair_writes", [GENERAL, SCORE]),
@@ -442,50 +414,18 @@ def test_a_missing_file_is_refused_not_raised(tmp_path):
     ([SCORE, REVIEWER], G_T1_T2, ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
       "closing_reviewed")),
     ([GENERAL], G_YAN_A, ("standalone_general_stage1",)),
-    ([LLM], G_YAN_B, ("standalone_ai_review",)),
-], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a-general", "yan-b-ai-review"])
+], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a-general"])
 def test_the_real_file_composes_the_approved_replies(reasons, expected, used):
     r = compose_reply(reasons)
     assert r.refusal is None, r.refusal
     assert (r.body, r.used_ids, r.chair_notes) == (expected, used, ())
-    assert r.mode == ("standalone" if reasons in ([GENERAL], [LLM]) else "merged")
+    assert r.mode == ("standalone" if reasons == [GENERAL] else "merged")
 
 
 def test_the_real_file_composes_t1_t2_with_the_rebuttal_point_once():
     body = compose_reply([SCORE, REVIEWER]).body
     assert body.count("forgoes rebuttal") == 1
     assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3"]
-
-
-def test_the_real_file_composes_yans_ai_review_reply_alone_as_exactly_her_four_paragraphs():
-    """Yan's four paragraphs with the chairs' two edits (approved 2026-10-06)."""
-    r = compose_reply([LLM])
-    assert r == ComposeResult(body=G_YAN_B, mode="standalone", used_ids=("standalone_ai_review",),
-                              chair_notes=(), refusal=None)
-    assert tuple(r.body.split("\n\n")) == YAN_B_PARAGRAPHS
-    assert "the authors' responses" not in r.body, "removed by the chairs (no rebuttal in Phase 1)"
-    assert "Senior Program Chair" not in r.body
-    assert OPENING not in r.body and CLOSING not in r.body, "a standalone reply has no wrapper"
-
-
-@pytest.mark.parametrize("reasons, note", [
-    ([LLM, SCORE], "Chair writes: no approved reply covers these reasons together: "
-                   "score_outcome_mismatch, llm_generated_review."),
-    ([LLM, REVIEWER], "Chair writes: no approved reply covers these reasons together: "
-                      "reviewer_misunderstanding, llm_generated_review."),
-    ([LLM, GENERAL], "Chair writes: no approved reply covers these reasons together: "
-                     "llm_generated_review, general_dissatisfaction."),
-    ([LLM, OTHER], "Chair writes: no approved reply covers these reasons together: "
-                   "llm_generated_review, other."),
-    ([LLM, SCORE, REVIEWER], "Chair writes: no approved reply covers these reasons together: "
-                             "score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review."),
-], ids=["+score", "+reviewer", "+general", "+other", "+score+reviewer"])
-def test_the_real_file_still_sends_the_ai_review_reason_mixed_with_another_to_the_chair(reasons, note):
-    """The mixing rule (D105) is unchanged by the approval: mixed with any reason
-    that would otherwise be composed, the AI-review reason gives chair_writes."""
-    r = compose_reply(reasons)
-    assert r == ComposeResult(body=CHAIR_LINE, mode="chair_writes", used_ids=("line_chair_writes",),
-                              chair_notes=(note,), refusal=None)
 
 
 def test_the_real_file_lets_wrong_paper_and_reciprocal_beat_the_ai_review_reason():
@@ -525,11 +465,9 @@ def test_the_real_file_puts_the_chair_line_inside_a_merged_reply_for_other():
 @pytest.mark.parametrize("reasons, note", [
     ([GENERAL, SCORE], "Chair writes: no approved reply covers these reasons together: "
                        "score_outcome_mismatch, general_dissatisfaction."),
-    ([LLM, SCORE], "Chair writes: no approved reply covers these reasons together: "
-                   "score_outcome_mismatch, llm_generated_review."),
     ([GENERAL, LLM], "Chair writes: no approved reply covers these reasons together: "
                      "llm_generated_review, general_dissatisfaction."),
-], ids=["yan-a+score", "yan-b+score", "yan-a+yan-b"])
+], ids=["yan-a+score", "yan-a+ai-review"])
 def test_the_real_file_sends_a_yan_reply_mixed_with_another_reason_to_the_chair(reasons, note):
     r = compose_reply(reasons)
     assert (r.mode, r.body, r.used_ids, r.chair_notes, r.refusal) == (
@@ -557,7 +495,7 @@ def test_expected_points_skip_retired_points(tmp_path):
     for reasons in ([REVIEWER], [MISCONDUCT], [MISSING], [LLM]):
         ids = {pid for pid, _ in expected_points_for_reasons(reasons)}
         assert not ids & {"point_spc_evaluation", "point_all_assessments", "point_consider_input",
-                          "point_ai_review", "point_report_form"}, reasons
+                          "point_report_form"}, reasons
     # A draft point is still listed (and so refuses the reply); only retirement drops it.
     p = approved_copy(tmp_path, draft={"point_rebuttal"})
     assert ("point_rebuttal", False) in expected_points_for_reasons([REVIEWER], p)

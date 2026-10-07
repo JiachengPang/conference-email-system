@@ -33,9 +33,9 @@ Decision order with ``mapped`` (phase-1 source; ``_decide_from_phase1``):
      never has its reasons; it is decided before them.
   3. ``review_decision_appeal``: the mapping's hold (``no_draft``,
      ``chair_writes``, ``not_appeal`` or ``reason_unknown``), else
-     ``compose_reply(mapped.reasons)``, with the mapping's verify-before-sending
-     notes (record_error, reviewer_misconduct; Step 2.5) kept after the
-     composer's own notes.
+     ``compose_reply(mapped.reasons, feedback_only=..., multiple_papers=...)``
+     (both from the mapping), with the mapping's verify-before-sending notes
+     (record_error, reviewer_misconduct) kept after the composer's own notes.
   4. The Phase 1 window, as below.
 
 Decision order without ``mapped`` (appeal_reason source; unchanged since Step 4):
@@ -86,7 +86,9 @@ PHASE1_SOURCE = "phase1"
 # sender-name line). Deliberately OUTSIDE the block file and the wording check:
 # it contains "2027", which the block wording check's year rule would refuse.
 SIGN_OFF = "Best Regards,\nAAAI 2027 PC Team"
-FALLBACK_NAME = "Author"
+# Every reply goes to all authors of the paper, and requester display names are
+# often usernames or in another script, so the greeting names no one.
+GREETING = "Dear Authors,"
 
 # Placeholders. All match drafter.PLACEHOLDER_RE, so the approve endpoint returns
 # 409 and the send gate refuses until the chair replaces them.
@@ -218,12 +220,15 @@ def _decide_from_phase1(
     elif mapped.hold is not None:
         decision = AppealReplyDecision(mapped.hold, None, (), None, mapped.notes)
     else:
-        decision = _from_compose(compose_reply(composer_reasons, path=path), composer_reasons)
+        decision = _from_compose(
+            compose_reply(composer_reasons, path=path, feedback_only=mapped.feedback_only,
+                          multiple_papers=mapped.multiple_papers),
+            composer_reasons)
         if _outside_window(decision, created_at, window_end):
             decision = AppealReplyDecision("window", tuple(composer_reasons), (), None, (NOTE_WINDOW,))
-        # Step 2.5: a composable outcome's only mapping notes are the
-        # verify-before-sending checks (record_error, reviewer_misconduct). They
-        # follow whatever the composer decided, after its own notes.
+        # A composable outcome's only mapping notes are the verify-before-sending
+        # checks (record_error, reviewer_misconduct). They follow whatever the
+        # composer decided, after its own notes.
         decision = replace(decision, notes=decision.notes + mapped.notes)
     return replace(decision, source=PHASE1_SOURCE, phase1=dict(mapped.snapshot))
 
@@ -300,16 +305,11 @@ def verify_before_sending(reasons, record) -> str:
     return VERIFY_SEPARATOR.join(items)
 
 
-def _greeting_name(sender_name) -> str:
-    name = " ".join(sender_name.split()) if isinstance(sender_name, str) else ""
-    return name or FALLBACK_NAME
-
-
 def build_appeal_draft(decision: AppealReplyDecision, sender_name) -> DraftResponse:
     """The draft for a decision: composed text with greeting and sign-off for
     ``merged`` / ``standalone``, a single placeholder line otherwise."""
     if decision.mode in COMPOSED_MODES and decision.middle:
-        text = f"Dear {_greeting_name(sender_name)},\n\n{decision.middle}\n\n{SIGN_OFF}"
+        text = f"{GREETING}\n\n{decision.middle}\n\n{SIGN_OFF}"
     elif decision.mode == "no_draft":
         text = NO_DRAFT_PLACEHOLDER
     elif decision.mode == "reciprocal_review":

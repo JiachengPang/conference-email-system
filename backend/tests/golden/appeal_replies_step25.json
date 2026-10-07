@@ -41,12 +41,16 @@
    "used_ids": []
   },
   "llm_generated_review": {
-   "body": "Thank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask SPCs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
    "chair_notes": [],
-   "mode": "standalone",
+   "mode": "merged",
    "refusal": null,
    "used_ids": [
-    "standalone_ai_review"
+    "opening_warm",
+    "lead_in_concerns",
+    "point_review_process",
+    "point_ai_review",
+    "closing_reviewed"
    ]
   },
   "llm_generated_review+general_dissatisfaction": {
@@ -92,14 +96,17 @@
    "used_ids": []
   },
   "llm_generated_review+other": {
-   "body": "[CHAIR: write reply]",
-   "chair_notes": [
-    "Chair writes: no approved reply covers these reasons together: llm_generated_review, other."
-   ],
-   "mode": "chair_writes",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
+   "chair_notes": [],
+   "mode": "merged",
    "refusal": null,
    "used_ids": [
-    "line_chair_writes"
+    "opening_warm",
+    "lead_in_concerns",
+    "point_review_process",
+    "point_ai_review",
+    "line_chair_writes",
+    "closing_reviewed"
    ]
   },
   "llm_generated_review+other+reciprocal_dispute": {
@@ -206,14 +213,17 @@
    "used_ids": []
   },
   "reviewer_misunderstanding+llm_generated_review": {
-   "body": "[CHAIR: write reply]",
-   "chair_notes": [
-    "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review."
-   ],
-   "mode": "chair_writes",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
+   "chair_notes": [],
+   "mode": "merged",
    "refusal": null,
    "used_ids": [
-    "line_chair_writes"
+    "opening_warm",
+    "lead_in_concerns",
+    "point_review_process",
+    "point_rebuttal",
+    "point_ai_review",
+    "closing_reviewed"
    ]
   },
   "reviewer_misunderstanding+llm_generated_review+general_dissatisfaction": {
@@ -259,14 +269,18 @@
    "used_ids": []
   },
   "reviewer_misunderstanding+llm_generated_review+other": {
-   "body": "[CHAIR: write reply]",
-   "chair_notes": [
-    "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review, other."
-   ],
-   "mode": "chair_writes",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
+   "chair_notes": [],
+   "mode": "merged",
    "refusal": null,
    "used_ids": [
-    "line_chair_writes"
+    "opening_warm",
+    "lead_in_concerns",
+    "point_review_process",
+    "point_rebuttal",
+    "point_ai_review",
+    "line_chair_writes",
+    "closing_reviewed"
    ]
   },
   "reviewer_misunderstanding+llm_generated_review+other+reciprocal_dispute": {
@@ -380,14 +394,18 @@
    "used_ids": []
   },
   "score_outcome_mismatch+llm_generated_review": {
-   "body": "[CHAIR: write reply]",
-   "chair_notes": [
-    "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review."
-   ],
-   "mode": "chair_writes",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
+   "chair_notes": [],
+   "mode": "merged",
    "refusal": null,
    "used_ids": [
-    "line_chair_writes"
+    "opening_warm",
+    "lead_in_concerns",
+    "point_review_process",
+    "point_scores",
+    "point_rebuttal",
+    "point_ai_review",
+    "closing_reviewed"
    ]
   },
   "score_outcome_mismatch+llm_generated_review+general_dissatisfaction": {
@@ -433,14 +451,19 @@
    "used_ids": []
   },
   "score_outcome_mismatch+llm_generated_review+other": {
-   "body": "[CHAIR: write reply]",
-   "chair_notes": [
-    "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review, other."
-   ],
-   "mode": "chair_writes",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
+   "chair_notes": [],
+   "mode": "merged",
    "refusal": null,
    "used_ids": [
-    "line_chair_writes"
+    "opening_warm",
+    "lead_in_concerns",
+    "point_review_process",
+    "point_scores",
+    "point_rebuttal",
+    "point_ai_review",
+    "line_chair_writes",
+    "closing_reviewed"
    ]
   },
   "score_outcome_mismatch+llm_generated_review+other+reciprocal_dispute": {
@@ -555,14 +578,18 @@
    "used_ids": []
   },
   "score_outcome_mismatch+reviewer_misunderstanding+llm_generated_review": {
-   "body": "[CHAIR: write reply]",
-   "chair_notes": [
-    "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review."
-   ],
-   "mode": "chair_writes",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
+   "chair_notes": [],
+   "mode": "merged",
    "refusal": null,
    "used_ids": [
-    "line_chair_writes"
+    "opening_warm",
+    "lead_in_concerns",
+    "point_review_process",
+    "point_scores",
+    "point_rebuttal",
+    "point_ai_review",
+    "closing_reviewed"
    ]
   },
   "score_outcome_mismatch+reviewer_misunderstanding+llm_generated_review+general_dissatisfaction": {
@@ -610,7 +637,7 @@
   "score_outcome_mismatch+reviewer_misunderstanding+llm_generated_review+other": {
    "body": "[CHAIR: write reply]",
    "chair_notes": [
-    "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, other."
+    "Chair writes: more than 3 issues raised: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, other."
    ],
    "mode": "chair_writes",
    "refusal": null,
@@ -1339,7 +1366,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
@@ -1388,9 +1415,9 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask SPCs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "standalone",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
@@ -1399,9 +1426,13 @@
    },
    "record": {
     "block_ids": [
-     "standalone_ai_review"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "standalone",
+    "mode": "merged",
     "reasons": [
      "llm_generated_review"
     ]
@@ -1464,22 +1495,27 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: llm_generated_review, other.",
+    "notes_for_chair": null,
     "placeholders": [
      "write reply"
     ]
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "line_chair_writes",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "reasons": [
      "llm_generated_review",
      "other"
@@ -1515,7 +1551,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1595,22 +1631,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "reasons": [
      "reviewer_misunderstanding",
      "llm_generated_review"
@@ -1676,22 +1715,28 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review, other.",
+    "notes_for_chair": null,
     "placeholders": [
      "write reply"
     ]
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_rebuttal",
+     "point_ai_review",
+     "line_chair_writes",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "reasons": [
      "reviewer_misunderstanding",
      "llm_generated_review",
@@ -1703,7 +1748,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1734,7 +1779,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1815,22 +1860,26 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "reasons": [
      "score_outcome_mismatch",
      "llm_generated_review"
@@ -1896,22 +1945,29 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review, other.",
+    "notes_for_chair": null,
     "placeholders": [
      "write reply"
     ]
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "point_ai_review",
+     "line_chair_writes",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "reasons": [
      "score_outcome_mismatch",
      "llm_generated_review",
@@ -1923,7 +1979,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1955,7 +2011,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -2039,22 +2095,26 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "reasons": [
      "score_outcome_mismatch",
      "reviewer_misunderstanding",
@@ -2129,7 +2189,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, other.",
+    "notes_for_chair": "Chair writes: more than 3 issues raised: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, other.",
     "placeholders": [
      "write reply"
     ]
@@ -2151,7 +2211,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -3004,20 +3064,18 @@
     "citations": [],
     "draft_text": "[CHAIR: write reply]",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "reason_unknown",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.",
+    "notes_for_chair": "Chair writes: the author appeals, but no reason could be verified in the email.",
     "placeholders": [
      "write reply"
     ]
    },
    "record": {
-    "block_ids": [
-     "line_chair_writes"
-    ],
-    "mode": "chair_writes",
+    "block_ids": [],
+    "mode": "reason_unknown",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -3036,22 +3094,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: decision_vs_reviews.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -3064,7 +3125,9 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch"
+    ],
     "source": "phase1"
    }
   },
@@ -3115,7 +3178,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: decision_vs_reviews, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -3138,7 +3201,10 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -3184,22 +3250,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: decision_vs_reviews, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -3213,7 +3282,10 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -3265,7 +3337,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -3289,7 +3361,11 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -3336,22 +3412,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -3364,7 +3442,9 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review"
+    ],
     "source": "phase1"
    }
   },
@@ -3372,22 +3452,26 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review, decision_vs_reviews.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -3401,7 +3485,10 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch"
+    ],
     "source": "phase1"
    }
   },
@@ -3453,7 +3540,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review, decision_vs_reviews, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -3477,7 +3564,11 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -3524,22 +3615,26 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -3554,7 +3649,11 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -3607,7 +3706,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -3632,7 +3731,12 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -3723,7 +3827,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -3746,7 +3850,10 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -3792,22 +3899,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -3821,7 +3931,10 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -3873,7 +3986,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: llm_generated_review, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -3897,7 +4010,11 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -3980,22 +4097,20 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: reconsideration_only.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "standalone_general_stage1"
     ],
-    "mode": "chair_writes",
+    "mode": "standalone",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -4008,7 +4123,9 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -4053,22 +4170,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_rebuttal",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -4081,7 +4200,9 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -4132,7 +4253,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\nRaised: reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -4155,7 +4276,10 @@
      "relation": "appeal",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -5400,7 +5524,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -5552,7 +5676,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -5710,9 +5834,9 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask SPCs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "standalone",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
@@ -5721,9 +5845,13 @@
    },
    "record": {
     "block_ids": [
-     "standalone_ai_review"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "standalone",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -5745,22 +5873,26 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -5900,22 +6032,26 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(4) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -6173,22 +6309,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_rebuttal",
+     "point_ai_review",
+     "closing_reviewed"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -6363,7 +6502,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
@@ -6434,7 +6573,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -7755,22 +7894,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -7783,7 +7924,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch"
+    ],
     "source": "phase1"
    }
   },
@@ -7797,7 +7940,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews.",
     "placeholders": [
      "write reply"
     ]
@@ -7834,7 +7977,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -7857,7 +8000,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -7871,7 +8017,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -7903,22 +8049,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -7932,7 +8080,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -7946,7 +8097,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews, reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -7984,7 +8135,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -8008,7 +8159,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -8022,7 +8177,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -8055,22 +8210,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -8083,7 +8240,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review"
+    ],
     "source": "phase1"
    }
   },
@@ -8091,22 +8250,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -8120,7 +8282,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch"
+    ],
     "source": "phase1"
    }
   },
@@ -8134,7 +8299,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews.",
     "placeholders": [
      "write reply"
     ]
@@ -8172,7 +8337,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -8196,7 +8361,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -8210,7 +8379,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -8243,22 +8412,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -8273,7 +8445,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -8287,7 +8463,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -8326,7 +8502,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -8351,7 +8527,12 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -8365,7 +8546,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -8405,7 +8586,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review.",
     "placeholders": [
      "write reply"
     ]
@@ -8442,7 +8623,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -8465,7 +8646,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -8479,7 +8663,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -8511,22 +8695,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -8540,7 +8726,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -8554,7 +8743,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -8592,7 +8781,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -8616,7 +8805,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -8630,7 +8823,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -8669,7 +8862,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.",
     "placeholders": [
      "write reply"
     ]
@@ -8699,22 +8892,20 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reconsideration_only.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "standalone_general_stage1"
     ],
-    "mode": "chair_writes",
+    "mode": "standalone",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -8727,7 +8918,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -8741,7 +8934,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -8772,22 +8965,23 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that these outcomes may be disappointing, and we appreciate the effort you invested in preparing your submissions. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm_plural",
+     "lead_in_concerns",
+     "point_review_process",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -8800,7 +8994,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -8814,7 +9010,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -8851,7 +9047,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -8874,7 +9070,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -8888,7 +9087,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -10121,22 +10320,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -10148,7 +10349,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch"
+    ],
     "source": "phase1"
    }
   },
@@ -10162,7 +10365,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews.",
     "placeholders": [
      "write reply"
     ]
@@ -10198,7 +10401,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -10220,7 +10423,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -10234,7 +10440,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -10265,22 +10471,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -10293,7 +10501,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -10307,7 +10518,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews, reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -10344,7 +10555,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -10367,7 +10578,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -10381,7 +10596,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: decision_vs_reviews, reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -10413,22 +10628,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -10440,7 +10657,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review"
+    ],
     "source": "phase1"
    }
   },
@@ -10448,22 +10667,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -10476,7 +10698,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch"
+    ],
     "source": "phase1"
    }
   },
@@ -10490,7 +10715,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews.",
     "placeholders": [
      "write reply"
     ]
@@ -10527,7 +10752,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -10550,7 +10775,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -10564,7 +10793,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -10596,22 +10825,25 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_scores",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -10625,7 +10857,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -10639,7 +10875,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -10677,7 +10913,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: score_outcome_mismatch, reviewer_misunderstanding, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -10701,7 +10937,12 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "score_outcome_mismatch",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -10715,7 +10956,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, decision_vs_reviews, reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -10754,7 +10995,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review.",
     "placeholders": [
      "write reply"
     ]
@@ -10790,7 +11031,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -10812,7 +11053,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -10826,7 +11070,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -10857,22 +11101,24 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also assess the quality of the reviews and provide feedback on reviewers, including identifying reviews that show characteristics associated with AI-generated content.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "point_ai_review",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -10885,7 +11131,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -10899,7 +11148,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -10936,7 +11185,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, llm_generated_review, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -10959,7 +11208,11 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "llm_generated_review",
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -10973,7 +11226,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: llm_generated_review, reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: llm_generated_review, reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -11011,7 +11264,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.",
     "placeholders": [
      "write reply"
     ]
@@ -11040,22 +11293,20 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reconsideration_only.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "standalone_general_stage1"
     ],
-    "mode": "chair_writes",
+    "mode": "standalone",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -11067,7 +11318,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -11081,7 +11334,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
@@ -11111,22 +11364,23 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "[CHAIR: write reply]",
+    "draft_text": "Dear Authors,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\nWe hope the reviews will still be useful in strengthening your work. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
-     "appeal_mode": "chair_writes",
+     "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment.",
-    "placeholders": [
-     "write reply"
-    ]
+    "notes_for_chair": null,
+    "placeholders": []
    },
    "record": {
     "block_ids": [
-     "line_chair_writes"
+     "opening_warm",
+     "lead_in_concerns",
+     "point_review_process",
+     "closing_feedback"
     ],
-    "mode": "chair_writes",
+    "mode": "merged",
     "phase1": {
      "must_verify": false,
      "papers": [
@@ -11138,7 +11392,9 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "reviewer_misunderstanding"
+    ],
     "source": "phase1"
    }
   },
@@ -11152,7 +11408,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: reviewer_misjudgment.",
     "placeholders": [
      "write reply"
     ]
@@ -11188,7 +11444,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment, reconsideration_only.",
+    "notes_for_chair": "Chair writes: no approved reply covers these reasons together: reviewer_misunderstanding, general_dissatisfaction.",
     "placeholders": [
      "write reply"
     ]
@@ -11210,7 +11466,10 @@
      "relation": "feedback_only",
      "state": "classified"
     },
-    "reasons": null,
+    "reasons": [
+     "reviewer_misunderstanding",
+     "general_dissatisfaction"
+    ],
     "source": "phase1"
    }
   },
@@ -11224,7 +11483,7 @@
      "provider": "appeal_reply_composer"
     },
     "model_used": "none",
-    "notes_for_chair": "Chair writes: the author reports a review problem but says they are not asking for a change.\nRaised: reviewer_misjudgment, reconsideration_only, other.",
+    "notes_for_chair": "Chair writes: no approved reply covers other.\nAlso raised: reviewer_misjudgment, reconsideration_only.",
     "placeholders": [
      "write reply"
     ]
