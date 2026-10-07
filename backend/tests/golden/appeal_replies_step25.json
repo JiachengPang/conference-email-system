@@ -1,7 +1,7 @@
 {
  "compose": {
   "general_dissatisfaction": {
-   "body": "Thank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new Senior Program Chair (SPC) buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.",
+   "body": "Thank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.",
    "chair_notes": [],
    "mode": "standalone",
    "refusal": null,
@@ -41,7 +41,7 @@
    "used_ids": []
   },
   "llm_generated_review": {
-   "body": "Thank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the reviews and the authors' responses, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask Senior Program Chairs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.",
+   "body": "Thank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask SPCs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.",
    "chair_notes": [],
    "mode": "standalone",
    "refusal": null,
@@ -151,16 +151,15 @@
    "used_ids": []
   },
   "reviewer_misunderstanding": {
-   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review; all assessments are weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(3) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
    "chair_notes": [],
    "mode": "merged",
    "refusal": null,
    "used_ids": [
     "opening_warm",
     "lead_in_concerns",
-    "point_all_assessments",
+    "point_review_process",
     "point_rebuttal",
-    "point_consider_input",
     "closing_reviewed"
    ]
   },
@@ -291,16 +290,15 @@
    "used_ids": []
   },
   "reviewer_misunderstanding+other": {
-   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review; all assessments are weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(3) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
    "chair_notes": [],
    "mode": "merged",
    "refusal": null,
    "used_ids": [
     "opening_warm",
     "lead_in_concerns",
-    "point_all_assessments",
+    "point_review_process",
     "point_rebuttal",
-    "point_consider_input",
     "line_chair_writes",
     "closing_reviewed"
    ]
@@ -326,13 +324,14 @@
    "used_ids": []
   },
   "score_outcome_mismatch": {
-   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
    "chair_notes": [],
    "mode": "merged",
    "refusal": null,
    "used_ids": [
     "opening_warm",
     "lead_in_concerns",
+    "point_review_process",
     "point_scores",
     "point_rebuttal",
     "closing_reviewed"
@@ -465,13 +464,14 @@
    "used_ids": []
   },
   "score_outcome_mismatch+other": {
-   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
    "chair_notes": [],
    "mode": "merged",
    "refusal": null,
    "used_ids": [
     "opening_warm",
     "lead_in_concerns",
+    "point_review_process",
     "point_scores",
     "point_rebuttal",
     "line_chair_writes",
@@ -499,17 +499,16 @@
    "used_ids": []
   },
   "score_outcome_mismatch+reviewer_misunderstanding": {
-   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) Decisions are not based on any single review; all assessments are weighed together.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(4) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
    "chair_notes": [],
    "mode": "merged",
    "refusal": null,
    "used_ids": [
     "opening_warm",
     "lead_in_concerns",
+    "point_review_process",
     "point_scores",
-    "point_all_assessments",
     "point_rebuttal",
-    "point_consider_input",
     "closing_reviewed"
    ]
   },
@@ -640,17 +639,16 @@
    "used_ids": []
   },
   "score_outcome_mismatch+reviewer_misunderstanding+other": {
-   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) Decisions are not based on any single review; all assessments are weighed together.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(4) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.",
+   "body": "We understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.",
    "chair_notes": [],
    "mode": "merged",
    "refusal": null,
    "used_ids": [
     "opening_warm",
     "lead_in_concerns",
+    "point_review_process",
     "point_scores",
-    "point_all_assessments",
     "point_rebuttal",
-    "point_consider_input",
     "line_chair_writes",
     "closing_reviewed"
    ]
@@ -1341,7 +1339,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new Senior Program Chair (SPC) buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
@@ -1390,7 +1388,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the reviews and the authors' responses, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask Senior Program Chairs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nThank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask SPCs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
@@ -1517,7 +1515,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review; all assessments are weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(3) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1530,9 +1528,8 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
-     "point_all_assessments",
+     "point_review_process",
      "point_rebuttal",
-     "point_consider_input",
      "closing_reviewed"
     ],
     "mode": "merged",
@@ -1706,7 +1703,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review; all assessments are weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(3) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1721,9 +1718,8 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
-     "point_all_assessments",
+     "point_review_process",
      "point_rebuttal",
-     "point_consider_input",
      "line_chair_writes",
      "closing_reviewed"
     ],
@@ -1738,7 +1734,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1751,6 +1747,7 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
+     "point_review_process",
      "point_scores",
      "point_rebuttal",
      "closing_reviewed"
@@ -1926,7 +1923,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1941,6 +1938,7 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
+     "point_review_process",
      "point_scores",
      "point_rebuttal",
      "line_chair_writes",
@@ -1957,7 +1955,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) Decisions are not based on any single review; all assessments are weighed together.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(4) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -1970,10 +1968,9 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
+     "point_review_process",
      "point_scores",
-     "point_all_assessments",
      "point_rebuttal",
-     "point_consider_input",
      "closing_reviewed"
     ],
     "mode": "merged",
@@ -2154,7 +2151,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) Decisions are not based on any single review; all assessments are weighed together.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(4) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\n[CHAIR: write reply]\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -2169,10 +2166,9 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
+     "point_review_process",
      "point_scores",
-     "point_all_assessments",
      "point_rebuttal",
-     "point_consider_input",
      "line_chair_writes",
      "closing_reviewed"
     ],
@@ -5404,7 +5400,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -5417,6 +5413,7 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
+     "point_review_process",
      "point_scores",
      "point_rebuttal",
      "closing_reviewed"
@@ -5555,7 +5552,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based solely on the visible reviewer scores. Senior program committee members evaluated both the paper and the reviews, including whether the raised concerns can be addressed with minor clarifications or require substantial revision.\n\n(2) Decisions are not based on any single review; all assessments are weighed together.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(4) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications or would require substantial revision.\n\n(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -5568,10 +5565,9 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
+     "point_review_process",
      "point_scores",
-     "point_all_assessments",
      "point_rebuttal",
-     "point_consider_input",
      "closing_reviewed"
     ],
     "mode": "merged",
@@ -5714,7 +5710,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the reviews and the authors' responses, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask Senior Program Chairs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nThank you for providing the detailed information regarding your concerns about the reviews of your submission. We take concerns about the integrity and quality of the review process seriously and have carefully considered the issues you raised.\n\nWe recognize that some characteristics of a review may raise concerns about the possible use of AI tools. But rest assured that the decision on your submission does not rely on any single review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and formed their own assessment of the submission. The final decision is made based on this broader evaluation rather than on the assessment or recommendation of any individual reviewer.\n\nIn addition, we ask SPCs to assess the quality of the reviews and provide feedback on the reviewers, including identifying reviews that exhibit characteristics associated with AI-generated content. Your feedback is also very valuable to us. We will document these concerns and share the relevant information with future AAAI Program Chairs to help further improve the quality and integrity of the review process.\n\nThank you again for raising your concerns and for providing the supporting details. We appreciate your engagement with the review process.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
@@ -6367,7 +6363,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new Senior Program Chair (SPC) buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the review process for your submission. We take concerns about fairness in the review process seriously and have carefully considered the issues you raised.\n\nWe understand that aspects of the reviews may have led you to feel that your submission did not receive fair consideration. We would like to emphasize that the final decision on a submission is not determined by any single review or reviewer.\n\nTo further strengthen the consistency and fairness of the decision-making process, we have introduced a new SPC buddy system. Under this system, each SPC is paired with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. This additional layer of cross-checking is intended to reduce the influence of any individual assessment and promote greater consistency and fairness across the review process. In addition, the Area Chair is asked to review the recommendations by SPCs. When concerns arise regarding the quality of a particular review, these concerns are taken into account when the reviews are weighed as part of the overall assessment.\n\nYour feedback is valuable to us, not only in reviewing the process surrounding your submission but also in identifying areas where the review process can be improved. We will document the concerns raised and share relevant information with future AAAI Program Chairs to support continued improvements in the quality, fairness, and integrity of the review process. We appreciate your engagement with the process and your effort in bringing these concerns to our attention.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "standalone",
      "provider": "appeal_reply_composer"
@@ -6438,7 +6434,7 @@
    "draft": {
     "answer_confidence": null,
     "citations": [],
-    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review; all assessments are weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in response to author objections.\n\n(3) Thank you for sharing your view of the review process. We will consider your input when studying possible changes for future editions.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition.\n\nBest Regards,\nAAAI 2027 PC Team",
+    "draft_text": "Dear Jane Doe,\n\nWe understand that this outcome may be disappointing, and we appreciate the effort you invested in preparing your submission. We would like to respond to your concerns:\n\n(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both the paper and the reviews, and all assessments were weighed together.\n\n(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We understand this can be frustrating.\n\nThe decision is final, but we hope the feedback will be useful in further strengthening your work and helping you secure publication in another leading venue or future AAAI edition. Thank you for raising your concerns; we will document them and help improve the future AAAI editions.\n\nBest Regards,\nAAAI 2027 PC Team",
     "generation_metadata": {
      "appeal_mode": "merged",
      "provider": "appeal_reply_composer"
@@ -6451,9 +6447,8 @@
     "block_ids": [
      "opening_warm",
      "lead_in_concerns",
-     "point_all_assessments",
+     "point_review_process",
      "point_rebuttal",
-     "point_consider_input",
      "closing_reviewed"
     ],
     "mode": "merged",

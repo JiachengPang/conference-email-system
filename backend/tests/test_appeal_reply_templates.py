@@ -29,7 +29,7 @@ _TEMPLATES = (
 
 EXPECTED_IDS = {
     "opening_warm", "lead_in_concerns",
-    "point_spc_evaluation", "point_reviewer_tracking", "point_ethics_form",
+    "point_review_process", "point_spc_evaluation", "point_reviewer_tracking", "point_ethics_form",
     "point_scores", "point_all_assessments", "point_rebuttal", "point_consider_input",
     "point_ai_review", "point_report_form",
     "closing_reviewed",
@@ -38,28 +38,32 @@ EXPECTED_IDS = {
     "standalone_general_stage1", "standalone_ai_review",
 }
 
-# Who approved each block. Step 3c approved ten on 2026-10-02; Yan's AI-review reply
-# was approved on 2026-10-05, exactly as written, and so were Marc's three
-# reviewer-misconduct points (Step 2.5). The exact hashes are pinned in
-# test_appeal_reply_template_loader.py (APPROVED_PINS).
-_MARC, _YAN, _SAHIL = "Marc Pujol-Gonzalez", "Prof. Yan", "Sahil Satasiya"
-MISCONDUCT_POINTS = ("point_spc_evaluation", "point_reviewer_tracking", "point_ethics_form")
+# Who approved each block, and when. The exact hashes are pinned in
+# test_appeal_reply_template_loader.py (APPROVED_PINS). The blocks whose text the
+# program chairs rewrote (and the new review-process point) were approved on
+# 2026-10-06 by Jiacheng Pang; their earlier approvers have not seen the new text.
+# The ethics-form point kept its body, so Marc's approval of it still holds.
+_MARC, _JIACHENG, _SAHIL = "Marc Pujol-Gonzalez", "Jiacheng Pang", "Sahil Satasiya"
+REWORDED = (
+    "point_review_process", "point_scores", "point_rebuttal", "point_reviewer_tracking",
+    "closing_reviewed", "standalone_ai_review", "standalone_general_stage1",
+)
 APPROVERS = {
-    "opening_warm": _MARC, "lead_in_concerns": _MARC, "point_scores": _MARC,
-    "point_all_assessments": _MARC, "point_rebuttal": _MARC, "point_consider_input": _MARC,
-    "closing_reviewed": _MARC, "full_reciprocal": _MARC,
-    "standalone_general_stage1": _YAN, "standalone_ai_review": _YAN,
-    "line_chair_writes": _SAHIL,
-} | {block_id: _MARC for block_id in MISCONDUCT_POINTS}
-APPROVAL_DATES = {block_id: "2026-10-02" for block_id in APPROVERS} | {
-    "standalone_ai_review": "2026-10-05",
-} | {block_id: "2026-10-05" for block_id in MISCONDUCT_POINTS}
+    "opening_warm": _MARC, "lead_in_concerns": _MARC, "full_reciprocal": _MARC,
+    "point_ethics_form": _MARC, "line_chair_writes": _SAHIL,
+} | {block_id: _JIACHENG for block_id in REWORDED}
+APPROVAL_DATES = {
+    "opening_warm": "2026-10-02", "lead_in_concerns": "2026-10-02", "full_reciprocal": "2026-10-02",
+    "line_chair_writes": "2026-10-02", "point_ethics_form": "2026-10-05",
+} | {block_id: "2026-10-06" for block_id in REWORDED}
 
-# Kept in the file but no longer used (D97/D98/D101/D104).
+# Kept in the file but no longer used (D97/D98/D101/D104), plus the three points the
+# chairs' rewording replaced (folded into point_review_process).
 RETIRED_IDS = {
     "point_ai_review", "point_report_form",
     "holding_wrong_paper", "holding_score_mismatch", "holding_both",
     "body_reconsider",
+    "point_spc_evaluation", "point_all_assessments", "point_consider_input",
 }
 
 REQUIRED_FIELDS = {
@@ -85,8 +89,8 @@ def test_the_file_is_schema_version_2(data):
 
 def test_the_file_holds_exactly_the_expected_ids(templates):
     ids = [t["id"] for t in templates]
-    assert len(ids) == 20
-    assert len(set(ids)) == 20, "template ids must be unique"
+    assert len(ids) == 21
+    assert len(set(ids)) == 21, "template ids must be unique"
     assert set(ids) == EXPECTED_IDS
 
 
@@ -161,10 +165,10 @@ def test_every_entry_has_the_cycle_and_scope(templates):
 
 
 def test_exactly_the_expected_entries_are_approved_retired_and_draft(templates):
-    """The fourteen blocks Marc, Yan and Sahil approved are approved, each with its
-    approver and date (Yan's AI-review reply and Marc's three misconduct points
-    on 2026-10-05, the rest on 2026-10-02); the six retired ones stay retired; no
-    block is draft any more.
+    """Twelve blocks are approved, each with its approver and date: the seven the
+    chairs reworded (approved 2026-10-06), and five whose text did not change
+    (opening, lead-in, reciprocal reply, chair line, ethics-form point). The nine
+    retired ones stay retired; no block is draft.
     Unapproved entries carry no approval record."""
     status = {t["id"]: t["status"] for t in templates}
     assert {i for i, s in status.items() if s == "approved"} == set(APPROVERS)
@@ -190,29 +194,29 @@ def test_the_new_standalone_blocks_are_complete_middles_for_one_reason(templates
 
 
 def test_the_live_points_have_the_decided_reasons_and_order(templates):
-    """T1 = scores + rebuttal; T2 = reviewers + rebuttal + thanks (D97/D100). The
-    thanks point is no longer shared with the AI-review reason (D103). Step 2.5:
-    Marc's three misconduct points come first (misconduct = all three,
-    missing material = the first only), and record_error shares the score point
-    without the rebuttal point. Existing points keep their relative order."""
+    """The chairs' point order: the review-process point opens every merged reply
+    (every merged reason needs it), then scores, rebuttal, reviewer tracking and
+    the ethics form. record_error shares the score point without the rebuttal
+    point; misconduct adds tracking and the ethics form."""
     live = {t["id"]: (t["order"], t["reasons"]) for t in templates
             if t["kind"] == "point" and t["status"] != "retired"}
     assert live == {
-        "point_spc_evaluation": (1, ["reviewer_misconduct", "missing_material_claim"]),
-        "point_reviewer_tracking": (2, ["reviewer_misconduct"]),
-        "point_ethics_form": (3, ["reviewer_misconduct"]),
-        "point_scores": (4, ["score_outcome_mismatch", "record_error"]),
-        "point_all_assessments": (5, ["reviewer_misunderstanding"]),
-        "point_rebuttal": (6, ["score_outcome_mismatch", "reviewer_misunderstanding"]),
-        "point_consider_input": (7, ["reviewer_misunderstanding"]),
+        "point_review_process": (1, ["score_outcome_mismatch", "reviewer_misunderstanding",
+                                     "missing_material_claim", "record_error",
+                                     "reviewer_misconduct"]),
+        "point_scores": (2, ["score_outcome_mismatch", "record_error"]),
+        "point_rebuttal": (3, ["score_outcome_mismatch", "reviewer_misunderstanding"]),
+        "point_reviewer_tracking": (4, ["reviewer_misconduct"]),
+        "point_ethics_form": (5, ["reviewer_misconduct"]),
     }
 
 
 def test_the_retired_points_sit_after_the_live_points(templates):
-    """Renumbered to 8 and 9 (Step 2.5) so no two points share an order."""
+    """Renumbered after the five live points so no two points share an order."""
     retired = {t["id"]: t["order"] for t in templates
                if t["kind"] == "point" and t["status"] == "retired"}
-    assert retired == {"point_ai_review": 8, "point_report_form": 9}
+    assert retired == {"point_spc_evaluation": 6, "point_all_assessments": 7,
+                       "point_consider_input": 8, "point_ai_review": 9, "point_report_form": 10}
 
 
 def test_the_blockers_are_as_decided(templates):

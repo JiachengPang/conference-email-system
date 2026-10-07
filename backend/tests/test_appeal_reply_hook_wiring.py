@@ -38,7 +38,8 @@ from app.pipeline.phase1_appeal_classifier import AppealReason, Phase1AppealResu
 REVIEW = "review_decision_appeal"
 NON_APPEAL = "submission_requirements"
 SCORE = "score_outcome_mismatch"
-T1_BLOCKS = ["opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed"]
+T1_BLOCKS = ["opening_warm", "lead_in_concerns", "point_review_process", "point_scores",
+             "point_rebuttal", "closing_reviewed"]
 
 
 def phase1_result(relation="appeal", reasons=("decision_vs_reviews",), papers=("12345",)):
@@ -58,14 +59,15 @@ T1 = (
     "Dear Jane Doe,\n\n"
     "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
     "in preparing your submission. We would like to respond to your concerns:\n\n"
-    "(1) Decisions are not based solely on the visible reviewer scores. Senior program committee "
-    "members evaluated both the paper and the reviews, including whether the raised concerns can be "
-    "addressed with minor clarifications or require substantial revision.\n\n"
-    "(2) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We "
-    "understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in "
-    "response to author objections.\n\n"
+    "(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated "
+    "both the paper and the reviews, and all assessments were weighed together.\n\n"
+    "(2) SPCs also considered whether the concerns raised could be addressed with minor clarifications "
+    "or would require substantial revision.\n\n"
+    "(3) AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. "
+    "We understand this can be frustrating.\n\n"
     "The decision is final, but we hope the feedback will be useful in further strengthening your work "
-    "and helping you secure publication in another leading venue or future AAAI edition.\n\n"
+    "and helping you secure publication in another leading venue or future AAAI edition. Thank you for "
+    "raising your concerns; we will document them and help improve the future AAAI editions.\n\n"
     "Best Regards,\nAAAI 2027 PC Team"
 )
 MODEL_DRAFT = DraftResponse(

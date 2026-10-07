@@ -75,10 +75,11 @@ def _s(real_blocks, block_id: str) -> list[str]:
 
 
 def _t1_answer(real_blocks) -> str:
-    """Marc's T1 (score) reply as the model would return it, tagged."""
+    """The score reply as the model would return it, tagged."""
     return _answer(
         _s(real_blocks, "opening_warm") + _s(real_blocks, "lead_in_concerns"),
-        [_s(real_blocks, "point_scores"), _s(real_blocks, "point_rebuttal")],
+        [_s(real_blocks, "point_review_process"), _s(real_blocks, "point_scores"),
+         _s(real_blocks, "point_rebuttal")],
         _s(real_blocks, "closing_reviewed"),
     )
 
@@ -123,7 +124,8 @@ def test_code_numbers_the_points_and_reproduces_the_composed_t1_reply(real_block
     assert result.failure is None
     assert result.middle == compose_reply(["score_outcome_mismatch"]).body
     assert result.block_ids == (
-        "opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed",
+        "opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+        "closing_reviewed",
     )
 
 
@@ -173,13 +175,13 @@ def test_a_wrong_shape_is_bad_format(mutate, real_blocks, bank):
 
 # --- check 4: every sentence approved, once ---------------------------------------
 @pytest.mark.parametrize("edit", [
-    lambda s: s.replace("solely", "only"),        # one word changed
+    lambda s: s.replace("alone", "only"),         # one word changed
     lambda s: s.replace("Decisions", "decisions"),  # capital letter changed
     lambda s: s.rstrip("."),                      # punctuation dropped
     lambda s: s + " We will review it again.",    # a new sentence added
 ])
 def test_a_changed_or_new_sentence_is_foreign(edit, real_blocks, bank):
-    first = _s(real_blocks, "point_scores")[0]
+    first = _s(real_blocks, "point_review_process")[0]
     answer = _t1_answer(real_blocks).replace(first, edit(first), 1)
     assert check_answer(answer, bank).failure == ais.FOREIGN_SENTENCE
 
