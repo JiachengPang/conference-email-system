@@ -10,6 +10,8 @@ appeal reply hook:
 - ``composed``: an approved reply was composed (merged, standalone).
 - ``investigate``: possible wrong-paper review, do not reply yet (no_draft).
 - ``reciprocal``: a reciprocal-review complaint for Marc (reciprocal_review).
+- ``ai_suggestion``: a flagged AI suggestion (2b/2c), never approved wording. Its
+  own group: it is NOT counted inside ``chair_writes``.
 - ``chair_writes``: any other mode the hook wrote, including modes added later.
 - ``not_drafted``: no mode at all — the draft was not made by the approved
   rules (the switches were off, or the draft predates the hook).
@@ -45,17 +47,20 @@ MODE_GROUP_CHAIR_WRITES = "chair_writes"
 MODE_GROUP_INVESTIGATE = "investigate"
 MODE_GROUP_RECIPROCAL = "reciprocal"
 MODE_GROUP_NOT_DRAFTED = "not_drafted"
+MODE_GROUP_AI_SUGGESTION = "ai_suggestion"
 MODE_GROUPS: tuple[str, ...] = (
     MODE_GROUP_COMPOSED,
     MODE_GROUP_CHAIR_WRITES,
     MODE_GROUP_INVESTIGATE,
     MODE_GROUP_RECIPROCAL,
     MODE_GROUP_NOT_DRAFTED,
+    MODE_GROUP_AI_SUGGESTION,
 )
 
 COMPOSED_MODES: tuple[str, ...] = ("merged", "standalone")
 INVESTIGATE_MODES: tuple[str, ...] = ("no_draft",)
 RECIPROCAL_MODES: tuple[str, ...] = ("reciprocal_review",)
+AI_SUGGESTION_MODES: tuple[str, ...] = ("ai_suggestion",)
 
 NOTE_STATE_NONE = "none"
 NOTE_STATES: tuple[str, ...] = (NOTE_STATE_NONE, "pending", "posting", "posted", "failed")
@@ -88,6 +93,8 @@ def mode_group(mode: str | None) -> str:
         return MODE_GROUP_INVESTIGATE
     if mode in RECIPROCAL_MODES:
         return MODE_GROUP_RECIPROCAL
+    if mode in AI_SUGGESTION_MODES:
+        return MODE_GROUP_AI_SUGGESTION
     return MODE_GROUP_CHAIR_WRITES
 
 

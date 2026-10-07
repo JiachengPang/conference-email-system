@@ -53,7 +53,9 @@ router = APIRouter(prefix="/appeals", tags=["appeals"])
 _EXPORT_FILENAME = "phase1_appeals.csv"
 QUEUE_OFF_DETAIL = "Reject Appeals queue is turned off"
 
-ModeGroup = Literal["composed", "chair_writes", "investigate", "reciprocal", "not_drafted"]
+ModeGroup = Literal[
+    "composed", "chair_writes", "investigate", "reciprocal", "not_drafted", "ai_suggestion",
+]
 NoteState = Literal["none", "pending", "posting", "posted", "failed"]
 assert set(ModeGroup.__args__) == set(MODE_GROUPS)
 assert set(NoteState.__args__) == set(NOTE_STATES)

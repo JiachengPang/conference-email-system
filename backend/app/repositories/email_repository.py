@@ -27,8 +27,10 @@ from app.db.models import (
     ZendeskChairNote,
 )
 from app.models.appeal_queue import (
+    AI_SUGGESTION_MODES,
     COMPOSED_MODES,
     INVESTIGATE_MODES,
+    MODE_GROUP_AI_SUGGESTION,
     MODE_GROUP_CHAIR_WRITES,
     MODE_GROUP_COMPOSED,
     MODE_GROUP_INVESTIGATE,
@@ -295,10 +297,14 @@ def _mode_group_condition(group: str):
         return mode.in_(RECIPROCAL_MODES)
     if group == MODE_GROUP_NOT_DRAFTED:
         return mode.is_(None)
+    if group == MODE_GROUP_AI_SUGGESTION:
+        return mode.in_(AI_SUGGESTION_MODES)
     if group == MODE_GROUP_CHAIR_WRITES:
         return and_(
             mode.is_not(None),
-            mode.not_in(COMPOSED_MODES + INVESTIGATE_MODES + RECIPROCAL_MODES),
+            mode.not_in(
+                COMPOSED_MODES + INVESTIGATE_MODES + RECIPROCAL_MODES + AI_SUGGESTION_MODES
+            ),
         )
     raise ValueError(f"unknown mode group {group!r}")
 

@@ -248,6 +248,7 @@ async def test_limit_bounds(ctx, limit):
         ("investigate", ["seven"]),
         ("reciprocal", ["three"]),
         ("not_drafted", ["five", "two"]),
+        ("ai_suggestion", []),  # 2c: its own group; none in the base fixture
     ],
 )
 async def test_mode_group_filter(ctx, group, expected):
@@ -525,6 +526,7 @@ async def test_counts(ctx):
         "total": 7,
         "by_mode_group": {
             "composed": 1, "chair_writes": 2, "investigate": 1, "reciprocal": 1, "not_drafted": 2,
+            "ai_suggestion": 0,  # 2c: the key is always present
         },
         "by_note_status": {"none": 5, "pending": 0, "posting": 0, "posted": 1, "failed": 1},
         "without_approved_draft": 2,
@@ -635,7 +637,7 @@ def test_python_mode_groups():
         "reciprocal_review": "reciprocal", "chair_writes": "chair_writes", "refused": "chair_writes",
         "reason_unknown": "chair_writes", "desk_reject": "chair_writes", "window": "chair_writes",
         "failed": "chair_writes", "a_mode_added_later": "chair_writes", "": "chair_writes",
-        None: "not_drafted",
+        None: "not_drafted", "ai_suggestion": "ai_suggestion",
     }
     assert {m: appeal_queue.mode_group(m) for m in expected} == expected
 
@@ -653,7 +655,8 @@ async def test_sql_mode_groups_match_python_for_every_mode(ctx):
     from app.repositories.email_repository import _mode_group_condition
 
     modes = ["merged", "standalone", "no_draft", "reciprocal_review", "chair_writes", "refused",
-             "reason_unknown", "desk_reject", "window", "failed", "a_mode_added_later", ""]
+             "reason_unknown", "desk_reject", "window", "failed", "a_mode_added_later", "",
+             "ai_suggestion"]
     drafts = [_draft(m) for m in modes] + [
         {"draft_text": "x"}, None, {"appeal_reply": None}, {"appeal_reply": {"mode": None}},
     ]

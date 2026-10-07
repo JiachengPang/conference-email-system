@@ -41,6 +41,9 @@ COPY_END = "END"
 BANNER_DO_NOT_SEND = "Do not send: the chair writes this reply."
 BANNER_NO_DRAFT = "Investigate first. Do not reply to or close the ticket yet."
 BANNER_RECIPROCAL = "Reciprocal complaint: for Marc to review."
+# 2c: the AI suggestion (mode ai_suggestion) is never approved wording. Its banner
+# always sits directly under the marker line, the same place in every note.
+BANNER_AI_SUGGESTION = "AI-written suggestion, not approved wording"
 
 CHAIR_LABEL = "Chair"
 CHAIR_NOT_IDENTIFIED = "not identified from this email"
@@ -57,6 +60,12 @@ OPENREVIEW_FORUM_URL = "https://openreview.net/forum?id="
 COMPOSED_MODES = frozenset({"merged", "standalone"})
 MODE_NO_DRAFT = "no_draft"
 MODE_RECIPROCAL = "reciprocal_review"
+# The flagged AI suggestion (appeal_ai_draft.MODE_AI_SUGGESTION / AI_FLAG_LINE).
+# Repeated rather than imported for the same reason; a test pins them equal.
+MODE_AI_SUGGESTION = "ai_suggestion"
+AI_FLAG_LINE = (
+    "[CHAIR: AI-written suggestion, not approved wording; review and edit before sending]"
+)
 
 # Zendesk statuses a note may be posted to (D4). Solved and closed are out:
 # a closed ticket cannot be written to, and a note on a solved one is not
@@ -152,6 +161,13 @@ def _paper_numbers(extraction: dict | None) -> list[str]:
     return numbers
 
 
+def _without_flag_line(text: str) -> str:
+    """The AI suggestion's text with every AI flag line removed, ends stripped."""
+    return "\n".join(
+        line for line in text.split("\n") if line.strip() != AI_FLAG_LINE
+    ).strip()
+
+
 def _is_copyable(mode: str | None, draft_text: str) -> bool:
     """Only a composed reply with real text and no placeholder may be offered for copying."""
     return (
@@ -179,6 +195,11 @@ def build_chair_note_html(
       (greeting and sign-off included) between two rules, then "END";
     - ``no_draft``: "Investigate first. Do not reply to or close the ticket yet.";
     - ``reciprocal_review``: "Reciprocal complaint: for Marc to review.";
+    - ``ai_suggestion`` (2c): the banner "AI-written suggestion, not approved
+      wording" directly under the marker line (so always the second line), and
+      in the mode slot the suggestion WITHOUT its [CHAIR: ...] flag line between
+      two rules — never "COPY BELOW" / "END", so it can never pass for an
+      approved copy block. If nothing usable is left: "Do not send";
     - every other mode, an unknown mode, or a composed mode whose text is empty
       or still holds a [CHAIR: ...] placeholder: "Do not send".
 
@@ -190,8 +211,11 @@ def build_chair_note_html(
     mode = appeal_reply.get("mode") if isinstance(appeal_reply, dict) else None
     draft_text = draft.get("draft_text") if isinstance(draft.get("draft_text"), str) else ""
     notes = draft.get("notes_for_chair") if isinstance(draft.get("notes_for_chair"), str) else ""
+    suggestion = _without_flag_line(draft_text) if mode == MODE_AI_SUGGESTION else ""
 
     parts: list[str] = [f"<p><strong>{_esc(MARKER)}</strong></p>"]
+    if mode == MODE_AI_SUGGESTION:
+        parts.append(f"<p><strong>{_esc(BANNER_AI_SUGGESTION)}</strong></p>")
 
     if resolution.apc_names:
         chairs = ", ".join(_esc(name) for name in resolution.apc_names)
@@ -224,6 +248,10 @@ def build_chair_note_html(
         parts.append(f"<p><strong>{_esc(BANNER_NO_DRAFT)}</strong></p>")
     elif mode == MODE_RECIPROCAL:
         parts.append(f"<p><strong>{_esc(BANNER_RECIPROCAL)}</strong></p>")
+    elif mode == MODE_AI_SUGGESTION and suggestion and not find_placeholders(suggestion):
+        parts.append("<hr>")
+        parts.append(_paragraphs(suggestion))
+        parts.append("<hr>")
     else:
         parts.append(f"<p><strong>{_esc(BANNER_DO_NOT_SEND)}</strong></p>")
 
