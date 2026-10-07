@@ -20,6 +20,12 @@ new reason added there cannot silently widen or shrink them):
 To re-capture, regenerate on the code BEFORE a change, never after it,
 otherwise this test proves nothing:
     python tests/test_appeal_reply_golden_step25.py --write
+
+Deliberately re-captured once AFTER a change: the program chairs' rewording
+(approved 2026-10-06). Before writing, the new snapshot was diffed against the
+old one: only the 8 compose cases, 5 phase-1 hook cases and 8 rollback hook
+cases that use a reworded or retired block changed, and only in body / draft
+text and block ids; every mode, chair note and refusal stayed identical.
 """
 
 from __future__ import annotations
@@ -136,13 +142,13 @@ def test_every_covered_output_is_byte_identical_to_the_golden_file():
 
 
 def test_score_and_reviewer_merged_reply_is_in_the_golden_file():
-    """The reply Marc approved for scores + reviewer is covered, composed, not refused."""
+    """The scores + reviewer reply is covered, composed, not refused."""
     golden = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
     entry = golden["compose"]["score_outcome_mismatch+reviewer_misunderstanding"]
     assert entry["mode"] == "merged"
     assert entry["used_ids"] == [
-        "opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments",
-        "point_rebuttal", "point_consider_input", "closing_reviewed",
+        "opening_warm", "lead_in_concerns", "point_review_process", "point_scores",
+        "point_rebuttal", "closing_reviewed",
     ]
 
 

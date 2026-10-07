@@ -44,32 +44,31 @@ OPENING = (
     "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
     "in preparing your submission. We would like to respond to your concerns:"
 )
+P_REVIEW_PROCESS = (
+    "(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated "
+    "both the paper and the reviews, and all assessments were weighed together."
+)
 P_SCORES = (
-    "(1) Decisions are not based solely on the visible reviewer scores. Senior program committee "
-    "members evaluated both the paper and the reviews, including whether the raised concerns can be "
-    "addressed with minor clarifications or require substantial revision."
+    "SPCs also considered whether the concerns raised could be addressed with minor clarifications or "
+    "would require substantial revision."
 )
 P_REBUTTAL = (
     "AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We "
-    "understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in "
-    "response to author objections."
-)
-P_REVIEWERS = "Decisions are not based on any single review; all assessments are weighed together."
-P_THANKS = (
-    "Thank you for sharing your view of the review process. We will consider your input when studying "
-    "possible changes for future editions."
+    "understand this can be frustrating."
 )
 CLOSING = (
     "The decision is final, but we hope the feedback will be useful in further strengthening your work "
-    "and helping you secure publication in another leading venue or future AAAI edition."
+    "and helping you secure publication in another leading venue or future AAAI edition. Thank you for "
+    "raising your concerns; we will document them and help improve the future AAAI editions."
 )
 SIGN = "Best Regards,\nAAAI 2027 PC Team"
 
-DRAFT_T1 = f"Dear Jane Doe,\n\n{OPENING}\n\n{P_SCORES}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}\n\n{SIGN}"
-DRAFT_T2 = (f"Dear Author,\n\n{OPENING}\n\n(1) {P_REVIEWERS}\n\n(2) {P_REBUTTAL}\n\n(3) {P_THANKS}\n\n"
+DRAFT_T1 = (f"Dear Jane Doe,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n"
             f"{CLOSING}\n\n{SIGN}")
-DRAFT_T1_T2 = (f"Dear Author,\n\n{OPENING}\n\n{P_SCORES}\n\n(2) {P_REVIEWERS}\n\n(3) {P_REBUTTAL}\n\n"
-               f"(4) {P_THANKS}\n\n{CLOSING}\n\n{SIGN}")
+DRAFT_T2 = f"Dear Author,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}\n\n{SIGN}"
+# Scores + misunderstanding need the same three points as scores alone.
+DRAFT_T1_T2 = (f"Dear Author,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n"
+               f"{CLOSING}\n\n{SIGN}")
 DRAFT_YAN_A = (
     "Dear Wei Zhang,\n\n"
     "Thank you for taking the time to share your concerns regarding the review process for your "
@@ -79,7 +78,7 @@ DRAFT_YAN_A = (
     "receive fair consideration. We would like to emphasize that the final decision on a submission is "
     "not determined by any single review or reviewer.\n\n"
     "To further strengthen the consistency and fairness of the decision-making process, we have "
-    "introduced a new Senior Program Chair (SPC) buddy system. Under this system, each SPC is paired "
+    "introduced a new SPC buddy system. Under this system, each SPC is paired "
     "with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. "
     "This additional layer of cross-checking is intended to reduce the influence of any individual "
     "assessment and promote greater consistency and fairness across the review process. In addition, "
@@ -94,19 +93,19 @@ DRAFT_YAN_A = (
     "attention.\n\n"
     f"{SIGN}"
 )
-# Yan's AI-review reply (approved 2026-10-05 exactly as written): greeting, her four
-# paragraphs, then the common sign-off.
+# Yan's AI-review reply as the chairs shortened it (approved 2026-10-06): greeting, her
+# four paragraphs, then the common sign-off.
 YAN_B_PARAGRAPHS = (
     "Thank you for providing the detailed information regarding your concerns about the reviews of "
     "your submission. We take concerns about the integrity and quality of the review process seriously "
     "and have carefully considered the issues you raised.",
     "We recognize that some characteristics of a review may raise concerns about the possible use of "
     "AI tools. But rest assured that the decision on your submission does not rely on any single "
-    "review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the "
-    "reviews and the authors' responses, and formed their own assessment of the submission. The final "
+    "review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and "
+    "formed their own assessment of the submission. The final "
     "decision is made based on this broader evaluation rather than on the assessment or "
     "recommendation of any individual reviewer.",
-    "In addition, we ask Senior Program Chairs to assess the quality of the reviews and provide "
+    "In addition, we ask SPCs to assess the quality of the reviews and provide "
     "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
     "with AI-generated content. Your feedback is also very valuable to us. We will document these "
     "concerns and share the relevant information with future AAAI Program Chairs to help further "
@@ -121,11 +120,11 @@ DRAFT_YAN_B = (
     "and have carefully considered the issues you raised.\n\n"
     "We recognize that some characteristics of a review may raise concerns about the possible use of "
     "AI tools. But rest assured that the decision on your submission does not rely on any single "
-    "review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the "
-    "reviews and the authors' responses, and formed their own assessment of the submission. The final "
+    "review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and "
+    "formed their own assessment of the submission. The final "
     "decision is made based on this broader evaluation rather than on the assessment or "
     "recommendation of any individual reviewer.\n\n"
-    "In addition, we ask Senior Program Chairs to assess the quality of the reviews and provide "
+    "In addition, we ask SPCs to assess the quality of the reviews and provide "
     "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
     "with AI-generated content. Your feedback is also very valuable to us. We will document these "
     "concerns and share the relevant information with future AAAI Program Chairs to help further "
@@ -157,15 +156,16 @@ def prepare(intent, reasons, *, reciprocal=None, created=INSIDE, name=None, wind
 @pytest.mark.parametrize("reasons, name, expected, record", [
     ([SCORE], "Jane Doe", DRAFT_T1,
      {"mode": "merged", "reasons": [SCORE],
-      "block_ids": ["opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed"]}),
+      "block_ids": ["opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+                    "closing_reviewed"]}),
     ([REVIEWER], None, DRAFT_T2,
      {"mode": "merged", "reasons": [REVIEWER],
-      "block_ids": ["opening_warm", "lead_in_concerns", "point_all_assessments", "point_rebuttal",
-                    "point_consider_input", "closing_reviewed"]}),
+      "block_ids": ["opening_warm", "lead_in_concerns", "point_review_process", "point_rebuttal",
+                    "closing_reviewed"]}),
     ([SCORE, REVIEWER], "   ", DRAFT_T1_T2,
      {"mode": "merged", "reasons": [SCORE, REVIEWER],
-      "block_ids": ["opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments",
-                    "point_rebuttal", "point_consider_input", "closing_reviewed"]}),
+      "block_ids": ["opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+                    "closing_reviewed"]}),
     ([GENERAL], "Wei Zhang", DRAFT_YAN_A,
      {"mode": "standalone", "reasons": [GENERAL], "block_ids": ["standalone_general_stage1"]}),
     ([LLM], "Ana Silva", DRAFT_YAN_B,

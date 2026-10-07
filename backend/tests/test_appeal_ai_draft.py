@@ -62,11 +62,13 @@ V_MISC = ("Before sending, check for harassment or an undisclosed conflict of in
           "If either is present, do not send; forward the ticket to the Ethics Chairs.")
 MIDDLE = ("We understand that this outcome may be disappointing, and we appreciate the effort you "
           "invested in preparing your submission. We would like to respond to your concerns:\n\n"
-          "(1) Decisions are not based on any single review; all assessments are weighed together.\n\n"
+          "(1) Decisions are not based on any single review or on the visible scores alone. SPCs "
+          "evaluated both the paper and the reviews, and all assessments were weighed together.\n\n"
           "The decision is final, but we hope the feedback will be useful in further strengthening "
           "your work and helping you secure publication in another leading venue or future AAAI "
-          "edition.")
-SOURCE_BLOCKS = ("opening_warm", "lead_in_concerns", "point_all_assessments", "closing_reviewed")
+          "edition. Thank you for raising your concerns; we will document them and help improve the "
+          "future AAAI editions.")
+SOURCE_BLOCKS = ("opening_warm", "lead_in_concerns", "point_review_process", "closing_reviewed")
 EMAIL_DATA = {"subject": "Appeal", "body": f"Please reconsider. {SENTINEL}", "sender_name": "Jane Doe",
               "timestamp": "2026-09-15T10:00:00Z"}
 

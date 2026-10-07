@@ -31,36 +31,35 @@ OPENING = (
     "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
     "in preparing your submission. We would like to respond to your concerns:"
 )
-P_SCORES = (
-    "Decisions are not based solely on the visible reviewer scores. Senior program committee members "
-    "evaluated both the paper and the reviews, including whether the raised concerns can be addressed "
-    "with minor clarifications or require substantial revision."
+P_REVIEW_PROCESS = (
+    "Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both "
+    "the paper and the reviews, and all assessments were weighed together."
 )
-P_REVIEWERS = "Decisions are not based on any single review; all assessments are weighed together."
+P_SCORES = (
+    "SPCs also considered whether the concerns raised could be addressed with minor clarifications or "
+    "would require substantial revision."
+)
 P_REBUTTAL = (
     "AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We "
-    "understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in "
-    "response to author objections."
-)
-P_THANKS = (
-    "Thank you for sharing your view of the review process. We will consider your input when studying "
-    "possible changes for future editions."
+    "understand this can be frustrating."
 )
 CLOSING = (
     "The decision is final, but we hope the feedback will be useful in further strengthening your work "
-    "and helping you secure publication in another leading venue or future AAAI edition."
+    "and helping you secure publication in another leading venue or future AAAI edition. Thank you for "
+    "raising your concerns; we will document them and help improve the future AAAI editions."
 )
 SIGN = "Best Regards,\nAAAI 2027 PC Team"
-DRAFT_T1 = (f"Dear Jane Doe,\n\n{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}\n\n{SIGN}")
-DRAFT_T1_T2 = (f"Dear Jane Doe,\n\n{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REVIEWERS}\n\n"
-               f"(3) {P_REBUTTAL}\n\n(4) {P_THANKS}\n\n{CLOSING}\n\n{SIGN}")
+DRAFT_T1 = (f"Dear Jane Doe,\n\n{OPENING}\n\n(1) {P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n"
+            f"(3) {P_REBUTTAL}\n\n{CLOSING}\n\n{SIGN}")
+# Scores + misjudgment need the same three points as scores alone.
+DRAFT_T1_T2 = DRAFT_T1
 YAN_A_FIRST = ("Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the "
                "review process for your submission.")
 YAN_B_FIRST = ("Dear Jane Doe,\n\nThank you for providing the detailed information regarding your "
                "concerns about the reviews of your submission.")
-T1_BLOCKS = ["opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed"]
-T1_T2_BLOCKS = ["opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments",
-                "point_rebuttal", "point_consider_input", "closing_reviewed"]
+T1_BLOCKS = ["opening_warm", "lead_in_concerns", "point_review_process", "point_scores",
+             "point_rebuttal", "closing_reviewed"]
+T1_T2_BLOCKS = T1_BLOCKS
 
 
 def classified(relation, reasons, papers=("12345",)) -> Phase1Outcome:

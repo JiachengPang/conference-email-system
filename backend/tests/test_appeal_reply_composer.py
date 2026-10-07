@@ -4,7 +4,7 @@ Golden outputs are written out as LITERAL strings — never built by calling the
 composer or reading the file. Most tests use a temp copy of the real template
 file in which every non-retired entry is approved with a correct hash
 (``approved_copy``). The tests in the "REAL file" section run on the real file
-exactly as approved in Step 3c, against the same literal goldens.
+exactly as approved (the chairs' rewording, 2026-10-06), against the same literal goldens.
 """
 
 from __future__ import annotations
@@ -26,17 +26,18 @@ from app.pipeline.appeal_reply_templates import compute_body_sha256, expected_po
 
 SCORE, REVIEWER, LLM = "score_outcome_mismatch", "reviewer_misunderstanding", "llm_generated_review"
 WRONG, GENERAL, OTHER, RECIP = "wrong_paper_review", "general_dissatisfaction", "other", "reciprocal_dispute"
+MISCONDUCT, MISSING, RECORD = "reviewer_misconduct", "missing_material_claim", "record_error"
 ROLES = "internal_roles_or_process"
 
 
 def approved_copy(tmp_path: Path, *, overrides: dict | None = None, draft: set | None = None,
-                  approve_retired: bool = False) -> Path:
+                  approve_retired: bool = False, keep_retired: frozenset = frozenset()) -> Path:
     """A temp copy of the real file with every non-retired entry approved and
     correctly hashed.
 
     ``overrides`` maps id -> fields to change BEFORE hashing; ``draft`` lists ids
     to leave unapproved; ``approve_retired`` approves the retired entries too, to
-    prove the composer never uses them. No live block is blocked in the real file
+    prove the composer never uses them, except the ids in ``keep_retired``. No live block is blocked in the real file
     any more (Yan's AI-review reply was approved on 2026-10-05), so nothing needs
     unblocking; a test that wants a blocker sets one through ``overrides``.
     """
@@ -48,7 +49,7 @@ def approved_copy(tmp_path: Path, *, overrides: dict | None = None, draft: set |
             # unapproved must actively reset it, not just skip stamping it.
             e.update(status="draft", approved_by=None, approved_at=None, approved_sha256=None)
             continue
-        if e["status"] == "retired" and not approve_retired:
+        if e["status"] == "retired" and (not approve_retired or e["id"] in keep_retired):
             continue
         if e["status"] == "retired":
             e["blocked_on"] = []
@@ -69,34 +70,33 @@ OPENING = (
     "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
     "in preparing your submission. We would like to respond to your concerns:"
 )
-P_SCORES = (
-    "Decisions are not based solely on the visible reviewer scores. Senior program committee members "
-    "evaluated both the paper and the reviews, including whether the raised concerns can be addressed "
-    "with minor clarifications or require substantial revision."
+# The program chairs' wording (approved 2026-10-06).
+P_REVIEW_PROCESS = (
+    "Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both "
+    "the paper and the reviews, and all assessments were weighed together."
 )
-P_REVIEWERS = "Decisions are not based on any single review; all assessments are weighed together."
+P_SCORES = (
+    "SPCs also considered whether the concerns raised could be addressed with minor clarifications or "
+    "would require substantial revision."
+)
 P_REBUTTAL = (
     "AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We "
-    "understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in "
-    "response to author objections."
-)
-P_THANKS = (
-    "Thank you for sharing your view of the review process. We will consider your input when studying "
-    "possible changes for future editions."
+    "understand this can be frustrating."
 )
 CLOSING = (
     "The decision is final, but we hope the feedback will be useful in further strengthening your work "
-    "and helping you secure publication in another leading venue or future AAAI edition."
+    "and helping you secure publication in another leading venue or future AAAI edition. Thank you for "
+    "raising your concerns; we will document them and help improve the future AAAI editions."
 )
 CHAIR_LINE = "[CHAIR: write reply]"
 
-G_T1 = f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}"
-G_T2 = f"{OPENING}\n\n(1) {P_REVIEWERS}\n\n(2) {P_REBUTTAL}\n\n(3) {P_THANKS}\n\n{CLOSING}"
-G_T1_T2 = (f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REVIEWERS}\n\n(3) {P_REBUTTAL}\n\n"
-           f"(4) {P_THANKS}\n\n{CLOSING}")
-G_T1_OTHER = f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REBUTTAL}\n\n{CHAIR_LINE}\n\n{CLOSING}"
-G_T1_T2_OTHER = (f"{OPENING}\n\n(1) {P_SCORES}\n\n(2) {P_REVIEWERS}\n\n(3) {P_REBUTTAL}\n\n"
-                 f"(4) {P_THANKS}\n\n{CHAIR_LINE}\n\n{CLOSING}")
+G_T1 = f"{OPENING}\n\n(1) {P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n{CLOSING}"
+G_T2 = f"{OPENING}\n\n(1) {P_REVIEW_PROCESS}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}"
+# Scores + misunderstanding need the same three points as scores alone.
+G_T1_T2 = G_T1
+G_T1_OTHER = (f"{OPENING}\n\n(1) {P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n"
+              f"{CHAIR_LINE}\n\n{CLOSING}")
+G_T1_T2_OTHER = G_T1_OTHER
 G_YAN_A = (
     "Thank you for taking the time to share your concerns regarding the review process for your "
     "submission. We take concerns about fairness in the review process seriously and have carefully "
@@ -105,7 +105,7 @@ G_YAN_A = (
     "receive fair consideration. We would like to emphasize that the final decision on a submission is "
     "not determined by any single review or reviewer.\n\n"
     "To further strengthen the consistency and fairness of the decision-making process, we have "
-    "introduced a new Senior Program Chair (SPC) buddy system. Under this system, each SPC is paired "
+    "introduced a new SPC buddy system. Under this system, each SPC is paired "
     "with another SPC who serves as a \"buddy\" and independently reviews the SPC's recommendations. "
     "This additional layer of cross-checking is intended to reduce the influence of any individual "
     "assessment and promote greater consistency and fairness across the review process. In addition, "
@@ -119,19 +119,19 @@ G_YAN_A = (
     "appreciate your engagement with the process and your effort in bringing these concerns to our "
     "attention."
 )
-# Yan's AI-review reply, approved 2026-10-05 exactly as written — its four
-# paragraphs as literals ("the authors' responses" wording accepted as is).
+# Yan's AI-review reply as the chairs shortened it (approved 2026-10-06): "and the
+# authors' responses" removed, "Senior Program Chair(s)" shortened to "SPC(s)".
 YAN_B_PARAGRAPHS = (
     "Thank you for providing the detailed information regarding your concerns about the reviews of "
     "your submission. We take concerns about the integrity and quality of the review process seriously "
     "and have carefully considered the issues you raised.",
     "We recognize that some characteristics of a review may raise concerns about the possible use of "
     "AI tools. But rest assured that the decision on your submission does not rely on any single "
-    "review. The Senior Program Chair and/or Area Chair have also reviewed the paper, considered the "
-    "reviews and the authors' responses, and formed their own assessment of the submission. The final "
+    "review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and "
+    "formed their own assessment of the submission. The final "
     "decision is made based on this broader evaluation rather than on the assessment or "
     "recommendation of any individual reviewer.",
-    "In addition, we ask Senior Program Chairs to assess the quality of the reviews and provide "
+    "In addition, we ask SPCs to assess the quality of the reviews and provide "
     "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
     "with AI-generated content. Your feedback is also very valuable to us. We will document these "
     "concerns and share the relevant information with future AAAI Program Chairs to help further "
@@ -150,19 +150,19 @@ NOTE_RECIP = "Reciprocal-review complaint: tagged for Marc to review himself. No
 # (reasons, mode, expected body, expected used ids, rules that fire on the body)
 GOLDEN_CASES = [
     ([SCORE], "merged", G_T1,
-     ("opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed"), {ROLES}),
-    ([REVIEWER], "merged", G_T2,
-     ("opening_warm", "lead_in_concerns", "point_all_assessments", "point_rebuttal",
-      "point_consider_input", "closing_reviewed"), set()),
-    ([SCORE, REVIEWER], "merged", G_T1_T2,
-     ("opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments", "point_rebuttal",
-      "point_consider_input", "closing_reviewed"), {ROLES}),
-    ([SCORE, OTHER], "merged", G_T1_OTHER,
-     ("opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "line_chair_writes",
+     ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
       "closing_reviewed"), {ROLES}),
+    ([REVIEWER], "merged", G_T2,
+     ("opening_warm", "lead_in_concerns", "point_review_process", "point_rebuttal", "closing_reviewed"), {ROLES}),
+    ([SCORE, REVIEWER], "merged", G_T1_T2,
+     ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+      "closing_reviewed"), {ROLES}),
+    ([SCORE, OTHER], "merged", G_T1_OTHER,
+     ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+      "line_chair_writes", "closing_reviewed"), {ROLES}),
     ([SCORE, REVIEWER, OTHER], "merged", G_T1_T2_OTHER,
-     ("opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments", "point_rebuttal",
-      "point_consider_input", "line_chair_writes", "closing_reviewed"), {ROLES}),
+     ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+      "line_chair_writes", "closing_reviewed"), {ROLES}),
     ([GENERAL], "standalone", G_YAN_A, ("standalone_general_stage1",), {ROLES}),
     ([LLM], "standalone", G_YAN_B, ("standalone_ai_review",), {ROLES}),
     ([OTHER], "chair_writes", CHAIR_LINE, ("line_chair_writes",), set()),
@@ -197,15 +197,16 @@ def test_every_golden_body_is_clean_text(blocks):
 def test_t1_plus_t2_has_the_rebuttal_point_exactly_once_in_the_fixed_order(blocks):
     body = compose_reply([SCORE, REVIEWER], path=blocks).body
     assert body.count("forgoes rebuttal") == 1
-    assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3", "4"]
-    positions = [body.index(p) for p in (P_SCORES, P_REVIEWERS, P_REBUTTAL, P_THANKS)]
+    assert body.count("Decisions are not based on any single review") == 1
+    assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3"]
+    positions = [body.index(p) for p in (P_REVIEW_PROCESS, P_SCORES, P_REBUTTAL)]
     assert positions == sorted(positions)
 
 
 def test_the_chair_line_sits_after_the_last_point_and_before_the_closing(blocks):
     paras = compose_reply([SCORE, OTHER], path=blocks).body.split("\n\n")
     assert paras[-2] == CHAIR_LINE
-    assert paras[-3].startswith("(2) ")
+    assert paras[-3].startswith("(3) ")
     assert paras[-1].startswith("The decision is final")
 
 
@@ -335,16 +336,27 @@ def test_no_draft_and_reciprocal_review_are_not_refusals_and_need_no_block(tmp_p
 
 
 # --- retired blocks are never used ------------------------------------------------------------------
+REPLACED_POINTS = frozenset({"point_spc_evaluation", "point_all_assessments", "point_consider_input"})
+
+
 def test_retired_blocks_are_never_used_even_if_approved(tmp_path):
-    p = approved_copy(tmp_path, approve_retired=True)
+    """Blocks the composer has no rule for (holding replies, the old AI-review and
+    report-form points, the old reconsider body) are never used even if approved.
+    The three points the chairs' rewording replaced still match merged reasons, so
+    what keeps them out is their retired status alone (they stay retired here; an
+    approved copy of them would be a live point again, by design)."""
+    p = approved_copy(tmp_path, approve_retired=True, keep_retired=REPLACED_POINTS)
     retired = {"point_ai_review", "point_report_form", "holding_wrong_paper",
-               "holding_score_mismatch", "holding_both", "body_reconsider"}
+               "holding_score_mismatch", "holding_both", "body_reconsider"} | REPLACED_POINTS
     # point_report_form still holds its [ETHICS FORM ADDRESS] placeholder, which the
     # loader refuses once unblocked, so it is the one retired block not served here.
-    assert retired - {"point_report_form"} <= {t.id for t in art.load_approved_templates(p)}, \
+    assert retired - {"point_report_form"} - REPLACED_POINTS <= {t.id for t in art.load_approved_templates(p)}, \
         "the copy approves them"
     for reasons, *_ in GOLDEN_CASES:
         assert not retired & set(compose_reply(reasons, path=p).used_ids), reasons
+    for reasons in ([MISCONDUCT], [MISSING], [RECORD]):
+        assert not retired & set(compose_reply(reasons, path=p).used_ids), reasons
+    assert compose_reply([SCORE], path=p).body == G_T1
     assert compose_reply([WRONG], path=p).mode == "no_draft"
     assert compose_reply([LLM], path=p).body == G_YAN_B
 
@@ -361,8 +373,11 @@ def test_the_forward_choice_is_gone():
     ("closing_reviewed", [SCORE]),
     ("point_scores", [SCORE]),
     ("point_rebuttal", [SCORE]),
-    ("point_all_assessments", [REVIEWER]),
-    ("point_consider_input", [REVIEWER]),
+    ("point_review_process", [REVIEWER]),
+    ("point_review_process", [MISSING]),
+    ("point_scores", [RECORD]),
+    ("point_reviewer_tracking", [MISCONDUCT]),
+    ("point_ethics_form", [MISCONDUCT]),
     ("standalone_general_stage1", [GENERAL]),
     ("standalone_ai_review", [LLM]),
     ("line_chair_writes", [OTHER]),
@@ -417,18 +432,15 @@ def test_a_missing_file_is_refused_not_raised(tmp_path):
     assert r.mode == "refused" and r.body is None
 
 
-# --- the REAL file (approved in Step 3c; Yan's AI-review reply on 2026-10-05) -----------------------------
+# --- the REAL file (the chairs' rewording approved 2026-10-06) ---------------------------------------------
 # No temp copies here: these run on data/reply_templates/appeal_reply_templates.json
 # exactly as approved, against the hand-written literal goldens above.
 @pytest.mark.parametrize("reasons, expected, used", [
-    ([SCORE], G_T1,
-     ("opening_warm", "lead_in_concerns", "point_scores", "point_rebuttal", "closing_reviewed")),
-    ([REVIEWER], G_T2,
-     ("opening_warm", "lead_in_concerns", "point_all_assessments", "point_rebuttal",
-      "point_consider_input", "closing_reviewed")),
-    ([SCORE, REVIEWER], G_T1_T2,
-     ("opening_warm", "lead_in_concerns", "point_scores", "point_all_assessments", "point_rebuttal",
-      "point_consider_input", "closing_reviewed")),
+    ([SCORE], G_T1, ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+      "closing_reviewed")),
+    ([REVIEWER], G_T2, ("opening_warm", "lead_in_concerns", "point_review_process", "point_rebuttal", "closing_reviewed")),
+    ([SCORE, REVIEWER], G_T1_T2, ("opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
+      "closing_reviewed")),
     ([GENERAL], G_YAN_A, ("standalone_general_stage1",)),
     ([LLM], G_YAN_B, ("standalone_ai_review",)),
 ], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a-general", "yan-b-ai-review"])
@@ -442,17 +454,17 @@ def test_the_real_file_composes_the_approved_replies(reasons, expected, used):
 def test_the_real_file_composes_t1_t2_with_the_rebuttal_point_once():
     body = compose_reply([SCORE, REVIEWER]).body
     assert body.count("forgoes rebuttal") == 1
-    assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3", "4"]
+    assert re.findall(r"(?m)^\((\d)\)", body) == ["1", "2", "3"]
 
 
 def test_the_real_file_composes_yans_ai_review_reply_alone_as_exactly_her_four_paragraphs():
-    """Approved 2026-10-05 exactly as written. (Rewritten: until then the real file
-    refused this reply while Yan B was blocked.)"""
+    """Yan's four paragraphs with the chairs' two edits (approved 2026-10-06)."""
     r = compose_reply([LLM])
     assert r == ComposeResult(body=G_YAN_B, mode="standalone", used_ids=("standalone_ai_review",),
                               chair_notes=(), refusal=None)
     assert tuple(r.body.split("\n\n")) == YAN_B_PARAGRAPHS
-    assert "the authors' responses" in r.body, "accepted as written, not edited"
+    assert "the authors' responses" not in r.body, "removed by the chairs (no rebuttal in Phase 1)"
+    assert "Senior Program Chair" not in r.body
     assert OPENING not in r.body and CLOSING not in r.body, "a standalone reply has no wrapper"
 
 
@@ -526,18 +538,30 @@ def test_the_real_file_sends_a_yan_reply_mixed_with_another_reason_to_the_chair(
 
 # --- expected_points_for_reasons (loader helper) --------------------------------------------------
 def test_expected_points_include_unapproved_points_in_the_global_order():
-    """The real file is all draft or retired, yet the helper still lists what is
-    needed. It lists retired points too (it does not read status); the composer
-    never asks it about llm_generated_review, which is a standalone reply."""
-    assert expected_points_for_reasons([SCORE]) == [("point_scores", False), ("point_rebuttal", False)]
+    """The helper lists every needed point in the global order, approved or not."""
+    assert expected_points_for_reasons([SCORE]) == [
+        ("point_review_process", False), ("point_scores", False), ("point_rebuttal", False)]
     assert expected_points_for_reasons([REVIEWER]) == [
-        ("point_all_assessments", False), ("point_rebuttal", False), ("point_consider_input", False),
-    ]
+        ("point_review_process", False), ("point_rebuttal", False)]
     assert expected_points_for_reasons([SCORE, REVIEWER]) == [
-        ("point_scores", False), ("point_all_assessments", False),
-        ("point_rebuttal", False), ("point_consider_input", False),
-    ]
+        ("point_review_process", False), ("point_scores", False), ("point_rebuttal", False)]
+    assert expected_points_for_reasons([MISCONDUCT]) == [
+        ("point_review_process", False), ("point_reviewer_tracking", False),
+        ("point_ethics_form", False)]
     assert expected_points_for_reasons([WRONG, GENERAL, OTHER]) == []
+
+
+def test_expected_points_skip_retired_points(tmp_path):
+    """A retired point is never needed, even though its reasons still match: the
+    three points the chairs' rewording replaced keep their reasons in the file."""
+    for reasons in ([REVIEWER], [MISCONDUCT], [MISSING], [LLM]):
+        ids = {pid for pid, _ in expected_points_for_reasons(reasons)}
+        assert not ids & {"point_spc_evaluation", "point_all_assessments", "point_consider_input",
+                          "point_ai_review", "point_report_form"}, reasons
+    # A draft point is still listed (and so refuses the reply); only retirement drops it.
+    p = approved_copy(tmp_path, draft={"point_rebuttal"})
+    assert ("point_rebuttal", False) in expected_points_for_reasons([REVIEWER], p)
+    assert compose_reply([REVIEWER], path=p).refusal == "missing_approved_block:point_rebuttal"
 
 
 def test_expected_points_return_ids_and_flags_only():

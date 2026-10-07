@@ -260,7 +260,8 @@ def test_the_composer_honors_the_waiver_of_a_block_it_used(tmp_path):
     r = compose_reply([SCORE], path=p)
     assert r.refusal is None, r.refusal
     assert r.mode == "merged" and "point_scores" in r.used_ids
-    assert f"(1) {SPC_BODY}" in r.body
+    # The review-process point is (1); the score point follows it as (2).
+    assert f"(2) {SPC_BODY}" in r.body
     # The finished email really does contain the waived wording.
     assert {name for name, _ in lint_template_body(r.body)} == {ROLES}
 

@@ -24,13 +24,13 @@ OPENING = (
     "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
     "in preparing your submission. We would like to respond to your concerns:"
 )
-P_SPC = (
-    "Decisions are not based on any single review. Senior program committee members evaluated both "
-    "the paper and the reviews to decide their recommendation."
+P_REVIEW_PROCESS = (
+    "Decisions are not based on any single review or on the visible scores alone. SPCs evaluated both "
+    "the paper and the reviews, and all assessments were weighed together."
 )
 P_TRACKING = (
-    "We are asking SPCs and ACs to report reviewers that are being unprofessional. We keep track of "
-    "the reviewer's performance and we will consider it in future editions."
+    "We ask SPCs and ACs to report reviewers who are unprofessional. We keep track of reviewers' "
+    "performance and take it into account in future editions."
 )
 P_ETHICS = (
     "You can also report unethical behavior through the ethics report form at "
@@ -39,18 +39,17 @@ P_ETHICS = (
     "for this specific paper."
 )
 P_SCORES = (
-    "Decisions are not based solely on the visible reviewer scores. Senior program committee members "
-    "evaluated both the paper and the reviews, including whether the raised concerns can be addressed "
-    "with minor clarifications or require substantial revision."
+    "SPCs also considered whether the concerns raised could be addressed with minor clarifications or "
+    "would require substantial revision."
 )
 P_REBUTTAL = (
     "AAAI's two-phase process forgoes rebuttal for Phase 1 papers in favor of a quicker decision. We "
-    "understand this can be frustrating, but Phase 1 decisions are final and will not be revisited in "
-    "response to author objections."
+    "understand this can be frustrating."
 )
 CLOSING = (
     "The decision is final, but we hope the feedback will be useful in further strengthening your work "
-    "and helping you secure publication in another leading venue or future AAAI edition."
+    "and helping you secure publication in another leading venue or future AAAI edition. Thank you for "
+    "raising your concerns; we will document them and help improve the future AAAI editions."
 )
 SIGN = "Best Regards,\nAAAI 2027 PC Team"
 
@@ -61,7 +60,7 @@ N_WRONG = ("Investigate first: the author says a review is about a different pap
            "Do not reply to or close the ticket yet.")
 
 FRAME = ["opening_warm", "lead_in_concerns"]
-MISCONDUCT_POINTS = ["point_spc_evaluation", "point_reviewer_tracking", "point_ethics_form"]
+MISCONDUCT_POINTS = ["point_reviewer_tracking", "point_ethics_form"]
 
 
 def draft_of(*points: str) -> str:
@@ -89,32 +88,36 @@ def run(outcome, *, reciprocal=False, created="2026-09-15T10:00:00Z", window_end
 
 
 COMPOSED = [
-    # id, his reasons, text, notes, record reasons, block ids, his must_verify
+    # id, his reasons, text, notes, record reasons, block ids, his must_verify.
+    # Points follow the one global order: review_process, scores, rebuttal,
+    # reviewer_tracking, ethics_form.
     ("misconduct-alone", ["reviewer_misconduct"],
-     draft_of(P_SPC, P_TRACKING, P_ETHICS), V_MISCONDUCT,
-     ["reviewer_misconduct"], [*FRAME, *MISCONDUCT_POINTS, "closing_reviewed"], False),
+     draft_of(P_REVIEW_PROCESS, P_TRACKING, P_ETHICS), V_MISCONDUCT,
+     ["reviewer_misconduct"],
+     [*FRAME, "point_review_process", *MISCONDUCT_POINTS, "closing_reviewed"], False),
     ("missing-material-alone", ["missing_material_claim"],
-     draft_of(P_SPC), None,
-     ["missing_material_claim"], [*FRAME, "point_spc_evaluation", "closing_reviewed"], False),
+     draft_of(P_REVIEW_PROCESS), None,
+     ["missing_material_claim"], [*FRAME, "point_review_process", "closing_reviewed"], False),
     ("record-error-alone", ["record_error"],
-     draft_of(P_SCORES), V_RECORD,
-     ["record_error"], [*FRAME, "point_scores", "closing_reviewed"], True),
+     draft_of(P_REVIEW_PROCESS, P_SCORES), V_RECORD,
+     ["record_error"], [*FRAME, "point_review_process", "point_scores", "closing_reviewed"], True),
     ("misconduct-with-T1", ["reviewer_misconduct", "decision_vs_reviews"],
-     draft_of(P_SPC, P_TRACKING, P_ETHICS, P_SCORES, P_REBUTTAL), V_MISCONDUCT,
+     draft_of(P_REVIEW_PROCESS, P_SCORES, P_REBUTTAL, P_TRACKING, P_ETHICS), V_MISCONDUCT,
      ["reviewer_misconduct", "score_outcome_mismatch"],
-     [*FRAME, *MISCONDUCT_POINTS, "point_scores", "point_rebuttal", "closing_reviewed"], False),
+     [*FRAME, "point_review_process", "point_scores", "point_rebuttal", *MISCONDUCT_POINTS,
+      "closing_reviewed"], False),
     ("missing-material-with-T1", ["decision_vs_reviews", "missing_material_claim"],
-     draft_of(P_SPC, P_SCORES, P_REBUTTAL), None,
+     draft_of(P_REVIEW_PROCESS, P_SCORES, P_REBUTTAL), None,
      ["score_outcome_mismatch", "missing_material_claim"],
-     [*FRAME, "point_spc_evaluation", "point_scores", "point_rebuttal", "closing_reviewed"], False),
+     [*FRAME, "point_review_process", "point_scores", "point_rebuttal", "closing_reviewed"], False),
     ("record-error-with-T1", ["decision_vs_reviews", "record_error"],
-     draft_of(P_SCORES, P_REBUTTAL), V_RECORD,
+     draft_of(P_REVIEW_PROCESS, P_SCORES, P_REBUTTAL), V_RECORD,
      ["score_outcome_mismatch", "record_error"],
-     [*FRAME, "point_scores", "point_rebuttal", "closing_reviewed"], True),
+     [*FRAME, "point_review_process", "point_scores", "point_rebuttal", "closing_reviewed"], True),
     ("misconduct-and-record-error", ["record_error", "reviewer_misconduct"],
-     draft_of(P_SPC, P_TRACKING, P_ETHICS, P_SCORES), f"{V_MISCONDUCT}\n{V_RECORD}",
+     draft_of(P_REVIEW_PROCESS, P_SCORES, P_TRACKING, P_ETHICS), f"{V_MISCONDUCT}\n{V_RECORD}",
      ["record_error", "reviewer_misconduct"],
-     [*FRAME, *MISCONDUCT_POINTS, "point_scores", "closing_reviewed"], True),
+     [*FRAME, "point_review_process", "point_scores", *MISCONDUCT_POINTS, "closing_reviewed"], True),
 ]
 
 

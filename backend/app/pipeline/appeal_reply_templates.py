@@ -306,12 +306,13 @@ def expected_points_for_reasons(
     reasons, path: Path | str = DEFAULT_PATH
 ) -> list[tuple[str, bool]]:
     """``(id, optional)`` for every POINT in the file whose reasons intersect
-    ``reasons`` — INCLUDING points that are not approved — in the global point
-    order (``order``, then ``id``). Never raises.
+    ``reasons`` — INCLUDING points that are not approved, but EXCLUDING retired
+    points — in the global point order (``order``, then ``id``). Never raises.
 
     Ids and flags only, never body text: the composer uses it to know which
     points a reply NEEDS, so a required point that is not approved is refused
-    rather than silently dropped. Malformed point entries are skipped.
+    rather than silently dropped. A retired point is no longer part of any
+    reply, so it is never needed. Malformed point entries are skipped.
     """
     try:
         wanted = {r for r in reasons if isinstance(r, str)}
@@ -321,7 +322,7 @@ def expected_points_for_reasons(
         entries = data["templates"]
         found = []
         for e in entries if isinstance(entries, list) else []:
-            if not isinstance(e, dict) or e.get("kind") != "point":
+            if not isinstance(e, dict) or e.get("kind") != "point" or e.get("status") == "retired":
                 continue
             eid, order, optional, e_reasons = e.get("id"), e.get("order"), e.get("optional"), e.get("reasons")
             if not (isinstance(eid, str) and isinstance(order, int) and not isinstance(order, bool)
