@@ -23,28 +23,31 @@ RULES, first match wins (Marc's defaults, decided 2026-10-04; rules 5, 7 and
   5. wrong_paper_review present                   -> hold ``no_draft`` (investigate first)
      (Step 2.5: decided by the name alone; his ``must_verify`` flag is no
      longer read for routing and record_error no longer holds.)
-  6. relation feedback_only                       -> hold ``chair_writes``
-  7. any reason the chair writes (other, or an
+  6. any reason the chair writes (other, or an
      unknown name) — even when mixed with
      reasons that could be composed               -> hold ``chair_writes``
-  8. two or more distinct papers                  -> hold ``chair_writes``
-  9. relation appeal with no verified reason      -> hold ``reason_unknown``
- 10. otherwise compose, mapping each reason:
+  7. relation feedback_only with no reason        -> hold ``chair_writes``
+  8. relation appeal with no verified reason      -> hold ``reason_unknown``
+  9. otherwise compose, mapping each reason:
        decision_vs_reviews    -> score_outcome_mismatch    (Marc's T1)
        reviewer_misjudgment   -> reviewer_misunderstanding (Marc's T2)
-       llm_generated_review   -> llm_generated_review      (Yan's AI-review reply)
+       llm_generated_review   -> llm_generated_review      (the AI-review point)
        reconsideration_only   -> general_dissatisfaction   (Yan's general reply)
        reviewer_misconduct    -> reviewer_misconduct       (Marc's 3 points, Step 2.5)
        missing_material_claim -> missing_material_claim    (misconduct point 1, Step 2.5)
        record_error           -> record_error              (the score point, Step 2.5)
      The composer then applies its own rules unchanged: merged points in one
-     order, either Yan reply mixed with any other reason goes to the chair
+     order, Yan's general reply mixed with any other reason goes to the chair
      (D105), more than three reasons go to the chair. A composed outcome
      carries the VERIFY_BEFORE_SENDING notes of the reasons it contains.
+     Relation feedback_only composes the same way, with ``feedback_only`` set
+     (no rebuttal point, the feedback closing). An email about two or more
+     papers composes too (the reasons are per email, so one reply covers all
+     its papers), with ``multiple_papers`` set (the plural opening).
 
-A held outcome from rules 5-8 also carries the misconduct check when
+A held outcome from rules 5-7 also carries the misconduct check when
 reviewer_misconduct is among the reasons (HOLD_VERIFY_REASONS; record_error's
-check is never added to a hold). Rules 1-4 and 9 never carry a check.
+check is never added to a hold). Rules 1-4 and 8 never carry a check.
 
 A hold ``chair_writes`` is answered by the hook with the approved chair-writes
 line; the other holds become the hook's own placeholders. Chair notes are plain
@@ -97,7 +100,7 @@ VERIFY_BEFORE_SENDING: dict[str, str] = {
     "record_error": "Before sending, check the review text against its score.",
 }
 # Reasons whose check is ALSO added when the email is held for the chair (rules
-# 5-8: no draft, feedback only, a chair-written reason, several papers). Only
+# 5-7: no draft, a chair-written reason, feedback only with no reason). Only
 # misconduct: a chair writing that reply still has to look for harassment or a
 # conflict of interest. Never on reciprocal, not_appeal or "reason unknown".
 HOLD_VERIFY_REASONS: tuple[str, ...] = ("reviewer_misconduct",)
@@ -110,7 +113,7 @@ def verify_notes(names, *, held: bool) -> tuple[str, ...]:
     """The verify-before-sending texts for these reason names, most critical first.
 
     ``held`` False (a composable outcome): every reason in VERIFY_BEFORE_SENDING.
-    ``held`` True (rules 5-8): only HOLD_VERIFY_REASONS. The one rule shared by
+    ``held`` True (rules 5-7): only HOLD_VERIFY_REASONS. The one rule shared by
     the mapping's notes and the CSV helper in ``appeal_reply_hook``.
     """
     keys = HOLD_VERIFY_REASONS if held else tuple(VERIFY_BEFORE_SENDING)
@@ -157,12 +160,17 @@ class MappedAppeal:
     chair notes added by this mapping. ``snapshot`` is the names-only record of
     what the phase-1 side decided: ``state``, ``relation``, ``reasons``,
     ``must_verify`` and ``papers`` (``None`` where it gave no answer).
+    ``feedback_only`` is True when composable reasons come from a
+    feedback-only email, and ``multiple_papers`` when the email is about two
+    or more papers (both passed through to ``compose_reply``).
     """
 
     reasons: tuple[str, ...] | None
     hold: str | None
     notes: tuple[str, ...] = ()
     snapshot: dict = field(default_factory=dict)
+    feedback_only: bool = False
+    multiple_papers: bool = False
 
 
 def _snapshot(state, relation=None, reasons=None, must_verify=None, papers=None) -> dict:
@@ -222,21 +230,15 @@ def _map(outcome) -> MappedAppeal:
         others = [n for n in names if n not in investigate]
         return MappedAppeal(None, HOLD_NO_DRAFT,
                             notes + _raised("Also raised", others) + _hold_checks(names), snapshot)
-    if result.relation == "feedback_only":
-        return MappedAppeal(None, HOLD_CHAIR_WRITES,
-                            (NOTE_FEEDBACK_ONLY,) + _raised("Raised", names) + _hold_checks(names),
-                            snapshot)
     chair_written = [n for n in names if n in CHAIR_WRITES_REASONS or n not in COMPOSABLE]
     if chair_written:
         note = f"Chair writes: no approved reply covers {', '.join(chair_written)}."
         others = [n for n in names if n not in chair_written]
         return MappedAppeal(None, HOLD_CHAIR_WRITES,
                             (note,) + _raised("Also raised", others) + _hold_checks(names), snapshot)
-    if len(papers) >= 2:
-        note = (f"Chair writes: the email is about {len(papers)} papers; the approved replies "
-                "are written for one paper.")
-        return MappedAppeal(None, HOLD_CHAIR_WRITES,
-                            (note,) + _raised("Raised", names) + _hold_checks(names), snapshot)
+    feedback_only = result.relation == "feedback_only"
+    if not names and feedback_only:
+        return MappedAppeal(None, HOLD_CHAIR_WRITES, (NOTE_FEEDBACK_ONLY,), snapshot)
     if not names:
         dropped = list(dict.fromkeys(getattr(result, "dropped_unquoted", None) or []))
         return MappedAppeal(None, HOLD_REASON_UNKNOWN,
@@ -244,4 +246,5 @@ def _map(outcome) -> MappedAppeal:
                             + _raised("Possibly raised (quote not verified)", dropped),
                             snapshot)
     composer_input = tuple(dict.fromkeys(COMPOSABLE[n] for n in names))
-    return MappedAppeal(composer_input, None, verify_notes(names, held=False), snapshot)
+    return MappedAppeal(composer_input, None, verify_notes(names, held=False), snapshot,
+                        feedback_only=feedback_only, multiple_papers=len(papers) >= 2)

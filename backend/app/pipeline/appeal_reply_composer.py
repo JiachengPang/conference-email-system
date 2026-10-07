@@ -20,14 +20,12 @@ Rules, applied in this order (reasons are registry names plus
      ``reciprocal_review``, body None, refusal None. The chair note tags it for
      Marc; any other reasons are listed. ``full_reciprocal`` is NEVER served,
      even when approved. Needs no block.
-  3. STANDALONE ONLY ALONE — ``general_dissatisfaction`` and
-     ``llm_generated_review`` are each answered by ONE complete middle
-     (``standalone_general_stage1`` / ``standalone_ai_review``, D103/D104), mode
-     ``standalone``. Combined with each other or with ANY other reason, the
-     chair writes (mode ``chair_writes``, the chair line, a note naming the
-     reasons) — D105.
+  3. STANDALONE ONLY ALONE — ``general_dissatisfaction`` is answered by ONE
+     complete middle (``standalone_general_stage1``, D103), mode
+     ``standalone``. Combined with ANY other reason, the chair writes (mode
+     ``chair_writes``, the chair line, a note naming the reasons) — D105.
   4. Then, with only ``score_outcome_mismatch``, ``reviewer_misunderstanding``,
-     ``other`` and the composer-only reasons left:
+     ``llm_generated_review``, ``other`` and the composer-only reasons left:
        more than ``MAX_REASONS`` -> the chair writes (reachable since Step 2.5:
        four or more of the merged reasons go to a person);
        {other} -> the chair line alone (mode ``chair_writes``);
@@ -35,6 +33,11 @@ Rules, applied in this order (reasons are registry names plus
        ONE global point order (the file's ``order``), each point once even when
        two reasons need it, the chair line after the list when ``other`` is
        present, then ``closing_reviewed``.
+       With ``feedback_only=True`` (the author reports review problems but does
+       not contest the decision) the merged reply leaves out ``point_rebuttal``
+       and closes with ``closing_feedback`` instead. With
+       ``multiple_papers=True`` (the email is about two or more papers) it
+       opens with ``opening_warm_plural`` instead of ``opening_warm``.
   * Every block a reply needs must be approved, else the reply is refused
     (mode ``refused``, ``missing_approved_block:<id>``). There are no optional
     points (the report-form point is retired, D101).
@@ -92,9 +95,15 @@ _ORDER = {name: i for i, name in enumerate(_REASON_ORDER)}
 ALLOWED_REASONS = frozenset(_ORDER)
 
 OPENING, LEAD_IN, CLOSING = "opening_warm", "lead_in_concerns", "closing_reviewed"
+# A feedback-only reply: its own closing, and no rebuttal point (that point is
+# about the decision process, which these authors are not contesting).
+CLOSING_FEEDBACK = "closing_feedback"
+# The opening for an email about two or more papers (one reply covers them all).
+OPENING_PLURAL = "opening_warm_plural"
+REBUTTAL = "point_rebuttal"
 CHAIR_LINE = "line_chair_writes"
 # Reasons answered by ONE complete middle, never merged with anything (D103-D105).
-STANDALONE = {GENERAL: "standalone_general_stage1", LLM: "standalone_ai_review"}
+STANDALONE = {GENERAL: "standalone_general_stage1"}
 
 NOTE_NO_DRAFT = (
     "Investigate first: the author says a review is about a different paper. "
@@ -147,10 +156,22 @@ def _also_raised(reasons: list[str]) -> tuple[str, ...]:
     return (f"Also raised: {', '.join(reasons)}.",) if reasons else ()
 
 
-def compose_reply(reasons, *, path: Path | str = DEFAULT_PATH) -> ComposeResult:
-    """Compose the middle of a reply from approved blocks. Never raises."""
+def compose_reply(
+    reasons,
+    *,
+    path: Path | str = DEFAULT_PATH,
+    feedback_only: bool = False,
+    multiple_papers: bool = False,
+) -> ComposeResult:
+    """Compose the middle of a reply from approved blocks. Never raises.
+
+    ``feedback_only``: the author is not contesting the decision; a merged
+    reply then has no rebuttal point and closes with ``closing_feedback``.
+    ``multiple_papers``: the email is about two or more papers; a merged reply
+    then opens with ``opening_warm_plural``.
+    """
     try:
-        return _compose(reasons, path)
+        return _compose(reasons, path, feedback_only is True, multiple_papers is True)
     except _Refused as r:
         return _refused(r.reason)
     except Exception as exc:  # noqa: BLE001 - must never raise
@@ -158,7 +179,7 @@ def compose_reply(reasons, *, path: Path | str = DEFAULT_PATH) -> ComposeResult:
         return ComposeResult(body=None, mode="refused", refusal="internal_error")
 
 
-def _compose(reasons, path) -> ComposeResult:
+def _compose(reasons, path, feedback_only: bool, multiple_papers: bool) -> ComposeResult:
     ordered = _canonical(reasons)
     present = set(ordered)
 
@@ -197,7 +218,8 @@ def _compose(reasons, path) -> ComposeResult:
         return _finish(need(block_id), "standalone", (block_id,), (), blocks=blocks)
 
     # 4. Only merged reasons remain: score_outcome_mismatch,
-    # reviewer_misunderstanding, other, and the composer-only reasons.
+    # reviewer_misunderstanding, llm_generated_review, other, and the
+    # composer-only reasons.
     if len(ordered) > MAX_REASONS:
         return chair_writes(
             f"Chair writes: more than {MAX_REASONS} issues raised: {', '.join(ordered)}."
@@ -209,16 +231,20 @@ def _compose(reasons, path) -> ComposeResult:
     # the helper returns each point once, so a point two reasons share (the
     # rebuttal point) appears once. Every needed point must be approved.
     point_ids = [pid for pid, _ in expected_points_for_reasons([r for r in ordered if r != OTHER], path)]
+    if feedback_only:
+        point_ids = [pid for pid in point_ids if pid != REBUTTAL]
     if not point_ids:
         raise _Refused("no_points")
-    parts = [f"{need(OPENING)} {need(LEAD_IN)}"]
+    opening = OPENING_PLURAL if multiple_papers else OPENING
+    parts = [f"{need(opening)} {need(LEAD_IN)}"]
     parts += [f"({n}) {need(pid)}" for n, pid in enumerate(point_ids, start=1)]
-    used = [OPENING, LEAD_IN, *point_ids]
+    used = [opening, LEAD_IN, *point_ids]
     if OTHER in present:  # after the list, before the closing
         parts.append(need(CHAIR_LINE))
         used.append(CHAIR_LINE)
-    parts.append(need(CLOSING))
-    used.append(CLOSING)
+    closing = CLOSING_FEEDBACK if feedback_only else CLOSING
+    parts.append(need(closing))
+    used.append(closing)
     return _finish(SEP.join(parts), "merged", tuple(used), (), blocks=blocks)
 
 

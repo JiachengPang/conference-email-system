@@ -72,10 +72,10 @@ def test_a_reciprocal_complaint_still_wins_over_each_new_reason(new):
     )
 
 
-@pytest.mark.parametrize("standalone", [LLM, GENERAL])
+@pytest.mark.parametrize("standalone", [GENERAL])
 @pytest.mark.parametrize("new", NEW)
 def test_a_standalone_reply_mixed_with_a_new_reason_goes_to_the_chair(standalone, new):
-    """D105 is unchanged: the Yan replies only ever stand alone."""
+    """D105 is unchanged: Yan's general reply only ever stands alone."""
     result = compose_reply([standalone, new])
     first, second = sorted([standalone, new], key=CANONICAL.index)
     assert result.mode == "chair_writes"
@@ -106,7 +106,7 @@ def test_any_input_order_gives_identical_output():
     assert len(results) == 1
     (only,) = results
     assert only.chair_notes == (
-        "Chair writes: no approved reply covers these reasons together: reviewer_misconduct, "
+        "Chair writes: more than 3 issues raised: reviewer_misconduct, "
         "missing_material_claim, llm_generated_review, record_error.",
     )
 

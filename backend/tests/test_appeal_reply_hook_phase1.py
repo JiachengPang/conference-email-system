@@ -21,7 +21,7 @@ from app.pipeline.phase1_appeal_outcome import (
     NOT_APPEAL,
     Phase1Outcome,
 )
-from app.pipeline.phase1_reply_mapping import map_phase1
+from app.pipeline.phase1_reply_mapping import map_phase1, verify_notes
 
 REVIEW, DESK = "review_decision_appeal", "desk_reject_appeal"
 INSIDE = "2026-09-15T10:00:00Z"
@@ -49,14 +49,12 @@ CLOSING = (
     "raising your concerns; we will document them and help improve the future AAAI editions."
 )
 SIGN = "Best Regards,\nAAAI 2027 PC Team"
-DRAFT_T1 = (f"Dear Jane Doe,\n\n{OPENING}\n\n(1) {P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n"
+DRAFT_T1 = (f"Dear Authors,\n\n{OPENING}\n\n(1) {P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n"
             f"(3) {P_REBUTTAL}\n\n{CLOSING}\n\n{SIGN}")
 # Scores + misjudgment need the same three points as scores alone.
 DRAFT_T1_T2 = DRAFT_T1
-YAN_A_FIRST = ("Dear Jane Doe,\n\nThank you for taking the time to share your concerns regarding the "
+YAN_A_FIRST = ("Dear Authors,\n\nThank you for taking the time to share your concerns regarding the "
                "review process for your submission.")
-YAN_B_FIRST = ("Dear Jane Doe,\n\nThank you for providing the detailed information regarding your "
-               "concerns about the reviews of your submission.")
 T1_BLOCKS = ["opening_warm", "lead_in_concerns", "point_review_process", "point_scores",
              "point_rebuttal", "closing_reviewed"]
 T1_T2_BLOCKS = T1_BLOCKS
@@ -102,29 +100,51 @@ def test_composed_replies_from_his_reasons(reasons, text, record_reasons, blocks
 
 @pytest.mark.parametrize("reason, first, block", [
     ("reconsideration_only", YAN_A_FIRST, "standalone_general_stage1"),
-    ("llm_generated_review", YAN_B_FIRST, "standalone_ai_review"),
-], ids=["yan-a", "yan-b"])
-def test_yans_two_replies_from_his_reasons(reason, first, block):
+], ids=["yan-a"])
+def test_yans_general_reply_from_his_reason(reason, first, block):
     draft, rec = run(REVIEW, classified("appeal", [reason]))
     assert draft.draft_text.startswith(first) and draft.draft_text.endswith(f"\n\n{SIGN}")
     assert (rec["mode"], rec["block_ids"], rec["source"]) == ("standalone", [block], "phase1")
 
 
 @pytest.mark.parametrize("reasons, note", [
-    (["decision_vs_reviews", "llm_generated_review"],
-     "Chair writes: no approved reply covers these reasons together: "
-     "score_outcome_mismatch, llm_generated_review."),
     (["reviewer_misjudgment", "reconsideration_only"],
      "Chair writes: no approved reply covers these reasons together: "
      "reviewer_misunderstanding, general_dissatisfaction."),
     (["llm_generated_review", "reconsideration_only"],
      "Chair writes: no approved reply covers these reasons together: "
      "llm_generated_review, general_dissatisfaction."),
-], ids=["yan-b+T1", "yan-a+T2", "yan-a+yan-b"])
+], ids=["yan-a+T2", "yan-a+ai-review"])
 def test_a_yan_reply_mixed_with_anything_goes_to_the_chair(reasons, note):
     draft, rec = run(REVIEW, classified("appeal", reasons))
     assert (draft.draft_text, draft.notes_for_chair) == ("[CHAIR: write reply]", note)
     assert (rec["mode"], rec["block_ids"]) == ("chair_writes", ["line_chair_writes"])
+
+
+# --- merged AI review, feedback-only and several-paper emails ------------------------------------
+def test_an_ai_review_complaint_with_a_scores_complaint_is_merged_in_point_order():
+    _, rec = run(REVIEW, classified("appeal", ["llm_generated_review", "decision_vs_reviews"]))
+    assert rec["mode"] == "merged"
+    assert rec["block_ids"] == ["opening_warm", "lead_in_concerns", "point_review_process",
+                                "point_scores", "point_rebuttal", "point_ai_review",
+                                "closing_reviewed"]
+
+
+def test_a_feedback_only_email_is_composed_with_its_closing_and_no_rebuttal_point():
+    reasons = ["decision_vs_reviews", "reviewer_misconduct"]
+    draft, rec = run(REVIEW, classified("feedback_only", reasons))
+    assert rec["mode"] == "merged"
+    assert rec["block_ids"][-1] == "closing_feedback"
+    assert "point_rebuttal" not in rec["block_ids"] and "closing_reviewed" not in rec["block_ids"]
+    assert draft.notes_for_chair == "\n".join(verify_notes(reasons, held=False)), "checks still apply"
+
+
+def test_a_two_paper_email_is_composed_with_the_plural_opening_and_no_note():
+    draft, rec = run(REVIEW, classified("appeal", ["decision_vs_reviews"], papers=("11111", "22222")))
+    assert rec["mode"] == "merged"
+    assert rec["block_ids"][0] == "opening_warm_plural"
+    assert "opening_warm" not in rec["block_ids"]
+    assert draft.notes_for_chair is None
 
 
 # --- holds ------------------------------------------------------------------------------------
@@ -154,11 +174,6 @@ HOLD_CASES = [
      "Investigate first: the author says a review is about a different paper. Do not reply to or "
      "close the ticket yet.\nAlso raised: record_error.", "no_draft", [],
      cls("appeal", ["wrong_paper_review", "record_error"], True)),
-    ("feedback-only", classified("feedback_only", ["reviewer_misjudgment"]),
-     "[CHAIR: write reply]",
-     "Chair writes: the author reports a review problem but says they are not asking for a "
-     "change.\nRaised: reviewer_misjudgment.", "chair_writes", ["line_chair_writes"],
-     cls("feedback_only", ["reviewer_misjudgment"])),
     # Step 2.5: missing_material_claim composes now; `other` is the chair-written reason.
     ("chair-write-reason-with-T1-and-T2",
      classified("appeal", ["decision_vs_reviews", "reviewer_misjudgment", "other"]),
@@ -166,11 +181,6 @@ HOLD_CASES = [
      "Chair writes: no approved reply covers other.\n"
      "Also raised: decision_vs_reviews, reviewer_misjudgment.", "chair_writes", ["line_chair_writes"],
      cls("appeal", ["decision_vs_reviews", "reviewer_misjudgment", "other"])),
-    ("two-papers", classified("appeal", ["decision_vs_reviews"], papers=("11111", "22222")),
-     "[CHAIR: write reply]",
-     "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\n"
-     "Raised: decision_vs_reviews.", "chair_writes", ["line_chair_writes"],
-     cls("appeal", ["decision_vs_reviews"], papers=("11111", "22222"))),
 ]
 
 

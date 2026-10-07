@@ -20,7 +20,7 @@ WHEN (``should_suggest``), decided from the hook's stored record only:
 
 THE DRAFT: the flag line ``AI_FLAG_LINE`` (a ``[CHAIR: ...]`` placeholder, so the
 approve endpoint answers 409 and the send gate refuses until a chair removes
-it), a blank line, ``Dear {name},``, the checked middle, the common sign-off.
+it), a blank line, the greeting, the checked middle, the common sign-off.
 The hook's chair notes (including the verify-before-sending checks) are kept as
 they are. The record's mode becomes ``ai_suggestion``, its ``block_ids`` the
 source blocks of the sentences used, and it gains a small ``ai_suggestion``
@@ -39,7 +39,7 @@ import logging
 from app.core.config import settings
 from app.pipeline.appeal_ai_suggestion import NO_BANK, NO_MODEL, suggest_appeal_middle
 from app.pipeline.appeal_ai_suggestion_prompt import PROMPT_SHA256
-from app.pipeline.appeal_reply_hook import PHASE1_SOURCE, PROVIDER, SIGN_OFF, _greeting_name
+from app.pipeline.appeal_reply_hook import PHASE1_SOURCE, PROVIDER, GREETING, SIGN_OFF
 from app.pipeline.drafter import DraftResponse, find_placeholders
 from app.pipeline.phase1_appeal_outcome import active_model_id
 from app.pipeline.phase1_reply_mapping import COMPOSABLE
@@ -84,7 +84,7 @@ def should_suggest(intent, record) -> bool:
 
 def build_ai_draft(middle: str, base: DraftResponse, sender_name) -> DraftResponse:
     """The flagged draft around a checked middle; the hook's notes are kept."""
-    text = f"{AI_FLAG_LINE}\n\nDear {_greeting_name(sender_name)},\n\n{middle}\n\n{SIGN_OFF}"
+    text = f"{AI_FLAG_LINE}\n\n{GREETING}\n\n{middle}\n\n{SIGN_OFF}"
     return DraftResponse(
         draft_text=text,
         notes_for_chair=base.notes_for_chair,

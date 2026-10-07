@@ -63,14 +63,14 @@ CLOSING = (
 )
 SIGN = "Best Regards,\nAAAI 2027 PC Team"
 
-DRAFT_T1 = (f"Dear Jane Doe,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n"
+DRAFT_T1 = (f"Dear Authors,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n"
             f"{CLOSING}\n\n{SIGN}")
-DRAFT_T2 = f"Dear Author,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}\n\n{SIGN}"
+DRAFT_T2 = f"Dear Authors,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_REBUTTAL}\n\n{CLOSING}\n\n{SIGN}"
 # Scores + misunderstanding need the same three points as scores alone.
-DRAFT_T1_T2 = (f"Dear Author,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n"
+DRAFT_T1_T2 = (f"Dear Authors,\n\n{OPENING}\n\n{P_REVIEW_PROCESS}\n\n(2) {P_SCORES}\n\n(3) {P_REBUTTAL}\n\n"
                f"{CLOSING}\n\n{SIGN}")
 DRAFT_YAN_A = (
-    "Dear Wei Zhang,\n\n"
+    "Dear Authors,\n\n"
     "Thank you for taking the time to share your concerns regarding the review process for your "
     "submission. We take concerns about fairness in the review process seriously and have carefully "
     "considered the issues you raised.\n\n"
@@ -92,46 +92,6 @@ DRAFT_YAN_A = (
     "appreciate your engagement with the process and your effort in bringing these concerns to our "
     "attention.\n\n"
     f"{SIGN}"
-)
-# Yan's AI-review reply as the chairs shortened it (approved 2026-10-06): greeting, her
-# four paragraphs, then the common sign-off.
-YAN_B_PARAGRAPHS = (
-    "Thank you for providing the detailed information regarding your concerns about the reviews of "
-    "your submission. We take concerns about the integrity and quality of the review process seriously "
-    "and have carefully considered the issues you raised.",
-    "We recognize that some characteristics of a review may raise concerns about the possible use of "
-    "AI tools. But rest assured that the decision on your submission does not rely on any single "
-    "review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and "
-    "formed their own assessment of the submission. The final "
-    "decision is made based on this broader evaluation rather than on the assessment or "
-    "recommendation of any individual reviewer.",
-    "In addition, we ask SPCs to assess the quality of the reviews and provide "
-    "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
-    "with AI-generated content. Your feedback is also very valuable to us. We will document these "
-    "concerns and share the relevant information with future AAAI Program Chairs to help further "
-    "improve the quality and integrity of the review process.",
-    "Thank you again for raising your concerns and for providing the supporting details. We "
-    "appreciate your engagement with the review process.",
-)
-DRAFT_YAN_B = (
-    "Dear Ana Silva,\n\n"
-    "Thank you for providing the detailed information regarding your concerns about the reviews of "
-    "your submission. We take concerns about the integrity and quality of the review process seriously "
-    "and have carefully considered the issues you raised.\n\n"
-    "We recognize that some characteristics of a review may raise concerns about the possible use of "
-    "AI tools. But rest assured that the decision on your submission does not rely on any single "
-    "review. The SPC and/or Area Chair have also reviewed the paper, considered the reviews, and "
-    "formed their own assessment of the submission. The final "
-    "decision is made based on this broader evaluation rather than on the assessment or "
-    "recommendation of any individual reviewer.\n\n"
-    "In addition, we ask SPCs to assess the quality of the reviews and provide "
-    "feedback on the reviewers, including identifying reviews that exhibit characteristics associated "
-    "with AI-generated content. Your feedback is also very valuable to us. We will document these "
-    "concerns and share the relevant information with future AAAI Program Chairs to help further "
-    "improve the quality and integrity of the review process.\n\n"
-    "Thank you again for raising your concerns and for providing the supporting details. We "
-    "appreciate your engagement with the review process.\n\n"
-    "Best Regards,\nAAAI 2027 PC Team"
 )
 
 NOTE_NO_DRAFT = ("Investigate first: the author says a review is about a different paper. "
@@ -168,9 +128,7 @@ def prepare(intent, reasons, *, reciprocal=None, created=INSIDE, name=None, wind
                     "closing_reviewed"]}),
     ([GENERAL], "Wei Zhang", DRAFT_YAN_A,
      {"mode": "standalone", "reasons": [GENERAL], "block_ids": ["standalone_general_stage1"]}),
-    ([LLM], "Ana Silva", DRAFT_YAN_B,
-     {"mode": "standalone", "reasons": [LLM], "block_ids": ["standalone_ai_review"]}),
-], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a", "yan-b"])
+], ids=["T1-scores", "T2-reviewer", "T1+T2", "yan-a"])
 def test_composed_drafts_through_the_real_approved_file(reasons, name, expected, record):
     draft, rec = prepare(REVIEW, reasons, name=name)
     assert draft.draft_text == expected
@@ -187,13 +145,10 @@ def test_the_sign_off_is_exactly_the_common_one():
     assert "[Sender name]" not in draft.draft_text and "Marc" not in draft.draft_text
 
 
-@pytest.mark.parametrize("name, greeting", [
-    ("Jane Doe", "Dear Jane Doe,"), (None, "Dear Author,"), ("", "Dear Author,"),
-    ("   ", "Dear Author,"), ("  Ana \n  Silva ", "Dear Ana Silva,"),
-])
-def test_the_greeting_uses_the_requester_name_or_author(name, greeting):
+@pytest.mark.parametrize("name", ["Jane Doe", None, "", "kevin_user"])
+def test_the_greeting_never_uses_the_requester_name(name):
     draft, _ = prepare(REVIEW, [SCORE], name=name)
-    assert draft.draft_text.split("\n\n")[0] == greeting
+    assert draft.draft_text.split("\n\n")[0] == "Dear Authors,"
 
 
 def test_a_merged_reply_with_other_keeps_the_chair_line_and_cannot_be_sent():
@@ -221,12 +176,6 @@ PLACEHOLDER_CASES = [
     ("desk-reject", DESK, [OTHER], False, INSIDE, None, "[CHAIR: write reply]", NOTE_DESK, "desk_reject"),
     ("desk-reject-reciprocal-unknown", DESK, [SCORE], None, INSIDE, None,
      "[CHAIR: write reply]", NOTE_DESK, "desk_reject"),
-    # Yan's AI-review reply is approved (2026-10-05), so an AI-review reason alone is
-    # composed (see the composed drafts above); mixed with another reason the chair
-    # still writes (D105, unchanged).
-    ("yan-b+reviewer", REVIEW, [LLM, REVIEWER], None, INSIDE, None, "[CHAIR: write reply]",
-     "Chair writes: no approved reply covers these reasons together: "
-     "reviewer_misunderstanding, llm_generated_review.", "chair_writes"),
     ("yan-a+score", REVIEW, [GENERAL, SCORE], None, INSIDE, None, "[CHAIR: write reply]",
      "Chair writes: no approved reply covers these reasons together: "
      "score_outcome_mismatch, general_dissatisfaction.", "chair_writes"),
@@ -332,29 +281,18 @@ def test_build_appeal_draft_never_uses_the_middle_of_a_non_composed_mode():
     assert build_appeal_draft(d, "Jane").draft_text == "[CHAIR: write reply]"
 
 
-# --- Yan's AI-review reply, end to end (approved 2026-10-05) ---------------------------------------
-def test_the_ai_review_draft_is_greeting_then_yans_four_paragraphs_then_the_sign_off():
-    draft, rec = prepare(REVIEW, [LLM], name="Ana Silva")
-    parts = draft.draft_text.split("\n\n")
-    assert parts == ["Dear Ana Silva,", *YAN_B_PARAGRAPHS, "Best Regards,\nAAAI 2027 PC Team"]
-    assert draft.draft_text.endswith("\n\nBest Regards,\nAAAI 2027 PC Team")
-    assert (draft.placeholders, draft.notes_for_chair, draft.citations, draft.model_used) == ([], None, [], "none")
-    assert rec == {"mode": "standalone", "reasons": [LLM], "block_ids": ["standalone_ai_review"]}
-
-
 def test_a_refused_composition_still_gives_the_chair_writes_placeholder_with_its_reason(tmp_path):
-    """The hook's "refused" branch, which only Yan B's blocker used to reach in the
-    real file: a copy whose AI-review block is back to draft."""
+    """The hook's "refused" branch: a copy whose AI-review point is back to draft."""
     data = json.loads(hook.DEFAULT_PATH.read_text(encoding="utf-8"))
     for e in data["templates"]:
-        if e["id"] == "standalone_ai_review":
+        if e["id"] == "point_ai_review":
             e.update(status="draft", approved_by=None, approved_at=None, approved_sha256=None)
     path = tmp_path / "templates.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     draft, rec = prepare_appeal_draft(REVIEW, [LLM], None, {"timestamp": INSIDE}, path=path)
     assert draft.draft_text == "[CHAIR: write reply]"
     assert draft.notes_for_chair == (
-        "Chair writes: no approved reply could be composed (missing_approved_block:standalone_ai_review).")
+        "Chair writes: no approved reply could be composed (missing_approved_block:point_ai_review).")
     assert rec == {"mode": "refused", "reasons": [LLM], "block_ids": []}
 
 

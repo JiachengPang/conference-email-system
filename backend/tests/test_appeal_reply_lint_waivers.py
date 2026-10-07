@@ -292,7 +292,8 @@ def test_the_composer_ignores_waivers_on_blocks_it_did_not_use(tmp_path, caplog)
     p = approved_copy(tmp_path, {
         "opening_warm": {"body": "We understand this outcome, and we reply this"},
         "lead_in_concerns": {"body": "year as follows:"},
-        "point_ai_review": {"lint_waivers": [{"rule": YEAR, "approved_by": "Marc", "note": "n"}]},
+        "point_ai_review": {"lint_waivers": [dict(WAIVER),
+                                             {"rule": YEAR, "approved_by": "Marc", "note": "n"}]},
     })
     assert "point_ai_review" in {t.id for t in load_approved_templates(p)}, "the unused block is served"
     with caplog.at_level(logging.WARNING):

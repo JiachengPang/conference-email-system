@@ -56,7 +56,7 @@ def snapshot(state="classified", relation="appeal", reasons=("decision_vs_review
             "must_verify": must_verify, "papers": None if papers is None else list(papers)}
 
 T1 = (
-    "Dear Jane Doe,\n\n"
+    "Dear Authors,\n\n"
     "We understand that this outcome may be disappointing, and we appreciate the effort you invested "
     "in preparing your submission. We would like to respond to your concerns:\n\n"
     "(1) Decisions are not based on any single review or on the visible scores alone. SPCs evaluated "

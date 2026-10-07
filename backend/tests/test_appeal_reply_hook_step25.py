@@ -65,7 +65,7 @@ MISCONDUCT_POINTS = ["point_reviewer_tracking", "point_ethics_form"]
 
 def draft_of(*points: str) -> str:
     numbered = "".join(f"({n}) {p}\n\n" for n, p in enumerate(points, start=1))
-    return f"Dear Jane Doe,\n\n{OPENING}\n\n{numbered}{CLOSING}\n\n{SIGN}"
+    return f"Dear Authors,\n\n{OPENING}\n\n{numbered}{CLOSING}\n\n{SIGN}"
 
 
 def classified(reasons, relation="appeal", papers=("12345",), dropped=()) -> Phase1Outcome:
@@ -151,28 +151,7 @@ HELD = [
      "[CHAIR: write reply]",
      f"Chair writes: no approved reply covers other.\nAlso raised: reviewer_misconduct.\n{V_MISCONDUCT}",
      "chair_writes", None, ["line_chair_writes"]),
-    ("misconduct-feedback-only", classified(["reviewer_misconduct"], relation="feedback_only"),
-     "[CHAIR: write reply]",
-     "Chair writes: the author reports a review problem but says they are not asking for a "
-     f"change.\nRaised: reviewer_misconduct.\n{V_MISCONDUCT}",
-     "chair_writes", None, ["line_chair_writes"]),
-    ("misconduct-with-two-papers", classified(["reviewer_misconduct"], papers=("11111", "22222")),
-     "[CHAIR: write reply]",
-     "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\n"
-     f"Raised: reviewer_misconduct.\n{V_MISCONDUCT}",
-     "chair_writes", None, ["line_chair_writes"]),
     # record_error's check never rides on a hold.
-    ("record-error-feedback-only-has-no-check", classified(["record_error"], relation="feedback_only"),
-     "[CHAIR: write reply]",
-     "Chair writes: the author reports a review problem but says they are not asking for a "
-     "change.\nRaised: record_error.",
-     "chair_writes", None, ["line_chair_writes"]),
-    ("record-error-with-two-papers-has-no-check",
-     classified(["record_error"], papers=("11111", "22222")),
-     "[CHAIR: write reply]",
-     "Chair writes: the email is about 2 papers; the approved replies are written for one paper.\n"
-     "Raised: record_error.",
-     "chair_writes", None, ["line_chair_writes"]),
     ("record-error-with-other-has-no-check", classified(["record_error", "other"]),
      "[CHAIR: write reply]",
      "Chair writes: no approved reply covers other.\nAlso raised: record_error.",
@@ -189,12 +168,6 @@ HELD = [
      "Chair writes: the author appeals, but no reason could be verified in the email.\n"
      "Possibly raised (quote not verified): reviewer_misconduct.",
      "reason_unknown", None, []),
-    ("misconduct-with-yan-b-goes-to-the-chair",
-     classified(["reviewer_misconduct", "llm_generated_review"]),
-     "[CHAIR: write reply]",
-     "Chair writes: no approved reply covers these reasons together: reviewer_misconduct, "
-     f"llm_generated_review.\n{V_MISCONDUCT}",
-     "chair_writes", ["reviewer_misconduct", "llm_generated_review"], ["line_chair_writes"]),
     ("four-reasons-go-to-the-chair",
      classified(["record_error", "decision_vs_reviews", "missing_material_claim",
                  "reviewer_misconduct"]),

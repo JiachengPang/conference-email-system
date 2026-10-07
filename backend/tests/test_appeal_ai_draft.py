@@ -117,7 +117,7 @@ def test_the_trigger_modes_are_exactly_three():
 def _refused_path(tmp_path):
     data = json.loads(hook.DEFAULT_PATH.read_text(encoding="utf-8"))
     for e in data["templates"]:
-        if e["id"] == "standalone_ai_review":
+        if e["id"] == "point_ai_review":
             e.update(status="draft", approved_by=None, approved_at=None, approved_sha256=None)
     p = tmp_path / "t.json"
     p.write_text(json.dumps(data), encoding="utf-8")
@@ -127,8 +127,8 @@ def _refused_path(tmp_path):
 MATRIX = [
     # id, kwargs for hook_result, expected mode, triggers
     ("merged", dict(outcome=classified(["decision_vs_reviews"])), "merged", False),
-    ("standalone", dict(outcome=classified(["llm_generated_review"])), "standalone", False),
-    ("chair-writes-yan-mix", dict(outcome=classified(["llm_generated_review", "decision_vs_reviews"])),
+    ("standalone", dict(outcome=classified(["reconsideration_only"])), "standalone", False),
+    ("chair-writes-yan-mix", dict(outcome=classified(["reconsideration_only", "decision_vs_reviews"])),
      "chair_writes", True),
     ("chair-writes-cap", dict(outcome=classified(["record_error", "decision_vs_reviews",
                                                   "missing_material_claim", "reviewer_misconduct"])),
@@ -146,17 +146,17 @@ MATRIX = [
     ("not-appeal", dict(outcome=Phase1Outcome(NOT_APPEAL)), "not_appeal", False),
     ("window", dict(outcome=classified(["decision_vs_reviews"]), created="2026-12-01T10:00:00Z",
                     window_end=datetime(2026, 11, 1, tzinfo=timezone.utc)), "window", False),
-    # the exclusions (all chair_writes holds)
+    # the exclusions (feedback-only and several-paper emails are composed)
     ("excluded-feedback-only", dict(outcome=classified(["reviewer_misjudgment"], relation="feedback_only")),
-     "chair_writes", False),
+     "merged", False),
     ("excluded-other", dict(outcome=classified(["other"])), "chair_writes", False),
     ("excluded-other-with-composable", dict(outcome=classified(["decision_vs_reviews", "other"])),
      "chair_writes", False),
     ("excluded-unknown-name", dict(outcome=classified(["future_reason"])), "chair_writes", False),
     ("excluded-two-papers", dict(outcome=classified(["decision_vs_reviews"], papers=("1111", "2222"))),
-     "chair_writes", False),
+     "merged", False),
     ("excluded-two-papers-no-reason", dict(outcome=classified([], papers=("1111", "2222"))),
-     "chair_writes", False),
+     "reason_unknown", False),
 ]
 
 
@@ -209,20 +209,20 @@ def test_never_without_the_phase1_source_even_with_a_perfect_snapshot(source):
 
 @pytest.mark.parametrize("intent", [DESK, "submission_requirements", None])
 def test_only_review_decision_appeals(intent):
-    _, record = hook_result(classified(["llm_generated_review", "decision_vs_reviews"]))
+    _, record = hook_result(classified(["reconsideration_only", "decision_vs_reviews"]))
     assert aid.should_suggest(REVIEW, record) is True
     assert aid.should_suggest(intent, record) is False
 
 
 # --- the draft --------------------------------------------------------------------------------
 def test_the_suggestion_draft_record_and_notes(monkeypatch, flag_on):
-    draft, record = hook_result(classified(["reviewer_misconduct", "llm_generated_review"]))
+    draft, record = hook_result(classified(["reviewer_misconduct", "reconsideration_only"]))
     assert record["mode"] == "chair_writes"
     fake = FakeSuggest()
     monkeypatch.setattr(aid, "suggest_appeal_middle", fake)
     new_draft, new_record = asyncio.run(aid.apply_ai_suggestion(REVIEW, draft, record, EMAIL_DATA))
 
-    assert new_draft.draft_text == f"{FLAG}\n\nDear Jane Doe,\n\n{MIDDLE}\n\n{SIGN_OFF}"
+    assert new_draft.draft_text == f"{FLAG}\n\nDear Authors,\n\n{MIDDLE}\n\n{SIGN_OFF}"
     assert aid.AI_FLAG_LINE == FLAG
     assert new_draft.placeholders == [FLAG_PLACEHOLDER] == find_placeholders(new_draft.draft_text)
     assert new_draft.notes_for_chair == draft.notes_for_chair
@@ -234,7 +234,7 @@ def test_the_suggestion_draft_record_and_notes(monkeypatch, flag_on):
                           "model": aid.active_model_id()},
     }
     # The model sees his reason NAMES from the snapshot, never a quote.
-    assert fake.calls == [["reviewer_misconduct", "llm_generated_review"]]
+    assert fake.calls == [["reviewer_misconduct", "reconsideration_only"]]
 
 
 @pytest.mark.parametrize("outcome", [Phase1Outcome(FAILED), classified([])],
@@ -289,7 +289,7 @@ async def _store(client, draft, record) -> int:
 async def _ai_draft(monkeypatch):
     monkeypatch.setattr(settings, "APPEAL_AI_SUGGESTION_ENABLED", True)
     monkeypatch.setattr(aid, "suggest_appeal_middle", FakeSuggest())
-    draft, record = hook_result(classified(["llm_generated_review", "decision_vs_reviews"]))
+    draft, record = hook_result(classified(["reconsideration_only", "decision_vs_reviews"]))
     return await aid.apply_ai_suggestion(REVIEW, draft, record, EMAIL_DATA)
 
 
@@ -331,7 +331,7 @@ async def test_approving_an_edited_ai_suggestion_never_schedules_learning(client
 
 
 async def test_other_modes_still_schedule_learning_after_a_gap_is_filled(client, learner):
-    draft, record = hook_result(classified(["llm_generated_review", "decision_vs_reviews"]))
+    draft, record = hook_result(classified(["reconsideration_only", "decision_vs_reviews"]))
     assert record["mode"] == "chair_writes"
     email_id = await _store(client, draft, record)
     resp = await client.patch(f"/api/v1/emails/{email_id}/approve",
@@ -365,7 +365,7 @@ def test_every_failure_keeps_the_placeholder_and_logs_no_email_text(
         async def call(user, _model=model):
             return _model()
     monkeypatch.setattr(ais, "_call_model", call)
-    draft, record = hook_result(classified(["llm_generated_review", "decision_vs_reviews"]))
+    draft, record = hook_result(classified(["reconsideration_only", "decision_vs_reviews"]))
     caplog.set_level(logging.DEBUG)
     new_draft, new_record = asyncio.run(
         aid.apply_ai_suggestion(REVIEW, draft, record, EMAIL_DATA, timeout=0.2))
@@ -397,12 +397,13 @@ def test_success_logs_one_count_line_and_no_email_text(monkeypatch, caplog, flag
         return answer
 
     monkeypatch.setattr(ais, "_call_model", call)
-    draft, record = hook_result(classified(["llm_generated_review", "decision_vs_reviews"]))
+    draft, record = hook_result(classified(["reconsideration_only", "decision_vs_reviews"]))
     caplog.set_level(logging.DEBUG)
     new_draft, new_record = asyncio.run(aid.apply_ai_suggestion(REVIEW, draft, record, EMAIL_DATA))
     assert new_record["mode"] == "ai_suggestion"
-    assert new_draft.draft_text == f"{FLAG}\n\nDear Jane Doe,\n\n{MIDDLE}\n\n{SIGN_OFF}"
-    assert new_record["block_ids"] == list(SOURCE_BLOCKS)
+    assert new_draft.draft_text == f"{FLAG}\n\nDear Authors,\n\n{MIDDLE}\n\n{SIGN_OFF}"
+    # The closing's last sentence is shared with closing_feedback, so both are sources.
+    assert new_record["block_ids"] == [*SOURCE_BLOCKS, "closing_feedback"]
     assert SENTINEL not in caplog.text
     assert caplog.text.count("Appeal AI suggestion model calls:") == 1
     assert "Appeal AI suggestion model calls: 1" in caplog.text
@@ -436,7 +437,7 @@ def wiring(monkeypatch):
     monkeypatch.setattr(settings, "APPEAL_REPLY_COMPOSER_ENABLED", True)
     monkeypatch.setattr(settings, "APPEAL_REASON_CLASSIFIER_ENABLED", False)
     monkeypatch.setattr(orch, "classify_phase1_appeal", _Phase1Stub(phase1_result(
-        reasons=("llm_generated_review", "decision_vs_reviews"))))
+        reasons=("reconsideration_only", "decision_vs_reviews"))))
 
 
 async def test_flag_off_never_calls_it_and_the_stored_drafts_are_the_hooks(session, monkeypatch, wiring):
@@ -469,7 +470,7 @@ async def test_flag_on_every_entry_point_stores_the_flagged_suggestion(session, 
     monkeypatch.setattr(aid, "suggest_appeal_middle", fake)
     drafts = await _run_all_four(session, _pipeline(REVIEW, _SpyDrafter(forbid=True)))
     for entry_point, draft in drafts.items():
-        assert draft["draft_text"] == f"{FLAG}\n\nDear Jane Doe,\n\n{MIDDLE}\n\n{SIGN_OFF}", entry_point
+        assert draft["draft_text"] == f"{FLAG}\n\nDear Authors,\n\n{MIDDLE}\n\n{SIGN_OFF}", entry_point
         assert draft["appeal_reply"]["mode"] == "ai_suggestion", entry_point
         assert draft["appeal_reply"]["ai_suggestion"]["base_mode"] == "chair_writes", entry_point
     assert len(fake.calls) == 4

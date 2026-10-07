@@ -125,7 +125,7 @@ def test_code_numbers_the_points_and_reproduces_the_composed_t1_reply(real_block
     assert result.middle == compose_reply(["score_outcome_mismatch"]).body
     assert result.block_ids == (
         "opening_warm", "lead_in_concerns", "point_review_process", "point_scores", "point_rebuttal",
-        "closing_reviewed",
+        "closing_reviewed", "closing_feedback",
     )
 
 
@@ -134,15 +134,15 @@ def test_render_middle_numbers_points_from_one():
 
 
 def test_yan_sentences_may_appear_in_a_merged_reply(real_blocks, bank):
-    yan_b = _s(real_blocks, "standalone_ai_review")
+    yan_a = _s(real_blocks, "standalone_general_stage1")
     answer = _answer(
         _s(real_blocks, "opening_warm") + _s(real_blocks, "lead_in_concerns"),
-        [yan_b[2:5]],
+        [yan_a[2:5]],
         _s(real_blocks, "closing_reviewed"),
     )
     result = check_answer(answer, bank)
     assert result.failure is None
-    assert "standalone_ai_review" in result.block_ids
+    assert "standalone_general_stage1" in result.block_ids
 
 
 # --- check 1: NONE --------------------------------------------------------------
