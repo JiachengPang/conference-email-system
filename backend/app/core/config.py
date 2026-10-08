@@ -188,6 +188,11 @@ class Settings(BaseSettings):
     # endpoints answer 404 and the page is hidden. GET /appeals/config always
     # answers, so the frontend can tell. Nothing here posts to Zendesk.
     REJECT_APPEALS_QUEUE_ENABLED: bool = False
+    # Assign a reject-appeal ticket to its chair AND add the internal chair note,
+    # in ONE Zendesk ticket update (app.integrations.zendesk.chair_assignment).
+    # OFF by default: the update refuses to send anything ("write_disabled").
+    # A dry run (builds the exact request body, sends nothing) works either way.
+    ZENDESK_APPEAL_WRITE_ENABLED: bool = False
 
     # Confidence calibration (Phase 5B). When True AND a fitted calibrator
     # artifact exists for the active CLASSIFIER_BACKEND, the router uses the

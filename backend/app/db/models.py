@@ -22,6 +22,7 @@ from sqlalchemy import (
     UniqueConstraint,
     false,
     func,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -678,6 +679,42 @@ class ZendeskChairNote(Base):
     )
     posted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ZendeskChairAccount(Base):
+    """The Zendesk agent account of one chair (APC), for ticket assignment.
+
+    One row per chair. ``chair_name`` is the name EXACTLY as the paper-to-chair
+    sheet has it (``paper_assignments.apc_name``, trimmed), so the chair the
+    lookup suggests maps to one row. ``zendesk_user_id`` is the agent's Zendesk
+    user id. ``active`` False keeps the row but the assignment refuses it.
+
+    Loaded only by ``scripts/load_chair_accounts.py`` from a PRIVATE file kept
+    outside the repo; read through ``ChairAccountRepository``. Names and ids are
+    personal data: nothing logs them.
+    """
+
+    __tablename__ = "zendesk_chair_accounts"
+    __table_args__ = (
+        UniqueConstraint("chair_name", name="uq_zendesk_chair_accounts_chair_name"),
+        CheckConstraint("zendesk_user_id > 0", name="ck_zendesk_chair_accounts_user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    chair_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    zendesk_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

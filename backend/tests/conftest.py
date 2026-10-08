@@ -38,8 +38,9 @@ def pytest_configure(config):
     # the backend image installs from, and editing it rebuilds every dependency.
     config.addinivalue_line(
         "markers",
-        "zendesk_transport: exercises the real ZendeskSender.add_comment against "
-        "a fake HTTP client (opts out of the _hermetic_chair_notes guard)",
+        "zendesk_transport: exercises the real ZendeskSender.add_comment / "
+        "get_ticket_state / assign_with_note against a fake HTTP client "
+        "(opts out of the _hermetic_chair_notes guard)",
     )
 
 
@@ -52,17 +53,23 @@ def _hermetic_chair_notes(request, monkeypatch):
     ``zendesk_transport`` marker; chair-note tests turn the flag on explicitly.
     """
     monkeypatch.setattr(settings, "CHAIR_NOTE_ENABLED", False)
+    # The reject-appeal assignment write stays off too; its tests turn it on.
+    monkeypatch.setattr(settings, "ZENDESK_APPEAL_WRITE_ENABLED", False)
     if request.node.get_closest_marker("zendesk_transport"):
         return
     from app.integrations.zendesk.sender import ZendeskSender
 
-    async def _refuse_add_comment(self, *args, **kwargs):
-        raise AssertionError(
-            "ZendeskSender.add_comment was called in a test. Stub the transport, "
-            "or mark a transport test with @pytest.mark.zendesk_transport."
-        )
+    def _refuse(name):
+        async def _refuse_call(self, *args, **kwargs):
+            raise AssertionError(
+                f"ZendeskSender.{name} was called in a test. Stub the transport, "
+                "or mark a transport test with @pytest.mark.zendesk_transport."
+            )
+        return _refuse_call
 
-    monkeypatch.setattr(ZendeskSender, "add_comment", _refuse_add_comment)
+    # The assignment's read and write are guarded the same way as add_comment.
+    for name in ("add_comment", "get_ticket_state", "assign_with_note"):
+        monkeypatch.setattr(ZendeskSender, name, _refuse(name))
 
 
 @pytest.fixture

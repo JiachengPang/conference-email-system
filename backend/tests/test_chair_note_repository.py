@@ -300,12 +300,17 @@ def _tables(db_file) -> set[str]:
         con.close()
 
 
-def test_migration_is_the_single_head():
+def test_migration_sits_on_the_single_line():
+    """Was the single head until ``3b7e9d2a5c41`` (zendesk_chair_accounts) was
+    added on top of it; that file now pins the head. Still one line: the one
+    head descends from this revision, whose parent is unchanged."""
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(Config(str(BACKEND_ROOT / "alembic.ini")))
-    assert script.get_heads() == [_REVISION]
+    heads = script.get_heads()
+    assert len(heads) == 1
+    assert _REVISION in {rev.revision for rev in script.walk_revisions("base", heads[0])}
     assert script.get_revision(_REVISION).down_revision == _PREV_REVISION
 
 

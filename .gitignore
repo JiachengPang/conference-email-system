@@ -43,6 +43,11 @@ data/labeling/
 # Recovery-script reports (quote real ticket content — never commit)
 backend/scripts/recovery/output/
 
+# Chair -> Zendesk account file (personal data). It must live OUTSIDE the repo
+# (load_chair_accounts.py refuses a path inside it); this is a second guard.
+chair_accounts*.csv
+chair_accounts*.private*
+
 # ===========================================================================
 # Node / Next.js (frontend)
 # ===========================================================================
