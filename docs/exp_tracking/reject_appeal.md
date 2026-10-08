@@ -1037,6 +1037,34 @@ The APCs now work in a Google Sheet built from our export (outside the repo: `co
 - Marc: who the reply is posted as (D131), whether an agent signature is added under "AAAI 2027 PC Team", whether a ticked box on a verify-before-sending row means "I checked", and whether solved fits every row.
 - Jiacheng: a Google Sheets round trip of the export (does a leading apostrophe survive; does a checkbox export as TRUE/FALSE) and whether HTML replies keep the ethics-form link clickable.
 
+### Phase 4 — Jiacheng's wording and routing changes, review (2026-10-07): 581e653 and b3e869b (D202–D208)
+
+⚠️ Entries above D202 may be stale where D202–D207 say they are superseded; the old entries are left as written.
+
+Two commits by Jiacheng on `main`: 581e653 (2026-10-06, wording) and b3e869b (2026-10-07, routing and greeting). b3e869b was reviewed on 2026-10-07 (D208); 581e653 is logged from its commit message only. Everything stays off by default. **None of the new or changed wording is approved by Marc.**
+
+**D202 (catch-up, from its commit message, not reviewed here). 581e653 rewords the merged replies.** `point_review_process` replaces `point_spc_evaluation` and `point_all_assessments`. `point_consider_input` is retired and its content moved into `closing_reviewed`. The word "final" now appears only in the closing. Misconduct points move last. Yan's replies use SPC. Approved by Jiacheng only. Supersedes the point order in D179.
+
+**D203 (b3e869b). An AI-review complaint is merged: `point_ai_review` (order 4) plus `point_review_process`.** `standalone_ai_review` (Yan B) is retired. Supersedes D105 and D162 for this reason, and the served block in D161. D105 now covers Yan A only. ⚠️ **NOT approved by Marc or Yan.**
+
+**D204 (b3e869b). A feedback-only email with a verified reason is composed** without `point_rebuttal` and closes with `closing_feedback`. With no reason the chair writes. Supersedes D164 rule 6, D182 for feedback-only, and D175 and D183 for those cases (the verify-before-sending notes stay). Yan A ignores this switch. ⚠️ **NOT approved by Marc.**
+
+**D205 (b3e869b). An email about 2 or more papers is composed with `opening_warm_plural` and no chair note.** With no verified reason it becomes `reason_unknown`. Supersedes D164 rule 8. ⚠️ Open: three singular phrases remain ("evaluated both the paper", "this specific paper", "The decision is final"); Yan A is used for multi-paper emails; who sends when the papers have different APCs. ⚠️ **NOT approved by Marc.**
+
+**D206 (b3e869b). The greeting is the constant "Dear Authors,"** on every composed draft and every AI draft, on both reason sources. Supersedes D112 and D188 ("Dear {name},"). ⚠️ **NOT approved by Marc.**
+
+**D207 (b3e869b). Mapping rules are renumbered 1–9; the misconduct hold check now applies to rules 5–7.** The AI-draft trigger is unchanged. The pinned AI prompt is now stale at `appeal_ai_suggestion_prompt.py` lines 39 and 45; changing it needs approval and a new pin (D194).
+
+**D208 (review of b3e869b, 2026-10-07).** Suite (the D184 method), before → after: **33 failed / 3379 passed / 78 skipped → 33 / 3354 / 78, failure set identical.** The golden snapshot was re-captured in b3e869b: 8 compose, 8 rollback and 82 phase-1 cases changed, plus 11 greeting-only changes (its docstring says 8 and 82 only). **Mutations: 10/10 caught.** All switches are still off by default.
+
+**STALE ITEMS (not fixed, only listed):**
+- `reject_appeal.md` old-rule entries: lines 19, 700–701, 738, 880–887, 904, 906, 908, 955, 963, 969, 971, 977, 989, 991, 993, 997.
+- `appeal_ai_suggestion_prompt.py:39` and `:45`.
+- `appeal_reply_composer.py:8` and `:24`.
+- `appeal_reply_hook.py:308` and `appeal_ai_draft.py:85` (unused `sender_name`).
+- `test_appeal_reply_golden_step25.py:30-35`, `test_appeal_reply_templates.py:234-239`, `test_appeal_reply_composer.py:41` and `:213`.
+- `confmail_exports` `build_phase1_check_csv.py` and `build_final_sheet.py` (outside the repo).
+
 ## Known risks
 
 - Reciprocal complaints now classify as `desk_reject_appeal`. 9a assessed the template: the opening line fits, but the body is **verbatim policy text**, which for a requester *disputing the facts* ("my reviewers did submit") restates the rule that rejected them rather than answering — non-responsive, and readable as dismissive. Mitigated by D13.
